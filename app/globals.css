@@ -1,0 +1,117 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Vault design tokens
+   Extracted from the Claude-designed mockups + Apple Wallet / iOS dark style.
+   These are CSS custom properties so they can be referenced in Tailwind utility
+   classes via the `theme()` syntax and in raw CSS for the few components that
+   need it.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* Surface — dark, layered */
+  --color-surface-base: #0a0a0a;
+  --color-surface-1: #0d0d0f;
+  --color-surface-2: #141416;
+  --color-surface-3: #1c1c1f;
+
+  /* Borders */
+  --color-border-subtle: #1f1f22;
+  --color-border-strong: #2a2a2e;
+
+  /* Text */
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #d4d4d8;
+  --color-text-tertiary: #a1a1aa;
+  --color-text-muted: #71717a;
+  --color-text-faint: #52525b;
+
+  /* Accent — Vault orange (used sparingly for primary actions) */
+  --color-accent-500: #f97316;
+  --color-accent-300: #fdba74;
+  --color-accent-200: #fed7aa;
+  --color-accent-soft: rgba(249, 115, 22, 0.12);
+  --color-accent-border: rgba(249, 115, 22, 0.25);
+
+  /* Semantic — green (positive), red (negative), category palette */
+  --color-positive: #10b981;
+  --color-positive-bright: #22c55e;
+  --color-negative: #ef4444;
+
+  --color-cat-blue: #3b82f6;
+  --color-cat-purple: #a855f7;
+  --color-cat-cyan: #06b6d4;
+  --color-cat-pink: #ec4899;
+  --color-cat-amber: #fbbf24;
+  --color-cat-emerald: #10b981;
+
+  /* Typography
+     SF Pro Display (system on Apple) → fallback to Inter → system-ui.
+     Mono for raw statement text where alignment of digits matters. */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter',
+    system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', 'Menlo', monospace;
+  --font-numeric: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui,
+    sans-serif;
+
+  /* Tracking — tighter for large numbers, looser for eyebrow labels */
+  --tracking-eyebrow: 0.08em;
+  --tracking-display: -0.02em;
+  --tracking-amount: -0.01em;
+
+  /* Radii — modeled on iOS app icons (smooth, generous) */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-pill: 9999px;
+}
+
+/* Base styles — lock body background and prevent any default light flash */
+html,
+body {
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Focus ring — subtle but always visible (Apple-y) */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Tabular figures for currency — keeps amounts aligned in lists */
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-numeric);
+}
+
+/* Eyebrow label utility — used everywhere */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+/* kbd — keyboard shortcut hint */
+kbd {
+  background: var(--color-surface-3);
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--font-sans);
+  border: 1px solid var(--color-border-strong);
+}

@@ -1,0 +1,227 @@
+/**
+ * Drizzle schema — TypeScript port of schema.sql.
+ *
+ * Design principles mirror the SQL version:
+ *   1. Sign convention: amount is signed from the account holder's perspective.
+ *      Outflows negative, inflows positive, on every account type.
+ *   2. Transfers between own accounts are flagged so they can be excluded
+ *      from spending/income aggregations without losing records.
+ *   3. Categories are hierarchical via parent_id.
+ *   4. Imports are idempotent via content_hash.
+ *   5. Balance snapshots are point-in-time, not derived from transactions.
+ */
+
+import {
+  pgTable,
+  pgEnum,
+  uuid,
+  text,
+  boolean,
+  date,
+  timestamp,
+  integer,
+  numeric,
+  index,
+  uniqueIndex,
+  check,
+  AnyPgColumn,
+} from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+export const accountTypeEnum = pgEnum('account_type', [
+  'checking',
+  'savings',
+  'credit_card',
+  'brokerage',
+  'retirement',
+  'loan',
+  'cash',
+  'other',
+]);
+
+export const assetClassEnum = pgEnum('asset_class', ['asset', 'liability']);
+
+// ---------------------------------------------------------------------------
+// accounts
+// ---------------------------------------------------------------------------
+
+export const accounts = pgTable(
+  'accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    displayName: text('display_name').notNull(),
+    institution: text('institution'),
+    accountNumber: text('account_number'),
+    type: accountTypeEnum('type').notNull(),
+    assetClass: assetClassEnum('asset_class').notNull(),
+    currency: text('currency').notNull().default('USD'),
+    color: text('color'),
+    icon: text('icon'),
+    isActive: boolean('is_active').notNull().default(true),
+    openedAt: date('opened_at'),
+    closedAt: date('closed_at'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    activeIdx: index('accounts_active_idx').on(t.isActive).where(sql`${t.isActive}`),
+    typeIdx: index('accounts_type_idx').on(t.type),
+    closedAfterOpened: check(
+      'accounts_closed_after_opened',
+      sql`${t.closedAt} IS NULL OR ${t.openedAt} IS NULL OR ${t.closedAt} >= ${t.openedAt}`,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// categories — hierarchical via parent_id
+// ---------------------------------------------------------------------------
+
+export const categories = pgTable(
+  'categories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    parentId: uuid('parent_id').references((): AnyPgColumn => categories.id, {
+      onDelete: 'restrict',
+    }),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    color: text('color'),
+    icon: text('icon'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isIncome: boolean('is_income').notNull().default(false),
+    isArchived: boolean('is_archived').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    slugUnique: uniqueIndex('categories_slug_unique').on(t.slug),
+    parentIdx: index('categories_parent_idx').on(t.parentId),
+    noSelfParent: check(
+      'categories_no_self_parent',
+      sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// imports — provenance for each parser run
+// ---------------------------------------------------------------------------
+
+export const imports = pgTable(
+  'imports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sourceFile: text('source_file').notNull(),
+    statementPeriod: text('statement_period'),
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    rowCount: integer('row_count').notNull().default(0),
+    importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
+    notes: text('notes'),
+  },
+  (t) => ({
+    accountIdx: index('imports_account_idx').on(t.accountId),
+    importedAtIdx: index('imports_imported_at_idx').on(t.importedAt),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// transactions — the core ledger
+// ---------------------------------------------------------------------------
+
+export const transactions = pgTable(
+  'transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'restrict' }),
+    categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
+
+    date: date('date').notNull(),
+    postedDate: date('posted_date'),
+    amount: numeric('amount', { precision: 14, scale: 2 }).notNull(),
+    currency: text('currency').notNull().default('USD'),
+
+    rawDescription: text('raw_description').notNull(),
+    merchant: text('merchant'),
+
+    needsReview: boolean('needs_review').notNull().default(false),
+    isTransfer: boolean('is_transfer').notNull().default(false),
+    transferPairId: uuid('transfer_pair_id').references((): AnyPgColumn => transactions.id, {
+      onDelete: 'set null',
+    }),
+
+    notes: text('notes'),
+    tags: text('tags').array(),
+
+    importId: uuid('import_id').references(() => imports.id, { onDelete: 'set null' }),
+    statementPeriod: text('statement_period'),
+    sourceFile: text('source_file'),
+
+    contentHash: text('content_hash').notNull(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    contentHashUnique: uniqueIndex('transactions_content_hash_unique').on(t.contentHash),
+    accountDateIdx: index('transactions_account_date_idx').on(t.accountId, t.date),
+    dateIdx: index('transactions_date_idx').on(t.date),
+    categoryIdx: index('transactions_category_idx').on(t.categoryId),
+    reviewIdx: index('transactions_review_idx').on(t.needsReview).where(sql`${t.needsReview}`),
+    transferIdx: index('transactions_transfer_idx').on(t.isTransfer).where(sql`${t.isTransfer}`),
+    merchantIdx: index('transactions_merchant_idx').on(t.merchant),
+    stmtPeriodIdx: index('transactions_stmt_period_idx').on(t.statementPeriod),
+    noSelfTransfer: check(
+      'transactions_no_self_transfer',
+      sql`${t.transferPairId} IS NULL OR ${t.transferPairId} <> ${t.id}`,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// balance_snapshots — for accounts where balance ≠ sum(transactions)
+// ---------------------------------------------------------------------------
+
+export const balanceSnapshots = pgTable(
+  'balance_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    asOfDate: date('as_of_date').notNull(),
+    balance: numeric('balance', { precision: 14, scale: 2 }).notNull(),
+    source: text('source'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniquePerDay: uniqueIndex('balance_snapshots_unique_per_day').on(t.accountId, t.asOfDate),
+    accountDateIdx: index('balance_snapshots_account_date_idx').on(t.accountId, t.asOfDate),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Inferred types — use these throughout the app
+// ---------------------------------------------------------------------------
+
+export type Account = typeof accounts.$inferSelect;
+export type NewAccount = typeof accounts.$inferInsert;
+
+export type Category = typeof categories.$inferSelect;
+export type NewCategory = typeof categories.$inferInsert;
+
+export type Transaction = typeof transactions.$inferSelect;
+export type NewTransaction = typeof transactions.$inferInsert;
+
+export type BalanceSnapshot = typeof balanceSnapshots.$inferSelect;
+export type NewBalanceSnapshot = typeof balanceSnapshots.$inferInsert;
+
+export type Import = typeof imports.$inferSelect;
+export type NewImport = typeof imports.$inferInsert;
