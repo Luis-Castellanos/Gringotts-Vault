@@ -1,4 +1,4 @@
-# Vault
+#Gringotts Vault
 
 Personal finance app. Audience of one. Long-term build, not a sprint.
 
