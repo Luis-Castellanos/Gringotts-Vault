@@ -46,16 +46,33 @@ export function merchantPrefix(raw: string): string {
  * wants to see. Not perfect; will need refinement over time. The right
  * long-term answer is per-merchant rules, but this gets v1 going.
  */
+const TITLE_CASE_CONNECTORS = new Set(['of', 'the', 'and', '&', 'in', 'on', 'for', 'to', 'a', 'an']);
+
 export function cleanMerchant(raw: string): string {
   let s = raw.trim();
+  // PayPal passthroughs look like "PAYPAL *MERCHANTNAME" — keep just the merchant.
+  const paypal = s.match(/^PAYPAL\s*\*\s*(.+)$/i);
+  if (paypal) s = paypal[1].trim();
   s = s.replace(/\s+USA\s*$/i, '');
-  s = s.replace(/\s+[A-Z]{2}\s+\d{5}\s*$/, '');
+  s = s.replace(/\s+[A-Z]{2}\s+\d{5}(-\d{4})?\s*$/, '');
+  s = s.replace(/\s+\d{5}(-\d{4})?\s+[A-Z]{2}\s*$/, '');
   s = s.replace(/\s+\d{5}(-\d{4})?\s*$/, '');
   s = s.replace(/\s+\d{10}\s*$/, '');
+  // Cut at a store-number marker like "#602" — anything after is address.
+  const store = s.match(/^(.+?)\s+#\d+\b/);
+  if (store) s = store[1];
   // Cut at the first long-digit token (usually street number) if there's
   // already a clean leading word
   const m = s.match(/^([^\d]+?)(\s+\d{3,}\s)/);
   if (m) s = m[1];
   s = s.replace(/\s+/g, ' ').trim();
+  // If the result is shouty (no lowercase letters), title-case it for display,
+  // lowercasing common connectors except when they're the first word.
+  if (s && !/[a-z]/.test(s)) {
+    s = s.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+    s = s.replace(/\S+/g, (word, idx) =>
+      idx > 0 && TITLE_CASE_CONNECTORS.has(word.toLowerCase()) ? word.toLowerCase() : word
+    );
+  }
   return s;
 }
