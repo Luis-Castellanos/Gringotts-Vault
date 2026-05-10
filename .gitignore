@@ -7,3 +7,5 @@ node_modules/
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+.claude/settings.local.json
+.vscode/settings.json
