@@ -65,6 +65,15 @@ type RecentlyReviewed = {
   reviewedAt: number;
 };
 
+type MerchantHistory = {
+  totalCount: number;
+  totalAmount: number;
+  avgAmount: number;
+  cadence: 'monthly' | 'weekly' | 'yearly' | 'irregular';
+  categories: { name: string; count: number }[];
+  lastFive: { id: string; date: string; amount: string; category: string | null }[];
+};
+
 // ---- Component -----------------------------------------------------------
 
 export function ReviewQueueClient() {
@@ -231,79 +240,85 @@ export function ReviewQueueClient() {
 
   return (
     <>
-      <div className="flex items-end justify-between mb-3">
-        <div>
-          <div className="eyebrow text-xs">Review Queue</div>
-          <h1 className="text-[36px] font-semibold -tracking-[0.02em] mt-2">{remaining} remaining</h1>
+      {/* Compact header: thin progress bar + counts/filters row */}
+      <div className="mb-6">
+        <div className="h-1 bg-surface-3 rounded-sm overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-positive to-positive-bright transition-[width] duration-300"
+            style={{ width: `${progress}%` }}
+          />
         </div>
-        <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-surface-2 border border-border-subtle rounded-lg text-sm text-text-tertiary hover:bg-surface-3">
+        <div className="flex items-center justify-between mt-2.5">
+          <div className="text-sm text-text-tertiary">
+            <strong className="text-text-primary numeric">{remaining}</strong> remaining
+            <span className="mx-2 text-text-muted">·</span>
+            <strong className="text-text-primary numeric">{session.reviewed}</strong> done
+            <span className="mx-2 text-text-muted">·</span>
+            <strong className="text-text-primary numeric">{session.skipped}</strong> skipped
+          </div>
+          <button className="flex items-center gap-2 px-3 py-1.5 bg-surface-2 border border-border-subtle rounded-lg text-sm text-text-tertiary hover:bg-surface-3">
             ⚙ Filters
           </button>
         </div>
       </div>
 
-      <div className="h-[3px] bg-surface-3 rounded-sm my-6 mb-9 overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-r from-positive to-positive-bright rounded-sm transition-[width] duration-300"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* CHANGE 3: items-start so the card auto-sizes to its content (no stretching) */}
       <div className="grid grid-cols-[1fr_420px] gap-8 flex-1 items-start">
-        <div className="bg-surface-2 border border-border-subtle rounded-2xl p-9 flex flex-col">
-          <TransactionHead
-            txn={txn}
-            initial={initial}
-            editing={editing}
-            editValue={editValue}
-            onStartEdit={startEdit}
-            onChangeEdit={setEditValue}
-            onCommitEdit={commitEdit}
-            onCancelEdit={() => setEditing(false)}
-          />
+        <div className="flex flex-col gap-5">
+          <div className="bg-surface-2 border border-border-subtle rounded-2xl p-9 flex flex-col">
+            <TransactionHead
+              txn={txn}
+              initial={initial}
+              editing={editing}
+              editValue={editValue}
+              onStartEdit={startEdit}
+              onChangeEdit={setEditValue}
+              onCommitEdit={commitEdit}
+              onCancelEdit={() => setEditing(false)}
+            />
 
-          <RawStatement raw={txn.rawDescription} />
+            <RawStatement raw={txn.rawDescription} />
 
-          <div className="flex items-center justify-between mt-9 mb-4">
-            <span className="eyebrow text-xs">Category</span>
-            <input
-              type="text"
-              placeholder="Search categories…"
-              className="bg-surface-base border border-border-subtle rounded-lg px-3.5 py-2 text-sm text-text-secondary w-60 outline-none focus:border-border-strong"
+            <div className="flex items-center justify-between mt-9 mb-4">
+              <span className="eyebrow text-xs">Category</span>
+              <input
+                type="text"
+                placeholder="Search categories…"
+                className="bg-surface-base border border-border-subtle rounded-lg px-3.5 py-2 text-sm text-text-secondary w-60 outline-none focus:border-border-strong"
+              />
+            </div>
+
+            {suggested && (
+              <SuggestionBanner
+                suggested={suggested}
+                merchantPrefix={queue?.merchantPrefix}
+                onApply={() => commitCategory(suggested.id)}
+              />
+            )}
+
+            <CategoryPills
+              categories={quickCategories}
+              pendingId={pendingCategoryId}
+              suggestedId={suggested?.id ?? null}
+              onPick={selectCategory}
+            />
+
+            <TransferToggle isTransfer={txn.isTransfer} onToggle={toggleTransfer} />
+
+            <ActionBar
+              onSkip={skip}
+              onMarkReviewed={markReviewed}
+              canMarkReviewed={canMarkReviewed}
             />
           </div>
 
-          {suggested && (
-            <SuggestionBanner
-              suggested={suggested}
-              merchantPrefix={queue?.merchantPrefix}
-              onApply={() => commitCategory(suggested.id)}
-            />
+          {queue?.merchantPrefix && (
+            <RecentActivity merchantPrefix={queue.merchantPrefix} excludeId={txn.id} />
           )}
-
-          <CategoryPills
-            categories={quickCategories}
-            pendingId={pendingCategoryId}
-            suggestedId={suggested?.id ?? null}
-            onPick={selectCategory}
-          />
-
-          <TransferToggle isTransfer={txn.isTransfer} onToggle={toggleTransfer} />
-
-          <ActionBar
-            onSkip={skip}
-            onMarkReviewed={markReviewed}
-            canMarkReviewed={canMarkReviewed}
-          />
         </div>
 
-        {/* CHANGE 1: pass `recent` and `onUndo` to the right rail */}
         <RightRail
           similar={similar}
           suggested={suggested ?? null}
-          session={session}
           recent={recent}
           onApplyAll={() => suggested && commitCategory(suggested.id, { applyToSimilar: true })}
           onUndoRecent={undoRecent}
@@ -516,33 +531,29 @@ function ActionBar({ onSkip, onMarkReviewed, canMarkReviewed }: { onSkip: () => 
 }
 
 function RightRail({
-  similar, suggested, session, recent, onApplyAll, onUndoRecent,
+  similar, suggested, recent, onApplyAll, onUndoRecent,
 }: {
   similar: SimilarTransaction[];
   suggested: SuggestedCategory | null;
-  session: { reviewed: number; skipped: number; startedAt: number };
   recent: RecentlyReviewed[];
   onApplyAll: () => void;
   onUndoRecent: (id: string) => void;
 }) {
   const uncategorized = similar.filter((s) => s.needsReview).length;
-  const elapsed = (Date.now() - session.startedAt) / 1000;
-  const avgPer = session.reviewed > 0 ? (elapsed / session.reviewed).toFixed(1) : '—';
-
-  // CHANGE 2: singular/plural fix
   const similarLabel = similar.length === 1 ? '1 similar transaction' : `${similar.length} similar transactions`;
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6 flex flex-col">
+      {/* Similar transactions — locked at 320px, list scrolls */}
+      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6 flex flex-col h-[320px]">
         <div className="eyebrow text-xs mb-2">{similarLabel}</div>
-        <div className="text-sm text-text-secondary leading-relaxed mb-5">
+        <div className="text-sm text-text-secondary leading-relaxed mb-3">
           {uncategorized > 0
             ? <>Includes <strong className="text-text-primary">{uncategorized} uncategorized</strong>.</>
             : <>All already categorized.</>}
         </div>
 
-        <div className="flex flex-col gap-2.5 mb-5 overflow-y-auto" style={{ maxHeight: '480px' }}>
+        <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto min-h-0">
           {similar.map((s) => (
             <div
               key={s.id}
@@ -577,22 +588,24 @@ function RightRail({
         {suggested && uncategorized > 0 && (
           <button
             onClick={onApplyAll}
-            className="w-full bg-accent-soft text-accent-200 border border-accent-border rounded-lg p-3.5 text-sm font-medium cursor-pointer hover:bg-accent-soft/70"
+            className="mt-3 w-full bg-accent-soft text-accent-200 border border-accent-border rounded-lg p-3.5 text-sm font-medium cursor-pointer hover:bg-accent-soft/70"
           >
             Apply <strong className="font-semibold">{suggested.name}</strong> to all {uncategorized} →
           </button>
         )}
       </div>
 
-      {/* CHANGE 1: Recently reviewed card — only shown when there's at least 1 entry */}
-      {recent.length > 0 && (
-        <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-3.5">
-            <div className="eyebrow text-xs">Recently reviewed</div>
-            <div className="text-xs text-text-muted">click to undo</div>
-          </div>
-          <div className="flex flex-col gap-2">
-            {recent.map((r) => {
+      {/* Recently reviewed — locked at 320px, list scrolls, always rendered */}
+      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6 flex flex-col h-[320px]">
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="eyebrow text-xs">Recently reviewed</div>
+          <div className="text-xs text-text-muted">click to undo</div>
+        </div>
+        <div className="flex-1 flex flex-col gap-2 overflow-y-auto min-h-0">
+          {recent.length === 0 ? (
+            <div className="text-sm text-text-muted py-5 text-center">Nothing reviewed yet this session.</div>
+          ) : (
+            recent.map((r) => {
               const negative = Number(r.amount) < 0;
               return (
                 <button
@@ -623,26 +636,10 @@ function RightRail({
                   </span>
                 </button>
               );
-            })}
-          </div>
+            })
+          )}
         </div>
-      )}
-
-      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6">
-        <div className="eyebrow text-xs mb-3.5">This session</div>
-        <SessionStat label="Reviewed" value={session.reviewed} />
-        <SessionStat label="Skipped" value={session.skipped} />
-        <SessionStat label="Avg. per txn" value={avgPer === '—' ? '—' : `${avgPer}s`} last />
       </div>
-    </div>
-  );
-}
-
-function SessionStat({ label, value, last }: { label: string; value: number | string; last?: boolean }) {
-  return (
-    <div className={`flex items-center justify-between text-[15px] py-2.5 ${last ? '' : 'border-b border-border-subtle'}`}>
-      <span className="text-text-tertiary">{label}</span>
-      <span className="font-medium numeric">{value}</span>
     </div>
   );
 }
@@ -686,6 +683,110 @@ function LoadingState() {
   return (
     <div className="flex-1 flex items-center justify-center">
       <div className="text-text-muted text-base">Loading review queue…</div>
+    </div>
+  );
+}
+
+function RecentActivity({ merchantPrefix, excludeId }: { merchantPrefix: string; excludeId: string }) {
+  const [hist, setHist] = useState<MerchantHistory | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    setHist(null);
+    api<MerchantHistory>(
+      `/api/review/merchant-history/${encodeURIComponent(merchantPrefix)}?exclude=${excludeId}`,
+    ).then((r) => {
+      if (r.data) setHist(r.data);
+      setLoading(false);
+    });
+  }, [merchantPrefix, excludeId]);
+
+  if (loading || !hist) {
+    return (
+      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6">
+        <div className="eyebrow text-xs mb-3.5">Recent activity</div>
+        <div className="text-sm text-text-muted">Loading…</div>
+      </div>
+    );
+  }
+
+  if (hist.totalCount === 0) {
+    return (
+      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6">
+        <div className="eyebrow text-xs mb-3.5">Recent activity</div>
+        <div className="text-sm text-text-secondary">First transaction with this merchant.</div>
+      </div>
+    );
+  }
+
+  const cadenceLabel = {
+    monthly: 'Roughly monthly',
+    weekly: 'Roughly weekly',
+    yearly: 'Roughly yearly',
+    irregular: 'Irregular',
+  }[hist.cadence];
+
+  const distinct = hist.categories.length;
+  const topCat = hist.categories[0]?.name ?? 'Uncategorized';
+
+  return (
+    <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6">
+      <div className="eyebrow text-xs mb-3.5">Recent activity</div>
+
+      <div className="grid grid-cols-4 gap-4 mb-5">
+        <Stat label="Charges" value={String(hist.totalCount)} />
+        <Stat label="Total" value={`$${Math.abs(hist.totalAmount).toFixed(2)}`} />
+        <Stat label="Avg" value={`$${Math.abs(hist.avgAmount).toFixed(2)}`} />
+        <Stat label="Cadence" value={cadenceLabel} small />
+      </div>
+
+      <div className="text-sm text-text-tertiary mb-4">
+        {distinct > 1 ? (
+          <>
+            Categorized as:{' '}
+            {hist.categories.map((c, i) => (
+              <span key={c.name}>
+                {i > 0 && ', '}
+                <strong className="text-text-primary">{c.name}</strong> ({c.count})
+              </span>
+            ))}
+          </>
+        ) : (
+          <>Always categorized as <strong className="text-text-primary">{topCat}</strong>.</>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {hist.lastFive.map((t) => {
+          const negative = Number(t.amount) < 0;
+          return (
+            <div
+              key={t.id}
+              className="grid grid-cols-[1fr_auto_auto] gap-3 items-center text-sm px-3.5 py-2.5 bg-surface-base rounded-lg"
+            >
+              <span className="text-text-tertiary">
+                {new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+              <span className="text-xs px-2.5 py-1 rounded-full text-text-muted bg-surface-3">
+                {t.category ?? 'Uncategorized'}
+              </span>
+              <span className={`numeric font-medium ${negative ? 'text-negative' : 'text-positive'}`}>
+                {negative ? '-' : '+'}${Math.abs(Number(t.amount)).toFixed(2)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, small }: { label: string; value: string; small?: boolean }) {
+  return (
+    <div>
+      <div className="eyebrow text-[10px] mb-1">{label}</div>
+      <div className={`numeric font-medium ${small ? 'text-sm' : 'text-base'} text-text-primary`}>{value}</div>
     </div>
   );
 }
