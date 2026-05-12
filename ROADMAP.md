@@ -1,6 +1,6 @@
 # Vault Roadmap
 
-> Last updated: 2026-05-09
+> Last updated: 2026-05-11
 
 ## Vision
 
@@ -25,6 +25,34 @@ strip it away.
 5. **Customizability over defaults.** When in doubt, make it configurable.
 6. **Beauty as load-bearing.** "Reporting beauty and depth" is the #1 quality. Charts must
    be polished, layouts must breathe, typography must read.
+
+## Schema conventions
+
+### Transaction sign convention
+Amounts reflect the direction money moved relative to the account, regardless of category.
+Positive = money in. Negative = money out.
+
+This is independent of which bucket a transaction belongs to (its category's flow_type).
+A refund of a clothing purchase is a positive amount in an outflow-flow_type category.
+A pay clawback is a negative amount in an inflow-flow_type category.
+
+### Category flow_type
+Every category has a `flow_type` of `inflow`, `outflow`, or `transfer`. This determines
+which bucket the category lives in for reporting purposes:
+
+- `inflow` — income, gifts, refunds you weren't expecting to be recurring
+- `outflow` — spending, cashback adjustments (cashback offsets are outflow rows with positive signs)
+- `transfer` — money moving between your own accounts; excluded from spending/income reports
+
+Reports that ask "total spending" sum all amounts where flow_type='outflow' (the positive
+cashback rows reduce the total naturally). Reports that ask "income for taxes" sum amounts
+where flow_type='inflow' only — cashback isn't there because it lives in outflow.
+
+### Cashback treatment
+Cashback is recorded as a single positive-amount transaction in the `Credit Card Cashback`
+category, with the card's subcategory (e.g. "Apple Card 7999"). Because flow_type=outflow,
+it nets against spending in reports. IRS-correct because cashback is treated as a price
+reduction, not income.
 
 ## Phases
 
@@ -65,8 +93,10 @@ plus the categorization system that scales beyond manual review.
 - [ ] **Net Worth** — assets vs liabilities over time. Account-level detail.
 - [ ] **Accounts** — list of accounts with current balances, ability to edit, mark closed,
   set color/icon.
-- [ ] **Fixed vs variable spending** classification — every category gets tagged as fixed,
-  variable, or income. Reports split spending accordingly.
+- [ ] **Flow-type taxonomy on categories.** Add `flow_type` enum column to categories
+  (inflow/outflow/transfer). Classify all existing categories. Add new "Credit Card Cashback"
+  category with subcategories per card. Update parser/loader to populate flow_type from
+  category. Prerequisite for accurate reporting.
 
 ### Phase 3: Anywhere
 
@@ -148,6 +178,7 @@ Decisions to make later. Don't try to answer these prematurely.
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-11 — Decided on transaction sign convention (sign = direction, category determines bucket) and cashback-as-positive-outflow treatment. Schema migration planned.
 - 2026-05-09 — Migrated to Neon cloud Postgres. Both Mac and Windows machines now share one database via shared `.env` connection string.
 - 2026-05-09 — Cleaned up Review Queue layout: compact header, fixed-height rail cards, "Recent activity for this merchant" card with summary and history list.
 - 2026-05-09 — Improved merchant cleaner to handle PayPal/Square processor prefixes, title-case ALL CAPS strings, and strip address tails. Re-cleaned all existing transactions.
