@@ -126,6 +126,19 @@ plus the categorization system that scales beyond manual review.
   (inflow/outflow/transfer). Classify all existing categories. Add new "Credit Card Cashback"
   category with subcategories per card. Update parser/loader to populate flow_type from
   category. Prerequisite for accurate reporting.
+- [ ] **TypeScript parser pipeline.** Port Python statement-extractor skill
+  to TypeScript modules living in the Vault repo (`lib/parser/`). Replaces
+  the master.xlsx middleman with a direct parser → Postgres pipeline.
+  Currently: Apple Card parser ported, side-by-side comparison harness
+  built, structural verification ✓ on one PDF. Remaining work:
+  - Bring Python skill rules to TS parity (resolves 12 category mismatches)
+  - Verify against remaining 10 Apple Card 2020 statements
+  - Port remaining parsers (Chase, Discover, Citi, Amex, etc.)
+  - Parameterize the skill path in parse-one.py (currently Windows-only)
+  - Document pdftotext as a required system dependency
+  - Wire parsers to an inbox-watcher script that writes to Postgres
+  - Build manual accounts UI (since auto-creation is removed)
+  - Run Python skill in parallel for 1 month, then deprecate
 
 ### Phase 3: Anywhere
 
@@ -213,6 +226,10 @@ Decisions to make later. Don't try to answer these prematurely.
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-17 — TypeScript parser scaffolding landed (types, categories,
+  content-hash, dispatcher, apple-card parser). Side-by-side comparison
+  harness verifies structural parity with the Python reference parser.
+  First Apple Card statement verified 20/20.
 - 2026-05-17 — Credit Cards page designed end-to-end via Claude artifacts (list + drawer, 7 iterations).
   Schema implications and lifecycle field requirements captured in Phase 2.
 - 2026-05-11 — Decided on transaction sign convention (sign = direction, category determines bucket) and cashback-as-positive-outflow treatment. Schema migration planned.
