@@ -57,6 +57,26 @@ function parseAccountLabel(label: string): { name: string; accountNumber: string
   return { name: label.trim(), accountNumber: null };
 }
 
+function normalizeAccountNumber(raw: unknown): string | null {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'number') return String(raw).padStart(4, '0');
+  return String(raw).trim();
+}
+
+function resolveAccountIdentity(
+  label: string,
+  accountNumberFromColumn: string | null,
+): { name: string; accountNumber: string | null } {
+  const parsed = parseAccountLabel(label);
+  const accountNumber = accountNumberFromColumn ?? parsed.accountNumber;
+  const labelTrim = label.trim();
+  let name = labelTrim;
+  if (accountNumber && labelTrim.endsWith(accountNumber)) {
+    name = labelTrim.slice(0, -accountNumber.length).trim();
+  }
+  return { name, accountNumber };
+}
+
 function contentHash(accountId: string, date: string, amount: string, raw: string): string {
   return createHash('sha256').update(`${accountId}|${date}|${amount}|${raw}`).digest('hex');
 }
@@ -76,8 +96,11 @@ function excelDateToISO(value: unknown): string | null {
   return null;
 }
 
-async function getOrCreateAccount(label: string): Promise<string> {
-  const { name, accountNumber } = parseAccountLabel(label);
+async function getOrCreateAccount(
+  label: string,
+  accountNumberFromColumn: string | null,
+): Promise<string> {
+  const { name, accountNumber } = resolveAccountIdentity(label, accountNumberFromColumn);
   const existing = await db
     .select()
     .from(accounts)
@@ -125,6 +148,7 @@ async function main() {
 
   type Row = {
     accountLabel: string;
+    accountNumberFromCol: string | null;
     date: string;
     raw: string;
     amount: string;
@@ -141,6 +165,7 @@ async function main() {
     if (!date) continue;
     const accountLabel = String(r['Account'] ?? '').trim();
     if (!accountLabel) continue;
+    const accountNumberFromCol = normalizeAccountNumber(r['Account #']);
     const raw = String(r['Source'] ?? '').trim();
     const amount = Number(r['Amount'] ?? 0).toFixed(2);
     const cat = String(r['Category'] ?? '').trim();
@@ -152,23 +177,24 @@ async function main() {
     const needsReview = slug === 'review';
     const isTransfer = TRANSFER_SLUGS.has(slug);
 
-    const key = `${accountLabel}|${sourceFile ?? 'unknown'}`;
+    const key = `${accountLabel}${accountNumberFromCol ?? ''}${sourceFile ?? 'unknown'}`;
     const arr = groups.get(key) ?? [];
-    arr.push({ accountLabel, date, raw, amount, catSlug: slug, needsReview, isTransfer, stmtPeriod, sourceFile });
+    arr.push({ accountLabel, accountNumberFromCol, date, raw, amount, catSlug: slug, needsReview, isTransfer, stmtPeriod, sourceFile });
     groups.set(key, arr);
   }
 
   let inserted = 0;
   let skipped = 0;
 
-  for (const [key, groupRows] of groups) {
-    const [accountLabel, sourceFile] = key.split('|');
-    const accountId = await getOrCreateAccount(accountLabel);
-    const stmtPeriod = groupRows[0]?.stmtPeriod ?? null;
+  for (const groupRows of groups.values()) {
+    const first = groupRows[0];
+    const accountId = await getOrCreateAccount(first.accountLabel, first.accountNumberFromCol);
+    const stmtPeriod = first.stmtPeriod ?? null;
+    const sourceFile = first.sourceFile;
 
     const [imp] = await db
       .insert(imports)
-      .values({ sourceFile, statementPeriod: stmtPeriod, accountId })
+      .values({ sourceFile: sourceFile ?? 'unknown', statementPeriod: stmtPeriod, accountId })
       .returning({ id: imports.id });
 
     for (const r of groupRows) {

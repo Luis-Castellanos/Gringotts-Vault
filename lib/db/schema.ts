@@ -8,7 +8,11 @@
  *      from spending/income aggregations without losing records.
  *   3. Categories are hierarchical via parent_id.
  *   4. Imports are idempotent via content_hash.
- *   5. Balance snapshots are point-in-time, not derived from transactions.
+ *   5. Balances are derived from transaction history (importing each account
+ *      from inception). The balance_snapshots table is kept for accounts
+ *      where transactions are incomplete (e.g. brokerage / retirement where
+ *      transaction-level data may not include market-value changes), but is
+ *      not populated by the standard load-master pipeline.
  */
 
 import {
