@@ -91,8 +91,37 @@ plus the categorization system that scales beyond manual review.
   monthly trends, paycheck history. Mobile and desktop equally polished. Net only
   (gross/tax/deductions deferred to Phase 5+).
 - [ ] **Net Worth** — assets vs liabilities over time. Account-level detail.
-- [ ] **Accounts** — list of accounts with current balances, ability to edit, mark closed,
-  set color/icon.
+- [ ] **Credit Cards page** (also accessible as a section on general Accounts page).
+  Designed via Claude artifacts on 2026-05-17. Reference designs: `vault_credit_cards_v6`
+  (list view) and `vault_card_detail_drawer_final` (per-card drawer).
+
+  List page structure:
+  - 4 top metrics: Total Limit, Total Balance, YTD Cashback, Annual Fees (with net-of-cashback sub-line)
+  - Full-width Total Utilization bar with 30%/50% threshold markers
+  - Active cards section, sortable + filterable, list/grid toggle (real card art scraped from issuer marketing)
+  - Closed & hidden collapsible section at bottom (dimmed art, gray names, closure date, no util bar)
+
+  Per-card drawer (slide-in from right):
+  - Header: card art, name, open date, APR, annual fee
+  - Balance + utilization (charge cards display "no preset limit" and skip util math)
+  - Lifecycle cards: signup bonus progress, annual fee, anniversary — each with status pill (green/amber/red/neutral) and inline metadata
+  - Recent transactions (3-5 rows, "View all →" links to Transactions filtered by card)
+  - Cashback/points earned section, monthly bars + YTD/lifetime totals
+
+  Schema additions for the `accounts` table (or a new `credit_cards` extension table):
+  - `annual_fee` (decimal)
+  - `apr` (decimal)
+  - `open_date` (date)
+  - `closed_date` (date, nullable)
+  - `signup_bonus_amount` (decimal or int for points)
+  - `signup_bonus_deadline` (date, nullable)
+  - `signup_bonus_spent_to_date` (decimal, derived from transactions)
+  - `rewards_type` (enum: 'cashback' / 'points')
+  - `account_subtype` (enum: 'revolving' / 'charge') to distinguish charge cards
+  - `is_hidden` (bool, separate from closed)
+
+  Anti-prescriptive constraint: the drawer shows raw data and calculations, never recommends actions
+  ("you should spend X to break even" was explicitly rejected during design).
 - [ ] **Flow-type taxonomy on categories.** Add `flow_type` enum column to categories
   (inflow/outflow/transfer). Classify all existing categories. Add new "Credit Card Cashback"
   category with subcategories per card. Update parser/loader to populate flow_type from
@@ -173,11 +202,19 @@ Decisions to make later. Don't try to answer these prematurely.
 - **Multi-employer / multi-source income.** When you have multiple income streams
   (job + side gig + investment income), how should the payroll view distinguish them?
   Single chart with segments? Multiple cards? Decide when actually relevant.
+- **Closed vs hidden card states.** Currently designed as a single "Closed & hidden" bucket.
+  Possible later split: "open but inactive" (paused, kept for credit history) vs "closed"
+  (permanently dead). Defer until real usage reveals whether the distinction matters.
+- **Card art sourcing.** Real card images scraped from issuer marketing for popular cards
+  (Apple Card, Sapphire, Amex Gold, etc.). Stored locally, referenced by card. Need a fallback
+  strategy for less-common cards (generated gradient + network logo + last 4 as v1).
 
 ## Recently shipped
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-17 — Credit Cards page designed end-to-end via Claude artifacts (list + drawer, 7 iterations).
+  Schema implications and lifecycle field requirements captured in Phase 2.
 - 2026-05-11 — Decided on transaction sign convention (sign = direction, category determines bucket) and cashback-as-positive-outflow treatment. Schema migration planned.
 - 2026-05-09 — Migrated to Neon cloud Postgres. Both Mac and Windows machines now share one database via shared `.env` connection string.
 - 2026-05-09 — Cleaned up Review Queue layout: compact header, fixed-height rail cards, "Recent activity for this merchant" card with summary and history list.
