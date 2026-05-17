@@ -197,17 +197,18 @@ async function main() {
       .values({ sourceFile: sourceFile ?? 'unknown', statementPeriod: stmtPeriod, accountId })
       .returning({ id: imports.id });
 
+    // Build the batch up-front, de-duping within the group by content hash so
+    // a single INSERT can't violate the unique constraint twice on the same key
+    // (Postgres rejects that as a cardinality violation even with ON CONFLICT).
+    const seenInBatch = new Set<string>();
+    const values: typeof transactions.$inferInsert[] = [];
     for (const r of groupRows) {
       const hash = contentHash(accountId, r.date, r.amount, r.raw);
-      const dup = await db.select().from(transactions).where(eq(transactions.contentHash, hash)).limit(1);
-      if (dup[0]) {
-        skipped++;
-        continue;
-      }
-      const categoryId = catLookup.get(r.catSlug) ?? catLookup.get('review')!;
-      await db.insert(transactions).values({
+      if (seenInBatch.has(hash)) continue;
+      seenInBatch.add(hash);
+      values.push({
         accountId,
-        categoryId,
+        categoryId: catLookup.get(r.catSlug) ?? catLookup.get('review')!,
         date: r.date,
         amount: r.amount,
         rawDescription: r.raw,
@@ -219,8 +220,19 @@ async function main() {
         importId: imp.id,
         contentHash: hash,
       });
-      inserted++;
     }
+
+    if (values.length > 0) {
+      const insertedRows = await db
+        .insert(transactions)
+        .values(values)
+        .onConflictDoNothing({ target: transactions.contentHash })
+        .returning({ id: transactions.id });
+      inserted += insertedRows.length;
+      skipped += values.length - insertedRows.length;
+    }
+    // Rows dropped by intra-batch dedup are also counted as skipped.
+    skipped += groupRows.length - values.length;
 
     await db
       .update(imports)
