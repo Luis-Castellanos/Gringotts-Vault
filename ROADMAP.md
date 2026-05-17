@@ -54,6 +54,22 @@ category, with the card's subcategory (e.g. "Apple Card 7999"). Because flow_typ
 it nets against spending in reports. IRS-correct because cashback is treated as a price
 reduction, not income.
 
+## External dependencies
+
+### bank-statement-extractor (Python repo)
+https://github.com/Luis-Castellanos/bank-statement-extractor (private)
+
+The canonical PDF-to-xlsx extractor. Lives outside Vault — separate repo,
+independent release cycle. Vault depends on its output format (the
+10-column Transactions sheet in master.xlsx). Material changes to the
+parser's output schema require coordinating updates to Vault's loader.
+
+**Architectural principle: the parser is extraction-only.** It emits raw
+merchant strings + signed amounts. Categorization, normalization, and
+reporting all happen in Vault. Do NOT add categorization logic to the
+parser; if rule lookup or AI categorization is needed at ingest time,
+it belongs in Vault's loader or a separate Vault categorization service.
+
 ## Phases
 
 ### Phase 1: Foundation (mostly done)
@@ -127,17 +143,42 @@ plus the categorization system that scales beyond manual review.
   category with subcategories per card. Update parser/loader to populate flow_type from
   category. Prerequisite for accurate reporting.
 - [ ] **Python-parser-to-Vault data pipeline.** Python statement-extractor
-  (separate repo, actively maintained) is the canonical PDF parser.
-  It outputs cleaned, categorized transaction data to master.xlsx.
-  Vault consumes that output via a loader. Remaining work:
-  - Audit the Python parser's current xlsx output format
-  - Reconcile against Vault's current schema (sign convention, flow_type,
-    categories table)
-  - Update scripts/load-master.ts to match the current xlsx shape
-  - Run one big "catchup" import to load historical data
-  - Establish monthly import rhythm
-  - Document the Python parser repo location in CONTRIBUTING/SETUP
-    so future-me knows where the upstream parser lives
+  (https://github.com/Luis-Castellanos/bank-statement-extractor, private)
+  is the canonical PDF parser. Extraction-only by design — emits cleaned,
+  validated, sign-correct transactions with Category and Sub-category
+  intentionally BLANK. Vault is the categorization layer (see Phase 2 item
+  below). Parser output: master.xlsx at the Tracing project root, 10
+  columns (Date, Account, Account #, Source, Category, Sub-category,
+  Amount, Balance, Stmt period, Source file). Dedup key:
+  (Date, Account, Source, Amount). Sum-validation safety net means bad
+  PDFs stay in inbox/ and don't reach master.xlsx — Vault's loader can
+  trust what arrives.
+
+  Remaining work:
+  - Audit and update scripts/load-master.ts against current xlsx schema
+  - Add the 6 new account types to Vault's accounts table (Amex Gold 1001,
+    Amex Checking 0226, Amex HYSA 4953, BOA Card 6601, Citi Simplicity 6772,
+    Capital One 360 9865)
+  - Re-import Chase Checking, Chase Card (Prime/Sapphire/Freedom), and
+    Discover data — old text-based parsers produced wrong signs/dropped rows
+    pre-2026-05-16; data ingested before today from those issuers is suspect
+  - Run one big catchup import after re-import audit complete
+  - Establish monthly import rhythm (current plan: run `load-master.ts`
+    manually after each parser run; revisit if friction grows)
+- [ ] **Categorization layer.** Master.xlsx arrives with Category and
+  Sub-category blank — this is intentional in the parser. Vault owns
+  categorization. Open design questions:
+  - Where do rules live (Postgres table, YAML file, Excel sheet I edit)?
+  - How are rules authored/edited (Vault admin UI, direct DB, external)?
+  - AI categorization strategy (rules-first with AI fallback for unmatched,
+    or AI primary, or no AI)?
+  - Handle the [Card XXXX] prefix on Amex authorized-user transactions —
+    rules that anchor on Source start need to account for this
+  - How to preview/audit categorization before commit
+
+  Defer concrete design until parser pipeline is wired and historical
+  data is loaded. Categorize-as-separate-pass is fine for v1; UX can
+  improve from there.
 
 ### Phase 3: Anywhere
 
@@ -225,6 +266,11 @@ Decisions to make later. Don't try to answer these prematurely.
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-17 — Got handoff brief from parser-conversation Claude Code
+  covering current parser output schema, supported issuers (11 now, was 5),
+  categorization architecture (none — extraction-only by design), and
+  the Chase/Discover historical-data integrity issue. Roadmap updated
+  to match reality.
 - 2026-05-17 — TypeScript parser scaffolding explored, then parked on
   `explore/ts-parser` branch. Pivoted to Python-parser-as-canonical
   strategy: extraction stays in Python (separate repo), Vault becomes
