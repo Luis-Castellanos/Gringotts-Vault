@@ -126,6 +126,18 @@ plus the categorization system that scales beyond manual review.
   (inflow/outflow/transfer). Classify all existing categories. Add new "Credit Card Cashback"
   category with subcategories per card. Update parser/loader to populate flow_type from
   category. Prerequisite for accurate reporting.
+- [ ] **Python-parser-to-Vault data pipeline.** Python statement-extractor
+  (separate repo, actively maintained) is the canonical PDF parser.
+  It outputs cleaned, categorized transaction data to master.xlsx.
+  Vault consumes that output via a loader. Remaining work:
+  - Audit the Python parser's current xlsx output format
+  - Reconcile against Vault's current schema (sign convention, flow_type,
+    categories table)
+  - Update scripts/load-master.ts to match the current xlsx shape
+  - Run one big "catchup" import to load historical data
+  - Establish monthly import rhythm
+  - Document the Python parser repo location in CONTRIBUTING/SETUP
+    so future-me knows where the upstream parser lives
 
 ### Phase 3: Anywhere
 
@@ -213,6 +225,10 @@ Decisions to make later. Don't try to answer these prematurely.
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-17 — TypeScript parser scaffolding explored, then parked on
+  `explore/ts-parser` branch. Pivoted to Python-parser-as-canonical
+  strategy: extraction stays in Python (separate repo), Vault becomes
+  the reporting consumer of cleaned xlsx output.
 - 2026-05-17 — Credit Cards page designed end-to-end via Claude artifacts (list + drawer, 7 iterations).
   Schema implications and lifecycle field requirements captured in Phase 2.
 - 2026-05-11 — Decided on transaction sign convention (sign = direction, category determines bucket) and cashback-as-positive-outflow treatment. Schema migration planned.
