@@ -36,6 +36,7 @@ const SEEDS: Seed[] = [
   { name: 'Citi Simplicity',           accountNumber: '6772', type: 'credit_card', institution: 'Citi' },
   { name: 'Discover It Card',          accountNumber: '6586', type: 'credit_card', institution: 'Discover' },
   { name: 'Gain Mastercard',           accountNumber: '6534', type: 'credit_card', institution: 'Gain Federal Credit Union' },
+  { name: 'Venmo Visa',                accountNumber: '1914', type: 'credit_card', institution: 'Synchrony Bank / Venmo' },
 
   // Checking / savings / cash (14) — added 2026-05-17
   { name: 'Ally Savings',              accountNumber: '9491', type: 'savings',  institution: 'Ally Bank' },
