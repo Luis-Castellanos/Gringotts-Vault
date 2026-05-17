@@ -266,16 +266,18 @@ Decisions to make later. Don't try to answer these prematurely.
 
 Reverse chronological. The latest thing first.
 
-- 2026-05-17 — Preloaded all 24 active accounts (10 credit cards,
-  14 checking/savings/cash). Hardened `load-master.ts`: trusts the
-  `Account #` column over regex-parsing the `Account` label; bulk INSERT
+- 2026-05-17 — Preloaded all 25 active accounts (11 credit cards including
+  Venmo Visa, 14 checking/savings/cash). Hardened `load-master.ts`: trusts
+  the `Account #` column over regex-parsing the `Account` label; bulk INSERT
   with ON CONFLICT DO NOTHING for the catchup-import performance hit.
   Documented the balance-derivation-from-transactions strategy in the
   schema (`balance_snapshots` stays dormant for cases where transaction
   history is incomplete, e.g. brokerage/retirement). Established card-art
-  convention: slug-derived filenames in `public/card-art/`. 8 of 10
-  credit-card images landed; non-credit accounts will use bank logos
-  (folder TBD).
+  convention: slug-derived filenames in `public/card-art/`. 9 of 11
+  credit-card images landed (missing: Citi Simplicity, Gain Mastercard).
+  Bank-logos convention decided: `public/bank-logos/<slug>.png` where
+  `<slug>` is the slugified full institution string (no logos sourced yet).
+  Parked `explore/ts-parser` branch pushed to origin for preservation.
 - 2026-05-17 — Got handoff brief from parser-conversation Claude Code
   covering current parser output schema, supported issuers (11 now, was 5),
   categorization architecture (none — extraction-only by design), and
