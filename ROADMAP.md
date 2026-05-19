@@ -266,6 +266,13 @@ Decisions to make later. Don't try to answer these prematurely.
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-18 — Process decision: remaining Phase 2 page frontends (Income,
+  Dashboard, Transactions, Cashflow, Net Worth, Accounts) will be designed
+  in Claude artifacts first, then brought to Claude Code for adaptation to
+  real Drizzle queries + project conventions. Validated against the Credit
+  Cards page workflow (7 artifact iterations → final v6). Existing Credit
+  Cards designs (`vault_credit_cards_v6`, `vault_card_detail_drawer_final`)
+  are settled and not subject to re-design.
 - 2026-05-17 — Preloaded all 25 active accounts (11 credit cards including
   Venmo Visa, 14 checking/savings/cash). Hardened `load-master.ts`: trusts
   the `Account #` column over regex-parsing the `Account` label; bulk INSERT
