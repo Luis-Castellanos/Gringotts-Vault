@@ -196,7 +196,7 @@ function HeroCard({ stub, theme }: { stub: ComputedStub; theme: Theme }) {
         </div>
       </div>
       <Donut
-        size={280}
+        size={196}
         slices={slices}
         hovered={hovered}
         onHover={setHovered}
@@ -368,10 +368,6 @@ function SingleStubView({
           <div className="stub-date">{fmtDate(stub.date)}</div>
           <div className="stub-meta-inline">
             <span><b>{stub.period}</b></span>
-            <span className="dot">·</span>
-            <span>Voucher {stub.voucher}</span>
-            <span className="dot">·</span>
-            <span>{stub.rate}</span>
             {stub.bonus > 0 && (
               <>
                 <span className="dot">·</span>
