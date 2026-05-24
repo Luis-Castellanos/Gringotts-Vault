@@ -340,23 +340,16 @@ function TxnDetail({
 
   return (
     <div className="tx-expand-content" onClick={(e) => e.stopPropagation()}>
-      {/* Header: vendor + link (amount/account/date live on the collapsed row above) */}
-      <div className="txd-head">
-        <VendorLogo merchant={merchant || txn.merchant} size={40} />
-        <div className="txd-id">
-          <div className="txd-vendor">{merchant || txn.merchant}</div>
-          <button type="button" className="txd-viewall" onClick={() => onViewMerchant(txn.merchant)}>
-            View all transactions from this merchant →
-          </button>
-        </div>
-      </div>
-
-      {/* Original statement (the raw source text) */}
+      {/* Original statement (the raw source text). Vendor/amount/account live on
+          the collapsed row above, so they're not repeated here. */}
       <div className="txd-orig">
         <span className="txd-orig-label">Original statement</span>
         <span className="txd-orig-text">{txn.rawDescription}</span>
         <button type="button" className="txd-copy" onClick={copyRaw} title="Copy original statement">
           {copied ? 'Copied' : 'Copy'}
+        </button>
+        <button type="button" className="txd-viewall" onClick={() => onViewMerchant(txn.merchant)}>
+          View all from this merchant →
         </button>
       </div>
 
