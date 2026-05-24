@@ -550,22 +550,6 @@
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
   }
-  /* Indeterminate (some of the day's rows selected) */
-  .tx-check.some {
-    background: var(--green);
-    border-color: var(--green);
-  }
-  .tx-check.some::after {
-    content: '';
-    position: absolute;
-    left: 3px;
-    right: 3px;
-    top: 50%;
-    height: 2px;
-    transform: translateY(-50%);
-    background: #fff;
-    border-radius: 1px;
-  }
   .tx-row.selected {
     background: var(--green-tint);
   }

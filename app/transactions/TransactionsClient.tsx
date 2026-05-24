@@ -1589,7 +1589,6 @@ export function TransactionsClient({
           grouped.map((group) => {
             const collapsed = collapsedDays.has(group.date);
             const dayAllSel = group.rows.length > 0 && group.rows.every((r) => selected.has(r.id));
-            const daySomeSel = !dayAllSel && group.rows.some((r) => selected.has(r.id));
             return (
             <div key={group.date}>
               {group.date !== '__flat__' && (
@@ -1597,7 +1596,7 @@ export function TransactionsClient({
                   <span className="tx-date-left">
                     {selectMode && (
                       <span
-                        className={'tx-check' + (dayAllSel ? ' on' : daySomeSel ? ' some' : '')}
+                        className={'tx-check' + (dayAllSel ? ' on' : '')}
                         onClick={(e) => { e.stopPropagation(); toggleDaySelection(group.rows); }}
                         aria-hidden
                       />
