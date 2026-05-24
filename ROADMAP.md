@@ -125,7 +125,9 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
   delete, and merge). Per-type fields now real: APY (cash/savings), interest
   rate / monthly payment / original principal / maturity (loans), subtype
   (brokerage/retirement). Brokerage gain%/holdings still need a holdings model.
-- [x] **Payroll page** — shipped 2026-05-23 (Phase A). Three tabs: Single stub
+- [x] **Payroll page** — shipped 2026-05-23, **marked complete 2026-05-24** (moved
+  to Complete in the sidebar; the page/UX is done — paystub data swaps in when the
+  extractor supports it, per the note below). Three tabs: Single stub
   (hero + interactive donut + Earnings / Deductions / Taxes / Employer cards
   + Imputed footnote, prev/next nav), All stubs (table with year filter and
   event chips), YTD summary (year picker, big hero, 4 colored metric cards,

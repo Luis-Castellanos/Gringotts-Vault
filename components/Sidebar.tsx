@@ -65,6 +65,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: '/review', label: 'Review', Icon: IconReview, showBadge: true },
       { href: '/transactions', label: 'Transactions', Icon: IconTransactions },
+      { href: '/payroll', label: 'Payroll', Icon: IconPayroll },
     ],
   },
   {
@@ -73,7 +74,6 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: '/net-worth', label: 'Net Worth', Icon: IconNetWorth },
       { href: '/credit-cards', label: 'Credit Cards', Icon: IconCreditCard },
       { href: '/cashflow', label: 'Cashflow', Icon: IconCashflow },
-      { href: '/payroll', label: 'Payroll', Icon: IconPayroll },
     ],
   },
   {
