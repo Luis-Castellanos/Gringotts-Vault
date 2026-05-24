@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api/client';
+import { iconFor } from '@/lib/categories/icons';
 
 // ---- Types ---------------------------------------------------------------
 
@@ -231,15 +232,15 @@ export function ReviewQueueClient() {
 
   return (
     <>
-      {/* Compact header: thin progress bar + counts/filters row */}
+      {/* Header: prominent progress bar + session counts */}
       <div className="mb-6">
-        <div className="h-1 bg-surface-3 rounded-sm overflow-hidden">
+        <div className="h-2.5 bg-surface-3 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-positive to-positive-bright transition-[width] duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="flex items-center justify-between mt-2.5">
+        <div className="flex items-center mt-3">
           <div className="text-sm text-text-tertiary">
             <strong className="text-text-primary numeric">{remaining}</strong> remaining
             <span className="mx-2 text-text-muted">·</span>
@@ -247,9 +248,6 @@ export function ReviewQueueClient() {
             <span className="mx-2 text-text-muted">·</span>
             <strong className="text-text-primary numeric">{session.skipped}</strong> skipped
           </div>
-          <button className="flex items-center gap-2 px-3 py-1.5 bg-surface-2 border border-border-subtle rounded-lg text-sm text-text-tertiary hover:bg-surface-3">
-            ⚙ Filters
-          </button>
         </div>
       </div>
 
@@ -269,13 +267,8 @@ export function ReviewQueueClient() {
 
             <RawStatement raw={txn.rawDescription} />
 
-            <div className="flex items-center justify-between mt-6 mb-3">
+            <div className="mt-6 mb-3">
               <span className="eyebrow text-xs">Category</span>
-              <input
-                type="text"
-                placeholder="Search categories…"
-                className="bg-surface-base border border-border-subtle rounded-lg px-3.5 py-2 text-sm text-text-secondary w-60 outline-none focus:border-border-strong"
-              />
             </div>
 
             {suggested && (
@@ -287,7 +280,8 @@ export function ReviewQueueClient() {
             )}
 
             <CategoryPills
-              categories={quickCategories}
+              quick={quickCategories}
+              all={categories}
               pendingId={pendingCategoryId}
               suggestedId={suggested?.id ?? null}
               onPick={selectCategory}
@@ -422,7 +416,7 @@ function SuggestionBanner({
     <div className="flex items-center gap-3 px-4 py-3 rounded-lg mb-3 border border-accent-border bg-gradient-to-br from-accent-soft to-transparent">
       <span className="text-base">✨</span>
       <div className="flex-1 text-[13px] text-accent-300">
-        Suggested: <strong className="text-accent-200 text-sm">{suggested.name}</strong>
+        Suggested: <strong className="text-accent-200 text-sm">{iconFor(suggested.name)} {suggested.name}</strong>
         {' '}— based on {suggested.basedOn} prior {merchantPrefix ?? 'similar'} transactions.
       </div>
       <button
@@ -436,39 +430,84 @@ function SuggestionBanner({
 }
 
 function CategoryPills({
-  categories, pendingId, suggestedId, onPick,
+  quick, all, pendingId, suggestedId, onPick,
 }: {
-  categories: Category[];
+  quick: Category[];
+  all: Category[];
   pendingId: string | null;
   suggestedId: string | null;
   onPick: (id: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const results = q
+    ? all.filter((c) => c.name.toLowerCase().includes(q) || (c.parent?.name ?? '').toLowerCase().includes(q))
+    : all;
+  const pick = (id: string) => { onPick(id); setOpen(false); setQuery(''); };
+
   return (
-    <div className="flex flex-wrap gap-2 mb-4">
-      {categories.map((c, i) => {
-        const isPending = pendingId === c.id;
-        const isSuggested = !pendingId && suggestedId === c.id;
-        const ringClass =
-          isPending
-            ? 'border-2 border-accent-500 bg-accent-soft text-accent-200'
-            : isSuggested
-              ? 'border border-accent-border bg-accent-soft/40 text-accent-200'
-              : 'border border-border-strong bg-surface-base text-text-secondary hover:border-text-muted';
-        return (
-          <button
-            key={c.id}
-            onClick={() => onPick(c.id)}
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-[13px] cursor-pointer transition-colors ${ringClass}`}
-          >
-            <kbd>{i + 1}</kbd>
-            <span style={{ color: c.color ?? undefined }}>●</span>
-            <span>{c.name}</span>
-          </button>
-        );
-      })}
-      <button className="inline-flex items-center gap-2 px-3 py-2 bg-surface-base border border-border-strong rounded-full text-[13px] text-text-tertiary cursor-pointer hover:border-text-muted">
-        + More…
-      </button>
+    <div className="relative mb-4">
+      <div className="flex flex-wrap items-center gap-2.5">
+        {quick.map((c, i) => {
+          const isPending = pendingId === c.id;
+          const isSuggested = !pendingId && suggestedId === c.id;
+          const ringClass =
+            isPending
+              ? 'border-2 border-accent-500 bg-accent-soft text-accent-200'
+              : isSuggested
+                ? 'border border-accent-border bg-accent-soft/40 text-accent-200'
+                : 'border border-border-strong bg-surface-base text-text-secondary hover:border-text-muted';
+          return (
+            <button
+              key={c.id}
+              onClick={() => onPick(c.id)}
+              className={`inline-flex items-center gap-2.5 px-4 py-2.5 rounded-full text-[15px] cursor-pointer transition-colors ${ringClass}`}
+            >
+              <kbd>{i + 1}</kbd>
+              <span className="text-base leading-none">{iconFor(c.name)}</span>
+              <span>{c.name}</span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface-base border border-border-strong rounded-full text-[15px] text-text-tertiary cursor-pointer hover:border-text-muted"
+        >
+          + More…
+        </button>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Search categories…"
+          className="bg-surface-base border border-border-strong rounded-full px-4 py-2.5 text-[15px] text-text-secondary w-52 outline-none focus:border-text-muted"
+        />
+      </div>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => { setOpen(false); }} />
+          <div className="absolute left-0 top-full mt-2 z-40 w-[380px] max-w-full max-h-[320px] overflow-y-auto bg-surface-2 border border-border-strong rounded-xl shadow-2xl p-1.5">
+            {results.length === 0 && (
+              <div className="px-3 py-3 text-sm text-text-muted">No categories match.</div>
+            )}
+            {results.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => pick(c.id)}
+                className={`flex items-center gap-2.5 w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-surface-3 ${pendingId === c.id ? 'bg-accent-soft text-accent-200' : 'text-text-secondary'}`}
+              >
+                <span className="text-base leading-none">{iconFor(c.name)}</span>
+                <span className="truncate">{c.parent ? `${c.parent.name} → ${c.name}` : c.name}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -557,7 +596,7 @@ function RightRail({
                     background: s.category.color ? `${s.category.color}20` : 'rgba(249,115,22,0.12)',
                   }}
                 >
-                  {s.category.name}
+                  {iconFor(s.category.name)} {s.category.name}
                 </span>
               ) : (
                 <span className="text-xs px-2.5 py-1 rounded-full text-text-muted bg-surface-3">Uncategorized</span>
@@ -613,7 +652,7 @@ function RightRail({
                           background: r.categoryColor ? `${r.categoryColor}20` : 'rgba(249,115,22,0.12)',
                         }}
                       >
-                        {r.categoryName}
+                        {iconFor(r.categoryName)} {r.categoryName}
                       </span>
                       <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">↺ undo</span>
                     </div>
