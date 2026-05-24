@@ -7,10 +7,11 @@
  */
 
 import { NextRequest } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { documents } from '@/lib/db/schema';
+import { documents, imports, transactions } from '@/lib/db/schema';
+import { fail, ok } from '@/lib/api/respond';
 
 export const runtime = 'nodejs';
 
@@ -34,4 +35,36 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       'Cache-Control': 'private, max-age=0, must-revalidate',
     },
   });
+}
+
+/**
+ * Remove a document.
+ *   DELETE /api/documents/[id]            → remove the file only (transactions stay)
+ *   DELETE /api/documents/[id]?withData=1 → also remove the transactions it imported
+ *
+ * Transactions are found precisely via imports.document_id (set at upload).
+ */
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  const withData = new URL(req.url).searchParams.get('withData') === '1';
+
+  const imps = await db.select({ id: imports.id }).from(imports).where(eq(imports.documentId, id));
+  const impIds = imps.map((i) => i.id);
+
+  let deletedTransactions = 0;
+  if (withData && impIds.length > 0) {
+    const dt = await db
+      .delete(transactions)
+      .where(inArray(transactions.importId, impIds))
+      .returning({ id: transactions.id });
+    deletedTransactions = dt.length;
+    await db.delete(imports).where(inArray(imports.id, impIds));
+  }
+
+  // FK on imports.document_id is ON DELETE SET NULL, so a file-only delete
+  // leaves any import + its transactions intact (just unlinked).
+  const del = await db.delete(documents).where(eq(documents.id, id)).returning({ id: documents.id });
+  if (del.length === 0) return fail('not_found', 'Document not found.', 404);
+
+  return ok({ id, removedData: withData, deletedTransactions });
 }

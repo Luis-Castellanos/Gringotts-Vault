@@ -141,14 +141,15 @@ export async function ingestParsedStatement(args: {
   accountNumber: string | null;
   sourceFile: string;
   statementPeriod: string | null;
+  documentId?: string;
 }): Promise<IngestResult> {
-  const { rows, accountLabel, accountNumber, sourceFile, statementPeriod } = args;
+  const { rows, accountLabel, accountNumber, sourceFile, statementPeriod, documentId } = args;
   const accountId = await getOrCreateAccount(accountLabel, accountNumber);
   const categoryId = await uncategorizedId();
 
   const [imp] = await db
     .insert(imports)
-    .values({ sourceFile, statementPeriod: statementPeriod ?? null, accountId })
+    .values({ sourceFile, statementPeriod: statementPeriod ?? null, accountId, documentId: documentId ?? null })
     .returning({ id: imports.id });
   const importId = imp!.id;
 

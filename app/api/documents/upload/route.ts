@@ -125,6 +125,7 @@ export const POST = handler(async (req: NextRequest) => {
         accountNumber: res.accountNumber,
         sourceFile: fileName,
         statementPeriod: res.statementPeriod,
+        documentId,
       });
 
       await db

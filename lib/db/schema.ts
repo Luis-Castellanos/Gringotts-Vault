@@ -168,12 +168,17 @@ export const imports = pgTable(
     sourceFile: text('source_file').notNull(),
     statementPeriod: text('statement_period'),
     accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    // Set for in-app uploads so a document's transactions can be found/removed
+    // precisely. Null for offline load-master imports. Set-null on doc delete
+    // (removing a file without its data leaves the import + rows intact).
+    documentId: uuid('document_id').references((): AnyPgColumn => documents.id, { onDelete: 'set null' }),
     rowCount: integer('row_count').notNull().default(0),
     importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
     notes: text('notes'),
   },
   (t) => ({
     accountIdx: index('imports_account_idx').on(t.accountId),
+    documentIdx: index('imports_document_idx').on(t.documentId),
     importedAtIdx: index('imports_imported_at_idx').on(t.importedAt),
   }),
 );
