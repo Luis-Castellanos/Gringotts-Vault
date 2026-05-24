@@ -77,10 +77,20 @@ export const accounts = pgTable(
     openedAt: date('opened_at'),
     closedAt: date('closed_at'),
     notes: text('notes'),
-    // Credit-card lifecycle fields. Nullable on all account types — only
-    // populated for credit_card rows for now. Edited from the Credit Cards page.
+    // Type-specific fields. All nullable; only the ones relevant to a given
+    // account type are populated (edited from the Accounts settings page).
+    //   credit_card        → creditLimit, apr
+    //   checking/savings    → apy
+    //   loan                → interestRate, monthlyPayment, originalPrincipal, maturityDate
+    //   brokerage/retirement→ accountSubtype (Roth / Traditional / 401(k) / HSA / Brokerage…)
     creditLimit: numeric('credit_limit', { precision: 14, scale: 2 }),
     apr: numeric('apr', { precision: 5, scale: 2 }),
+    apy: numeric('apy', { precision: 6, scale: 3 }),
+    interestRate: numeric('interest_rate', { precision: 6, scale: 3 }),
+    monthlyPayment: numeric('monthly_payment', { precision: 14, scale: 2 }),
+    originalPrincipal: numeric('original_principal', { precision: 14, scale: 2 }),
+    maturityDate: date('maturity_date'),
+    accountSubtype: text('account_subtype'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

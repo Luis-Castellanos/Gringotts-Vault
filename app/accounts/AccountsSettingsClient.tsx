@@ -18,6 +18,12 @@ export type AcctRow = {
   openedDate: string | null;
   creditLimit: number | null;
   apr: number | null;
+  apy: number | null;
+  interestRate: number | null;
+  monthlyPayment: number | null;
+  originalPrincipal: number | null;
+  maturityDate: string | null;
+  accountSubtype: string | null;
   count: number;
   balance: number;
 };
@@ -250,30 +256,50 @@ function AccountDetail({
   onDelete: () => void;
 }) {
   const isCard = acct.type === 'credit_card';
+  const isCashLike = acct.type === 'checking' || acct.type === 'savings' || acct.type === 'cash';
+  const isLoan = acct.type === 'loan';
+  const isInvest = acct.type === 'brokerage' || acct.type === 'retirement';
+
   const [name, setName] = useState(acct.name);
   const [institution, setInstitution] = useState(acct.institution);
   const [last4, setLast4] = useState(acct.last4);
   const [openedAt, setOpenedAt] = useState(acct.openedDate ?? '');
   const [creditLimit, setCreditLimit] = useState(acct.creditLimit != null ? String(acct.creditLimit) : '');
   const [apr, setApr] = useState(acct.apr != null ? String(acct.apr) : '');
+  const [apy, setApy] = useState(acct.apy != null ? String(acct.apy) : '');
+  const [interestRate, setInterestRate] = useState(acct.interestRate != null ? String(acct.interestRate) : '');
+  const [monthlyPayment, setMonthlyPayment] = useState(acct.monthlyPayment != null ? String(acct.monthlyPayment) : '');
+  const [originalPrincipal, setOriginalPrincipal] = useState(acct.originalPrincipal != null ? String(acct.originalPrincipal) : '');
+  const [maturityDate, setMaturityDate] = useState(acct.maturityDate ?? '');
+  const [accountSubtype, setAccountSubtype] = useState(acct.accountSubtype ?? '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [statusBusy, setStatusBusy] = useState(false);
 
   const util = isCard && acct.creditLimit ? (-acct.balance / acct.creditLimit) * 100 : null;
   const available = isCard && acct.creditLimit != null ? acct.creditLimit + acct.balance : null;
+  const paidOff = isLoan && acct.originalPrincipal ? (1 - Math.abs(acct.balance) / acct.originalPrincipal) * 100 : null;
+  const num = (s: string) => (s.trim() === '' ? null : Number(s));
 
   async function save() {
     setSaving(true);
     setErr(null);
-    const r = await patchAccount(acct.id, {
+    const payload: Record<string, unknown> = {
       name: name.trim(),
       institution: institution.trim() || null,
       accountNumber: last4.trim() || null,
       openedAt: openedAt || null,
-      creditLimit: isCard && creditLimit ? Number(creditLimit) : null,
-      apr: isCard && apr ? Number(apr) : null,
-    });
+    };
+    if (isCard) { payload.creditLimit = num(creditLimit); payload.apr = num(apr); }
+    if (isCashLike) payload.apy = num(apy);
+    if (isLoan) {
+      payload.interestRate = num(interestRate);
+      payload.monthlyPayment = num(monthlyPayment);
+      payload.originalPrincipal = num(originalPrincipal);
+      payload.maturityDate = maturityDate || null;
+    }
+    if (isInvest) payload.accountSubtype = accountSubtype.trim() || null;
+    const r = await patchAccount(acct.id, payload);
     setSaving(false);
     if (!r.ok) { setErr(r.error ?? 'Could not save.'); return; }
     onSaved();
@@ -294,6 +320,10 @@ function AccountDetail({
         <Stat label="Transactions" value={acct.count.toLocaleString()} />
         {isCard && <Stat label="Utilization" value={util != null ? `${util.toFixed(1)}%` : '—'} />}
         {isCard && <Stat label="Available" value={available != null ? usd2.format(available) : '—'} />}
+        {isCashLike && acct.apy != null && <Stat label="APY" value={`${acct.apy}%`} />}
+        {isLoan && paidOff != null && <Stat label="Paid off" value={`${paidOff.toFixed(1)}%`} />}
+        {isLoan && acct.monthlyPayment != null && <Stat label="Monthly" value={usd2.format(acct.monthlyPayment)} />}
+        {isInvest && acct.accountSubtype && <Stat label="Subtype" value={acct.accountSubtype} />}
         <Stat label="Type" value={TYPE_LABEL[acct.type]} />
         <Stat label="Status" value={acct.isActive ? 'Active' : 'Closed'} />
       </div>
@@ -305,6 +335,12 @@ function AccountDetail({
         <Field label="Opened"><input type="date" value={openedAt} onChange={(e) => setOpenedAt(e.target.value)} /></Field>
         {isCard && <Field label="Credit limit"><input value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} inputMode="decimal" placeholder="—" /></Field>}
         {isCard && <Field label="APR %"><input value={apr} onChange={(e) => setApr(e.target.value)} inputMode="decimal" placeholder="—" /></Field>}
+        {isCashLike && <Field label="APY %"><input value={apy} onChange={(e) => setApy(e.target.value)} inputMode="decimal" placeholder="—" /></Field>}
+        {isLoan && <Field label="Interest rate %"><input value={interestRate} onChange={(e) => setInterestRate(e.target.value)} inputMode="decimal" placeholder="—" /></Field>}
+        {isLoan && <Field label="Monthly payment"><input value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} inputMode="decimal" placeholder="—" /></Field>}
+        {isLoan && <Field label="Original principal"><input value={originalPrincipal} onChange={(e) => setOriginalPrincipal(e.target.value)} inputMode="decimal" placeholder="—" /></Field>}
+        {isLoan && <Field label="Maturity date"><input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} /></Field>}
+        {isInvest && <Field label="Subtype"><input value={accountSubtype} onChange={(e) => setAccountSubtype(e.target.value)} placeholder="Roth / 401(k) / HSA…" /></Field>}
       </div>
 
       {err && <div className="acctset-detail-err">{err}</div>}

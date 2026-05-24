@@ -35,6 +35,12 @@ export default async function AccountsPage() {
       openedDate: a.openedAt ?? null,
       creditLimit: a.creditLimit != null ? Number(a.creditLimit) : null,
       apr: a.apr != null ? Number(a.apr) : null,
+      apy: a.apy != null ? Number(a.apy) : null,
+      interestRate: a.interestRate != null ? Number(a.interestRate) : null,
+      monthlyPayment: a.monthlyPayment != null ? Number(a.monthlyPayment) : null,
+      originalPrincipal: a.originalPrincipal != null ? Number(a.originalPrincipal) : null,
+      maturityDate: a.maturityDate ?? null,
+      accountSubtype: a.accountSubtype ?? null,
       count: s?.count ?? 0,
       balance: s ? Math.round(Number(s.balance) * 100) / 100 : 0,
     };

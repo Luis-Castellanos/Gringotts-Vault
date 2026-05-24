@@ -25,6 +25,12 @@ const bodySchema = z.object({
   closedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
   creditLimit: z.number().nonnegative().nullable().optional(),
   apr: z.number().min(0).max(100).nullable().optional(),
+  apy: z.number().min(0).max(100).nullable().optional(),
+  interestRate: z.number().min(0).max(100).nullable().optional(),
+  monthlyPayment: z.number().nonnegative().nullable().optional(),
+  originalPrincipal: z.number().nonnegative().nullable().optional(),
+  maturityDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
+  accountSubtype: z.string().max(60).nullable().optional(),
 });
 
 export const PATCH = handler(
@@ -66,6 +72,12 @@ export const PATCH = handler(
     if (body.apr !== undefined) {
       patch.apr = body.apr != null ? body.apr.toFixed(2) : null;
     }
+    if (body.apy !== undefined) patch.apy = body.apy != null ? body.apy.toFixed(3) : null;
+    if (body.interestRate !== undefined) patch.interestRate = body.interestRate != null ? body.interestRate.toFixed(3) : null;
+    if (body.monthlyPayment !== undefined) patch.monthlyPayment = body.monthlyPayment != null ? body.monthlyPayment.toFixed(2) : null;
+    if (body.originalPrincipal !== undefined) patch.originalPrincipal = body.originalPrincipal != null ? body.originalPrincipal.toFixed(2) : null;
+    if (body.maturityDate !== undefined) patch.maturityDate = body.maturityDate;
+    if (body.accountSubtype !== undefined) patch.accountSubtype = body.accountSubtype;
 
     // Close/reopen handling: closing sets closedAt automatically if absent;
     // re-opening clears closedAt unless caller passed one explicitly.

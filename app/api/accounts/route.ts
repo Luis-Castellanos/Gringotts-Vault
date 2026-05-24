@@ -22,6 +22,12 @@ const bodySchema = z.object({
   openedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional().nullable(),
   creditLimit: z.number().nonnegative().optional().nullable(),
   apr: z.number().min(0).max(100).optional().nullable(),
+  apy: z.number().min(0).max(100).optional().nullable(),
+  interestRate: z.number().min(0).max(100).optional().nullable(),
+  monthlyPayment: z.number().nonnegative().optional().nullable(),
+  originalPrincipal: z.number().nonnegative().optional().nullable(),
+  maturityDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional().nullable(),
+  accountSubtype: z.string().max(60).optional().nullable(),
 });
 
 function assetClassFor(type: (typeof TYPES)[number]): 'asset' | 'liability' {
@@ -47,6 +53,12 @@ export const POST = handler(async (req: NextRequest) => {
       openedAt: body.openedAt ?? null,
       creditLimit: body.creditLimit != null ? body.creditLimit.toFixed(2) : null,
       apr: body.apr != null ? body.apr.toFixed(2) : null,
+      apy: body.apy != null ? body.apy.toFixed(3) : null,
+      interestRate: body.interestRate != null ? body.interestRate.toFixed(3) : null,
+      monthlyPayment: body.monthlyPayment != null ? body.monthlyPayment.toFixed(2) : null,
+      originalPrincipal: body.originalPrincipal != null ? body.originalPrincipal.toFixed(2) : null,
+      maturityDate: body.maturityDate ?? null,
+      accountSubtype: body.accountSubtype ?? null,
     })
     .returning({ id: accounts.id });
 
