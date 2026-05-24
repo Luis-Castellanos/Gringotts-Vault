@@ -105,6 +105,8 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
 
   const toggleGroup = (g: string) =>
     setCollapsed((s) => { const n = new Set(s); n.has(g) ? n.delete(g) : n.add(g); return n; });
+  const expandAll = () => setCollapsed(new Set());
+  const collapseAll = () => setCollapsed(new Set(['Assets', 'Liabilities']));
 
   const visible = showClosed ? accounts : accounts.filter((a) => a.isActive);
   const closedCount = accounts.filter((a) => !a.isActive).length;
@@ -177,6 +179,8 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
   return (
     <div className="acctset">
       <header className="acctset-head">
+        <button type="button" className="acctset-tool-btn" onClick={expandAll}>Expand all</button>
+        <button type="button" className="acctset-tool-btn" onClick={collapseAll}>Collapse all</button>
         <button className="acctset-add" onClick={() => setModal({ mode: 'add' })}>
           <Plus /> Add account
         </button>
