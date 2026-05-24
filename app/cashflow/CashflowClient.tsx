@@ -74,7 +74,7 @@ const DEFAULT_RANGE: Record<Gran, number | 'all'> = { month: 12, quarter: 8, yea
 
 export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: CatAgg[] }) {
   const [gran, setGran] = useState<Gran>('month');
-  const [dim, setDim] = useState<Dim>('category');
+  const [dim, setDim] = useState<Dim>('group');
   const [sortKey, setSortKey] = useState<'amount' | 'amount-asc' | 'name'>('amount');
   const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState<string>('');
@@ -251,7 +251,7 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
             <option value="name">Name A–Z</option>
           </select>
           <div className="cf-seg sm" role="tablist" aria-label="Breakdown grouping">
-            {(['category', 'group'] as Dim[]).map((d) => (
+            {(['group', 'category'] as Dim[]).map((d) => (
               <button key={d} role="tab" aria-selected={dim === d} className={dim === d ? 'active' : ''} onClick={() => setDim(d)}>
                 {d === 'category' ? 'Category' : 'Group'}
               </button>
