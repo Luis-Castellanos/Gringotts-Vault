@@ -44,6 +44,9 @@
 }
 .acctset-card:hover { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18), 0 0 0 0.5px var(--line-strong); }
 .acctset-card.closed { opacity: 0.6; }
+.acctset-card.dragging { opacity: 0.45; }
+.acctset-card.drop-before { box-shadow: inset 3px 0 0 var(--text-2); }
+.acctset-card.drop-after { box-shadow: inset -3px 0 0 var(--text-2); }
 .acctset-card-remove {
   position: absolute; top: 8px; right: 8px;
   width: 22px; height: 22px; border-radius: 6px;

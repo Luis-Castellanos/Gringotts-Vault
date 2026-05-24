@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export type AcctType =
@@ -103,6 +103,17 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [accountOrders, setAccountOrders] = useState<Record<string, string[]>>({});
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [draggingBucket, setDraggingBucket] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; edge: 'before' | 'after' } | null>(null);
+
+  useEffect(() => {
+    try { const raw = localStorage.getItem('accounts:settings:order'); if (raw) setAccountOrders(JSON.parse(raw)); } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('accounts:settings:order', JSON.stringify(accountOrders)); } catch { /* ignore */ }
+  }, [accountOrders]);
 
   const toggleGroup = (g: string) =>
     setCollapsed((s) => { const n = new Set(s); n.has(g) ? n.delete(g) : n.add(g); return n; });
@@ -148,15 +159,24 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
     );
   }
 
-  function renderCard(a: AcctRow) {
+  function renderCard(a: AcctRow, bucketKey: string, bucketRows: AcctRow[]) {
+    const dragCls =
+      draggingId === a.id ? ' dragging'
+      : dropTarget?.id === a.id ? (dropTarget.edge === 'before' ? ' drop-before' : ' drop-after')
+      : '';
     return (
       <div
         key={a.id}
-        className={`acctset-card${a.isActive ? '' : ' closed'}`}
+        className={`acctset-card${a.isActive ? '' : ' closed'}${dragCls}`}
         role="button"
         tabIndex={0}
+        draggable
         onClick={() => setExpandedId(a.id)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(a.id); } }}
+        onDragStart={(e) => onCardDragStart(e, a.id, bucketKey)}
+        onDragOver={(e) => onCardDragOver(e, a.id, bucketKey)}
+        onDrop={(e) => onCardDrop(e, a.id, bucketKey, bucketRows)}
+        onDragEnd={onCardDragEnd}
       >
         <button
           type="button"
@@ -208,6 +228,48 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
       call('DELETE', `/api/accounts/${a.id}`);
     }
   }
+
+  // ── Drag-to-reorder within a type sub-group (grid view) ─────────────────
+  function orderRows(bucketKey: string, rows: AcctRow[]): AcctRow[] {
+    const order = accountOrders[bucketKey];
+    if (!order || order.length === 0) return rows;
+    const idx = new Map(order.map((id, i) => [id, i]));
+    return [...rows].sort((a, b) => {
+      const ai = idx.get(a.id); const bi = idx.get(b.id);
+      if (ai != null && bi != null) return ai - bi;
+      if (ai != null) return -1;
+      if (bi != null) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+  function onCardDragStart(e: React.DragEvent, id: string, bucketKey: string) {
+    setDraggingId(id); setDraggingBucket(bucketKey);
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', id); } catch { /* ignore */ }
+  }
+  function onCardDragOver(e: React.DragEvent, id: string, bucketKey: string) {
+    if (!draggingId || id === draggingId || draggingBucket !== bucketKey) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const edge = (e.clientX - rect.left) < rect.width / 2 ? 'before' : 'after';
+    setDropTarget((cur) => (cur && cur.id === id && cur.edge === edge ? cur : { id, edge }));
+  }
+  function onCardDrop(e: React.DragEvent, targetId: string, bucketKey: string, bucketRows: AcctRow[]) {
+    e.preventDefault();
+    const sourceId = draggingId; const target = dropTarget;
+    setDraggingId(null); setDraggingBucket(null); setDropTarget(null);
+    if (!sourceId || sourceId === targetId || !target || draggingBucket !== bucketKey) return;
+    const next = bucketRows.map((r) => r.id);
+    const sourceIdx = next.indexOf(sourceId);
+    let targetIdx = next.indexOf(target.id);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+    next.splice(sourceIdx, 1);
+    if (sourceIdx < targetIdx) targetIdx -= 1;
+    next.splice(target.edge === 'before' ? targetIdx : targetIdx + 1, 0, sourceId);
+    setAccountOrders((prev) => ({ ...prev, [bucketKey]: next }));
+  }
+  function onCardDragEnd() { setDraggingId(null); setDraggingBucket(null); setDropTarget(null); }
 
   return (
     <div className="acctset">
@@ -267,7 +329,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
                       <span className="acctset-subgroup-total numeric">{usd.format(typeTotal)}</span>
                     </div>
                     {view === 'grid'
-                      ? <div className="acctset-grid">{typeRows.map(renderCard)}</div>
+                      ? <div className="acctset-grid">{orderRows(t, typeRows).map((a, _i, arr) => renderCard(a, t, arr))}</div>
                       : <ul className="acctset-list">{typeRows.map(renderAccount)}</ul>}
                   </div>
                 );
