@@ -252,13 +252,14 @@
   gap: 12px;
 }
 .cf-tile {
+  text-align: center;
   background: var(--surface);
   border-radius: 14px;
   box-shadow: var(--shadow-card);
   padding: 16px 18px;
 }
 .cf-tile-value {
-  font-size: 26px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
