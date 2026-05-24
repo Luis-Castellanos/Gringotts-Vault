@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
 
 type NavItem = {
-  href: '/' | '/accounts' | '/credit-cards' | '/transactions' | '/review' | '/cashflow' | '/net-worth' | '/reports';
+  href: '/' | '/accounts' | '/credit-cards' | '/payroll' | '/transactions' | '/review' | '/cashflow' | '/net-worth' | '/reports';
   label: string;
   icon: string;
   showBadge?: boolean;
@@ -15,6 +15,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/', label: 'Dashboard', icon: '⌂' },
   { href: '/accounts', label: 'Accounts', icon: '▭' },
   { href: '/credit-cards', label: 'Credit Cards', icon: '▤' },
+  { href: '/payroll', label: 'Payroll', icon: '✦' },
   { href: '/transactions', label: 'Transactions', icon: '≡' },
   { href: '/review', label: 'Review', icon: '✓', showBadge: true },
   { href: '/cashflow', label: 'Cashflow', icon: '↗' },
