@@ -9,3 +9,6 @@ node_modules/
 next-env.d.ts
 .claude/settings.local.json
 .vscode/settings.json
+
+# Reference screenshots / design inspo for Claude to read — local only, not shipped
+reference/
