@@ -49,15 +49,20 @@ export const POST = handler(async (req: NextRequest) => {
       const buf = Buffer.from(await file.arrayBuffer());
       const hash = createHash('sha256').update(buf).digest('hex');
 
-      // Dedup: identical bytes already uploaded → skip (don't re-store/re-parse).
+      // Dedup: identical bytes already uploaded. A previously *parsed* file is a
+      // real duplicate → skip. A previously failed/deferred/stuck one gets a
+      // retry (those created no transactions), so drop the stale row and reparse.
       const [existing] = await db
-        .select({ id: documents.id })
+        .select({ id: documents.id, status: documents.status })
         .from(documents)
         .where(eq(documents.contentHash, hash))
         .limit(1);
       if (existing) {
-        results.push({ fileName, status: 'duplicate', documentId: existing.id });
-        continue;
+        if (existing.status === 'parsed') {
+          results.push({ fileName, status: 'duplicate', documentId: existing.id });
+          continue;
+        }
+        await db.delete(documents).where(eq(documents.id, existing.id));
       }
 
       // Store the file first so it's retained even if parsing fails.

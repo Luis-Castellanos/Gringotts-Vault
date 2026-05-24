@@ -75,9 +75,11 @@ def main():
     try:
         fd, tmp_txt = tempfile.mkstemp(suffix=".txt")
         os.close(fd)
-        # Mirror the skill's extraction: `pdftotext -layout`.
+        # `pdftotext -layout`, forcing UTF-8 output so non-ASCII glyphs (smart
+        # quotes, bullets, etc. on Apple Card / Amex statements) round-trip
+        # instead of crashing the downstream read on Windows' cp1252 default.
         subprocess.run(
-            ["pdftotext", "-layout", pdf_path, tmp_txt],
+            ["pdftotext", "-enc", "UTF-8", "-layout", pdf_path, tmp_txt],
             check=True,
             capture_output=True,
         )

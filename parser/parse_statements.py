@@ -806,7 +806,9 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
 
     Each returned transaction dict will have account and source_file populated.
     """
-    text = Path(text_path).read_text()
+    # UTF-8 with replacement — pdftotext emits UTF-8 (see extract.py); never let
+    # a stray byte crash the read (Windows would otherwise default to cp1252).
+    text = Path(text_path).read_text(encoding="utf-8", errors="replace")
     issuer = detect_issuer(text)
     if issuer == "jpm_investment":
         return [], "", "jpm_investment"
