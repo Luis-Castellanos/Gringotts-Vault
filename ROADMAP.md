@@ -178,8 +178,10 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
   toggle, click/prev-next period selection + hover tooltip, selected-period
   summary tiles (Income / Expenses / Net Savings / Savings Rate), and Income +
   Expenses breakdown lists with a Category / Group toggle and proportional bars.
-  Adapted from Monarch's Cash Flow design into Vault's palette. Still TODO:
-  Merchant breakdown dimension, account/date filters, older-data scroll, YoY.
+  Adapted from Monarch's Cash Flow design into Vault's palette. **2026-05-24:**
+  date-range presets + ‹ › paging (reaches all history back to 2019), and the
+  breakdown redesigned as full-row tinted bars. Still TODO: Merchant breakdown
+  dimension, account filters, YoY comparison, more reporting views.
 - [x] **Net Worth** — shipped 2026-05-24. The former Accounts reporting view
   (NW area chart, composition bar, grouped Cash/Investments/Liabilities balances
   + sparklines), now read-only at /net-worth. Deeper multi-year / account-level

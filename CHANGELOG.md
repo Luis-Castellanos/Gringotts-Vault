@@ -2,6 +2,19 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-24 — **UI iteration pass (accounts, categories, payroll, cashflow,
+  transactions).** Accounts settings page: grouped Assets/Liabilities → type
+  sub-groups, institution logos, click-to-expand detail, editable Type (re-files
+  the account), per-type fields (APY / loan terms / subtype), grid + list views
+  with quick remove, expand/collapse all. Credit Cards made view-only (nickname
+  rename kept). Transactions infinite-scroll + total count. Categories: card grid
+  → multi-column flow (no gaps / no truncation) + collapsibility + expand/collapse
+  all. Payroll single-stub trimmed to fit one viewport; voucher/salary removed
+  from the stub bar. Cashflow: date-range presets + paging (reaches 2019),
+  breakdown redesigned as full-row bars. Redundant page-title headers removed;
+  Accounts & Categories widened to full width. Clean-slate scripts: db:reset /
+  db:reset:all.
+
 - 2026-05-24 — **Accounts restructure, view-only Credit Cards, Transactions
   infinite scroll, per-type fields.** Split the old Accounts page: the net-worth
   reporting view moved to **/net-worth** (read-only); **/accounts** is now a
