@@ -19,14 +19,14 @@
  */
 
 import 'dotenv/config';
-import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import * as XLSX from 'xlsx';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { accounts, categories, imports, transactions } from '@/lib/db/schema';
+import { categories, imports, transactions } from '@/lib/db/schema';
 import { cleanMerchant } from '@/lib/transactions/merchant';
+import { contentHash, getOrCreateAccount, normalizeAccountNumber } from '@/lib/ingest';
 import {
   CATEGORY_PALETTE,
   UNCATEGORIZED_SLUG,
@@ -37,49 +37,8 @@ import {
 } from '@/lib/transactions/taxonomy';
 
 // ---------------------------------------------------------------------------
-// Account helpers (unchanged from prior loader)
+// XLSX-specific helper. Account resolution + dedup hashing live in lib/ingest.
 // ---------------------------------------------------------------------------
-
-function inferAccountType(name: string): { type: typeof accounts.$inferInsert['type']; assetClass: 'asset' | 'liability' } {
-  const n = name.toLowerCase();
-  if (n.includes('card') || n.includes('visa') || n.includes('amex') || n.includes('mastercard')) return { type: 'credit_card', assetClass: 'liability' };
-  if (n.includes('savings')) return { type: 'savings', assetClass: 'asset' };
-  if (n.includes('checking')) return { type: 'checking', assetClass: 'asset' };
-  if (n.includes('401') || n.includes('ira') || n.includes('roth')) return { type: 'retirement', assetClass: 'asset' };
-  if (n.includes('brokerage') || n.includes('vanguard') || n.includes('fidelity')) return { type: 'brokerage', assetClass: 'asset' };
-  if (n.includes('loan') || n.includes('mortgage') || n.includes('student')) return { type: 'loan', assetClass: 'liability' };
-  return { type: 'other', assetClass: 'asset' };
-}
-
-function parseAccountLabel(label: string): { name: string; accountNumber: string | null } {
-  const m = label.trim().match(/^(.*?)\s+(\d{4})\s*$/);
-  if (m) return { name: m[1].trim(), accountNumber: m[2] };
-  return { name: label.trim(), accountNumber: null };
-}
-
-function normalizeAccountNumber(raw: unknown): string | null {
-  if (raw == null || raw === '') return null;
-  if (typeof raw === 'number') return String(raw).padStart(4, '0');
-  return String(raw).trim();
-}
-
-function resolveAccountIdentity(
-  label: string,
-  accountNumberFromColumn: string | null,
-): { name: string; accountNumber: string | null } {
-  const parsed = parseAccountLabel(label);
-  const accountNumber = accountNumberFromColumn ?? parsed.accountNumber;
-  const labelTrim = label.trim();
-  let name = labelTrim;
-  if (accountNumber && labelTrim.endsWith(accountNumber)) {
-    name = labelTrim.slice(0, -accountNumber.length).trim();
-  }
-  return { name, accountNumber };
-}
-
-function contentHash(accountId: string, date: string, amount: string, raw: string): string {
-  return createHash('sha256').update(`${accountId}|${date}|${amount}|${raw}`).digest('hex');
-}
 
 function excelDateToISO(value: unknown): string | null {
   if (value == null || value === '') return null;
@@ -93,40 +52,6 @@ function excelDateToISO(value: unknown): string | null {
     if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
   }
   return null;
-}
-
-async function getOrCreateAccount(
-  label: string,
-  accountNumberFromColumn: string | null,
-): Promise<string> {
-  const { name, accountNumber } = resolveAccountIdentity(label, accountNumberFromColumn);
-  const existing = await db
-    .select()
-    .from(accounts)
-    .where(and(eq(accounts.name, name), eq(accounts.accountNumber, accountNumber ?? '')));
-  if (existing[0]) return existing[0].id;
-
-  // Fallback: the master-file label's name may differ from the curated account
-  // name (e.g. "Chase Prime" vs "Chase Prime Visa"). If the account number
-  // uniquely identifies one existing account, attach to it instead of spawning a
-  // duplicate. Ambiguous numbers (e.g. a shared last-4 across checking+savings)
-  // fall through to creation, where the exact-name match above already handled
-  // the legitimate cases.
-  if (accountNumber) {
-    const byNumber = await db.select().from(accounts).where(eq(accounts.accountNumber, accountNumber));
-    if (byNumber.length === 1) return byNumber[0]!.id;
-  }
-
-  const { type, assetClass } = inferAccountType(name);
-  const display = accountNumber ? `${name} ••${accountNumber}` : name;
-
-  const [row] = await db
-    .insert(accounts)
-    .values({ name, displayName: display, accountNumber, type, assetClass })
-    .returning({ id: accounts.id });
-
-  console.log(`  [+] Created account: ${display} (type=${type}, asset_class=${assetClass})`);
-  return row.id;
 }
 
 // ---------------------------------------------------------------------------
