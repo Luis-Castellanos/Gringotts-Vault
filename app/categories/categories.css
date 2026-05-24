@@ -45,19 +45,13 @@
   padding: 0 4px;
 }
 
-/* Three flow-type columns (Inflows · Outflows · Transfers) side by side */
-.cat-cols {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 1100px) { .cat-cols { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 720px) { .cat-cols { grid-template-columns: 1fr; } }
-
-/* Each section is one column: header + a vertical stack of parent cards */
+/* List view — one card per flow type, stacked (Inflows, Outflows, Transfers) */
 .cat-section {
-  min-width: 0;
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 10px 16px 12px;
+  margin-bottom: 14px;
 }
 .cat-section-head {
   display: flex;
@@ -174,17 +168,16 @@
 
 .cat-list {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 .cat-parent {
-  background: var(--surface);
-  border-radius: 12px;
-  box-shadow: var(--shadow-card);
-  padding: 4px 8px 8px;
+  padding: 5px 0 7px;
+}
+.cat-parent:not(:first-child) {
+  border-top: 1px solid var(--line);
 }
 .cat-children {
   list-style: none;

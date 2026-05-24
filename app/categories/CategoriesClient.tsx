@@ -205,7 +205,6 @@ export function CategoriesClient({ nodes }: { nodes: CatNode[] }) {
         </div>
       )}
 
-      <div className="cat-cols">
       {FLOWS.map(({ flow, label }) => {
         const flowParents = parents.filter((p) => p.flowType === flow);
         const flowCollapsed = collapsedFlows.has(flow);
@@ -284,7 +283,6 @@ export function CategoriesClient({ nodes }: { nodes: CatNode[] }) {
           </section>
         );
       })}
-      </div>
 
       {modal && (
         <CatModal
