@@ -184,14 +184,14 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
         >
           <IconBell />
         </button>
-        <button
-          type="button"
+        <Link
+          href="/settings"
           className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
           aria-label="Settings"
-          title="Settings (coming soon)"
+          title="Settings"
         >
           <IconSettings />
-        </button>
+        </Link>
         <button
           type="button"
           onClick={collapseSidebar}
