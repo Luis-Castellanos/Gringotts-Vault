@@ -65,13 +65,21 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] 
   return [ref, w];
 }
 
-const WINDOW: Record<Gran, number> = { month: 13, quarter: 8, year: 100 };
+const RANGES: Record<Gran, { label: string; n: number | 'all' }[]> = {
+  month: [{ label: '12M', n: 12 }, { label: '24M', n: 24 }, { label: 'All', n: 'all' }],
+  quarter: [{ label: '2Y', n: 8 }, { label: '4Y', n: 16 }, { label: 'All', n: 'all' }],
+  year: [{ label: 'All', n: 'all' }],
+};
+const DEFAULT_RANGE: Record<Gran, number | 'all'> = { month: 12, quarter: 8, year: 'all' };
 
 export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: CatAgg[] }) {
   const [gran, setGran] = useState<Gran>('month');
   const [dim, setDim] = useState<Dim>('category');
   const [selected, setSelected] = useState<string>('');
   const [hover, setHover] = useState<{ key: string; x: number } | null>(null);
+  const [rangeN, setRangeN] = useState<number | 'all'>(DEFAULT_RANGE.month);
+  const [offset, setOffset] = useState(0); // buckets shifted back from the latest window
+  useEffect(() => { setRangeN(DEFAULT_RANGE[gran]); setOffset(0); }, [gran]);
 
   // Bucket the monthly series into the chosen granularity.
   const buckets = useMemo(() => {
@@ -86,7 +94,14 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
     return [...m.values()].sort((a, b) => a.key.localeCompare(b.key));
   }, [series, gran]);
 
-  const visible = useMemo(() => buckets.slice(-WINDOW[gran]), [buckets, gran]);
+  const count = rangeN === 'all' ? buckets.length : Math.min(rangeN, buckets.length);
+  const endIdx = Math.max(0, buckets.length - 1 - offset);
+  const startIdx = Math.max(0, endIdx - count + 1);
+  const visible = buckets.slice(startIdx, endIdx + 1);
+  const canBack = startIdx > 0;
+  const canFwd = offset > 0;
+  const pageBack = () => setOffset((o) => Math.min(Math.max(0, buckets.length - count), o + count));
+  const pageFwd = () => setOffset((o) => Math.max(0, o - count));
 
   // Default / clamp the selected period to the latest visible bucket.
   useEffect(() => {
@@ -151,6 +166,30 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
               {g === 'month' ? 'Monthly' : g === 'quarter' ? 'Quarterly' : 'Yearly'}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Range + paging */}
+      <div className="cf-controls">
+        <div className="cf-seg sm" role="tablist" aria-label="Range">
+          {RANGES[gran].map((r) => (
+            <button
+              key={r.label}
+              role="tab"
+              aria-selected={rangeN === r.n}
+              className={rangeN === r.n ? 'active' : ''}
+              onClick={() => { setRangeN(r.n); setOffset(0); }}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <div className="cf-pager">
+          <button onClick={pageBack} disabled={!canBack} aria-label="Earlier periods">‹</button>
+          <span className="cf-range-label">
+            {visible.length ? `${periodLabel(visible[0].key, gran)} – ${periodLabel(visible[visible.length - 1].key, gran)}` : '—'}
+          </span>
+          <button onClick={pageFwd} disabled={!canFwd} aria-label="Later periods">›</button>
         </div>
       </div>
 
