@@ -233,33 +233,45 @@ async function categorizeTxn(
   }
 }
 
+async function deleteTxn(id: string): Promise<SaveResult> {
+  try {
+    const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!res.ok || json.error) return { ok: false, error: json?.error?.message ?? `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Network error' };
+  }
+}
+
 function fmtDateShort(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // ─── Inline expansion: edit a single transaction ─────────────────────────
 function TxnDetail({
-  txn, categories, onSaved,
-}: { txn: TxnRow; categories: CatLite[]; onSaved: (patch: TxnPatch) => void }) {
+  txn, categories, onSaved, onDeleted, onViewMerchant,
+}: {
+  txn: TxnRow;
+  categories: CatLite[];
+  onSaved: (patch: TxnPatch) => void;
+  onDeleted: () => void;
+  onViewMerchant: (merchant: string) => void;
+}) {
   const [merchant, setMerchant] = useState(txn.merchant);
-  const [parentId, setParentId] = useState<string>(() => {
-    const a = txn.categoryId ? categories.find((c) => c.id === txn.categoryId) : null;
-    return a ? a.parentId ?? a.id : '';
-  });
-  const [childId, setChildId] = useState<string>(() => {
-    const a = txn.categoryId ? categories.find((c) => c.id === txn.categoryId) : null;
-    return a && a.parentId ? a.id : '';
-  });
+  const [categoryId, setCategoryId] = useState<string>(txn.categoryId ?? '');
   const [notes, setNotes] = useState(txn.notes ?? '');
   const [isTransfer, setIsTransfer] = useState(txn.isTransfer);
   const [needsReview, setNeedsReview] = useState(txn.needsReview);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catPickerAt, setCatPickerAt] = useState<Anchor | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Effective category = the leaf (sub-category) if chosen, else the top-level.
-  const categoryId = childId || parentId;
-  const parents = categories.filter((c) => c.parentId === null);
-  const subs = categories.filter((c) => c.parentId === parentId);
+  const cat = categoryId ? categories.find((c) => c.id === categoryId) ?? null : null;
+  const catLabel = cat ? (cat.parentName ? `${cat.parentName} → ${cat.name}` : cat.name) : 'Uncategorized';
+  const isPositive = txn.amount > 0;
 
   const dirty =
     merchant !== txn.merchant ||
@@ -288,35 +300,90 @@ function TxnDetail({
     onSaved({ merchant: merchant.trim(), categoryId, notes, isTransfer, needsReview });
   }
 
+  async function copyRaw() {
+    try {
+      await navigator.clipboard.writeText(txn.rawDescription);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+
+  async function remove() {
+    setSaving(true);
+    const r = await deleteTxn(txn.id);
+    if (!r.ok) { setSaving(false); setError(r.error); setConfirmDelete(false); return; }
+    onDeleted();
+  }
+
   return (
     <div className="tx-expand-content" onClick={(e) => e.stopPropagation()}>
+      {/* Header: vendor + amount/account/date */}
+      <div className="txd-head">
+        <VendorLogo merchant={merchant || txn.merchant} size={40} />
+        <div className="txd-id">
+          <div className="txd-vendor">{merchant || txn.merchant}</div>
+          <button type="button" className="txd-viewall" onClick={() => onViewMerchant(txn.merchant)}>
+            View all transactions from this merchant →
+          </button>
+        </div>
+        <div className="txd-meta">
+          <div className={'txd-amount' + (isPositive && !isTransfer ? ' pos' : '')}>
+            {fmtMoney(txn.amount, { sign: isPositive })}
+          </div>
+          <div className="txd-acct">
+            <AccountLogo institution={txn.accountInstitution} size={16} />
+            {txn.accountName}{txn.accountLast4 ? ` ····${txn.accountLast4}` : ''}
+          </div>
+          <div className="txd-date">{fmtDateShort(txn.date)}</div>
+        </div>
+      </div>
+
+      {/* Original statement (the raw source text) */}
+      <div className="txd-orig">
+        <span className="txd-orig-label">Original statement</span>
+        <span className="txd-orig-text">{txn.rawDescription}</span>
+        <button type="button" className="txd-copy" onClick={copyRaw} title="Copy original statement">
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+
       <div className="tx-form-grid">
         <label>
           Merchant
           <input type="text" value={merchant} onChange={(e) => setMerchant(e.target.value)} maxLength={200} />
         </label>
-        <label>
-          Category
-          <select value={parentId} onChange={(e) => { setParentId(e.target.value); setChildId(''); }}>
-            <option value="">— Uncategorized —</option>
-            {parents.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Sub-category
-          <select
-            value={childId}
-            onChange={(e) => setChildId(e.target.value)}
-            disabled={!parentId || subs.length === 0}
+        <div className="txd-field">
+          <span className="txd-field-label">Category</span>
+          <button
+            type="button"
+            className="txd-cat-btn"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setCatPickerAt({ x: Math.min(r.left, window.innerWidth - 264), y: r.bottom + 4 });
+            }}
           >
-            <option value="">{subs.length === 0 ? '— None —' : '— Use category only —'}</option>
-            {subs.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </label>
+            <span className="ic" style={{ background: iconBg(cat?.color ?? null) }}>{iconFor(cat?.name ?? 'Uncategorized')}</span>
+            <span className="nm">{catLabel}</span>
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="chev">
+              <path d="M3.5 5l3.5 3.5L10.5 5" />
+            </svg>
+          </button>
+          {catPickerAt && (
+            <CategoryPicker
+              categories={categories}
+              currentId={categoryId || null}
+              anchor={catPickerAt}
+              onPick={(cid) => { setCategoryId(cid); setCatPickerAt(null); }}
+              onClose={() => setCatPickerAt(null)}
+            />
+          )}
+        </div>
+        <div className="txd-field">
+          <span className="txd-field-label">Date</span>
+          <div className="txd-static">{fmtDateShort(txn.date)}</div>
+        </div>
         <label className="span-3">
           Notes
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
@@ -331,9 +398,18 @@ function TxnDetail({
           {needsReview ? 'In review queue' : 'Send back to review queue'}
         </label>
       </div>
-      <div className="tx-raw"><span className="lbl">Raw</span>{txn.rawDescription}</div>
+
       <div className="tx-actions">
         {error && <span className="err">{error}</span>}
+        {confirmDelete ? (
+          <span className="txd-confirm">
+            Delete this transaction?
+            <button type="button" className="txd-delete" disabled={saving} onClick={remove}>Yes, delete</button>
+            <button type="button" className="pg-btn" onClick={() => setConfirmDelete(false)}>Cancel</button>
+          </span>
+        ) : (
+          <button type="button" className="txd-delete-link" onClick={() => setConfirmDelete(true)}>Delete</button>
+        )}
         <button type="button" className="pg-btn primary" disabled={saving || !dirty} onClick={save}>
           {saving ? 'Saving…' : dirty ? 'Save changes' : 'No changes'}
         </button>
@@ -819,6 +895,8 @@ function TxnTable({
     onPickCategory: (id: string, categoryId: string) => void;
     onPickAccount: (id: string, accountId: string) => void;
     onClose: () => void;
+    onDeleted: (id: string) => void;
+    onViewMerchant: (merchant: string) => void;
   };
 }) {
   const dateDir = sortBy === 'date-asc' ? 'asc' : sortBy === 'date-desc' ? 'desc' : null;
@@ -927,7 +1005,13 @@ function TxnTable({
               {isOpen && (
                 <tr className="tx-trow-detail">
                   <td colSpan={cols}>
-                    <TxnDetail txn={t} categories={categories} onSaved={(patch) => onSaved(t.id, patch)} />
+                    <TxnDetail
+                      txn={t}
+                      categories={categories}
+                      onSaved={(patch) => onSaved(t.id, patch)}
+                      onDeleted={() => inline.onDeleted(t.id)}
+                      onViewMerchant={inline.onViewMerchant}
+                    />
                   </td>
                 </tr>
               )}
@@ -962,15 +1046,17 @@ export function TransactionsClient({
   const [filters, setFilters] = useState<Filters>(baseFilters);
 
   // Apply incoming filters from the URL once (e.g. drill-down from Cashflow:
-  // ?cats=<ids>&from=YYYY-MM-DD&to=YYYY-MM-DD).
+  // ?cats=<ids>&from=YYYY-MM-DD&to=YYYY-MM-DD, or ?merchant=<name>).
   useEffect(() => {
     const cats = searchParams.get('cats');
     const from = searchParams.get('from');
     const to = searchParams.get('to');
-    if (!cats && !from && !to) return;
+    const merchant = searchParams.get('merchant');
+    if (!cats && !from && !to && !merchant) return;
     setFilters((f) => ({
       ...f,
       categoryIds: cats ? cats.split(',').filter(Boolean) : f.categoryIds,
+      merchants: merchant ? [merchant] : f.merchants,
       dateRange: from || to ? 'custom' : f.dateRange,
       customFrom: from ?? f.customFrom,
       customTo: to ?? f.customTo,
@@ -1147,6 +1233,18 @@ export function TransactionsClient({
     [categories],
   );
 
+  const removeRow = useCallback((id: string) => {
+    setRows((prev) => prev.filter((r) => r.id !== id));
+    setSelectedId(null);
+  }, []);
+  const viewMerchant = useCallback(
+    (m: string) => {
+      setFilters({ ...baseFilters, merchants: [m] });
+      setSelectedId(null);
+    },
+    [baseFilters],
+  );
+
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
       const n = new Set(prev);
@@ -1249,7 +1347,7 @@ export function TransactionsClient({
       <div className="tx-toolbar">
         <input
           type="search"
-          placeholder="Search merchants or raw description…"
+          placeholder="Search"
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
         />
@@ -1392,6 +1490,8 @@ export function TransactionsClient({
               onPickCategory: applyCategory,
               onPickAccount: applyAccount,
               onClose: () => setEditCell(null),
+              onDeleted: removeRow,
+              onViewMerchant: viewMerchant,
             }}
           />
         ) : (
@@ -1505,6 +1605,8 @@ export function TransactionsClient({
                               setSelectedId(null);
                               patchLocalRow(t.id, patch);
                             }}
+                            onDeleted={() => removeRow(t.id)}
+                            onViewMerchant={viewMerchant}
                           />
                         )}
                       </div>

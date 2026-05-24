@@ -68,3 +68,15 @@ export const PATCH = handler(
     return ok({ updated: applied.length, applied });
   },
 );
+
+export const DELETE = handler(
+  async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+    const { id } = await ctx.params;
+    const deleted = await db
+      .delete(transactions)
+      .where(eq(transactions.id, id))
+      .returning({ id: transactions.id });
+    if (deleted.length === 0) return fail('not_found', 'Transaction not found.', 404);
+    return ok({ deleted: deleted.length });
+  },
+);
