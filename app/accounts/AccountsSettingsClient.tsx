@@ -101,6 +101,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [showClosed, setShowClosed] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [view, setView] = useState<'grid' | 'list'>('grid');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const toggleGroup = (g: string) =>
@@ -147,6 +148,38 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
     );
   }
 
+  function renderCard(a: AcctRow) {
+    return (
+      <div
+        key={a.id}
+        className={`acctset-card${a.isActive ? '' : ' closed'}`}
+        role="button"
+        tabIndex={0}
+        onClick={() => setExpandedId(a.id)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(a.id); } }}
+      >
+        <button
+          type="button"
+          className="acctset-card-remove"
+          title="Remove account"
+          aria-label="Remove account"
+          onClick={(e) => { e.stopPropagation(); onDelete(a); }}
+        >×</button>
+        <div className="acctset-card-top">
+          <InstLogo institution={a.institution} />
+          <div className="acctset-card-id">
+            <span className="acctset-card-name">
+              {a.name}{!a.isActive && <span className="acctset-badge">Closed</span>}
+            </span>
+            <span className="acctset-card-sub">{a.institution || '—'}{a.last4 ? ` ····${a.last4}` : ''}</span>
+          </div>
+        </div>
+        <div className="acctset-card-bal numeric">{usd.format(a.balance)}</div>
+        <div className="acctset-card-foot">{TYPE_LABEL[a.type]} · {a.count.toLocaleString()} txns</div>
+      </div>
+    );
+  }
+
   async function call(method: string, url: string, body?: unknown): Promise<boolean> {
     setBusy(true);
     setError(null);
@@ -179,11 +212,21 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
   return (
     <div className="acctset">
       <header className="acctset-head">
-        <button type="button" className="acctset-tool-btn" onClick={expandAll}>Expand all</button>
-        <button type="button" className="acctset-tool-btn" onClick={collapseAll}>Collapse all</button>
-        <button className="acctset-add" onClick={() => setModal({ mode: 'add' })}>
-          <Plus /> Add account
-        </button>
+        <div className="acctset-viewtoggle" role="tablist" aria-label="View">
+          <button type="button" role="tab" aria-selected={view === 'grid'} className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')} aria-label="Grid view" title="Grid">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="2" y="2" width="4" height="4" rx="0.8" /><rect x="8" y="2" width="4" height="4" rx="0.8" /><rect x="2" y="8" width="4" height="4" rx="0.8" /><rect x="8" y="8" width="4" height="4" rx="0.8" /></svg>
+          </button>
+          <button type="button" role="tab" aria-selected={view === 'list'} className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} aria-label="List view" title="List">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2 4h10M2 7h10M2 10h10" /></svg>
+          </button>
+        </div>
+        <div className="acctset-head-actions">
+          <button type="button" className="acctset-tool-btn" onClick={expandAll}>Expand all</button>
+          <button type="button" className="acctset-tool-btn" onClick={collapseAll}>Collapse all</button>
+          <button className="acctset-add" onClick={() => setModal({ mode: 'add' })}>
+            <Plus /> Add account
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -223,7 +266,9 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
                       <span className="acctset-subgroup-count">{typeRows.length}</span>
                       <span className="acctset-subgroup-total numeric">{usd.format(typeTotal)}</span>
                     </div>
-                    <ul className="acctset-list">{typeRows.map(renderAccount)}</ul>
+                    {view === 'grid'
+                      ? <div className="acctset-grid">{typeRows.map(renderCard)}</div>
+                      : <ul className="acctset-list">{typeRows.map(renderAccount)}</ul>}
                   </div>
                 );
               })}
@@ -236,6 +281,36 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
           {showClosed ? 'Hide' : 'Show'} {closedCount} closed {closedCount === 1 ? 'account' : 'accounts'}
         </button>
       )}
+
+      {view === 'grid' && expandedId && (() => {
+        const a = accounts.find((x) => x.id === expandedId);
+        if (!a) return null;
+        return (
+          <div className="cc-modal-root">
+            <div className="cc-modal-backdrop" onClick={() => setExpandedId(null)}>
+              <div className="cc-detail-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="cc-detail-modal-header">
+                  <InstLogo institution={a.institution} />
+                  <div className="cc-detail-modal-title">
+                    <h2>{a.name}</h2>
+                    <p>{a.institution || '—'}{a.last4 ? ` ····${a.last4}` : ''} · {TYPE_LABEL[a.type]}</p>
+                  </div>
+                  <button className="cc-detail-modal-close" onClick={() => setExpandedId(null)} aria-label="Close">×</button>
+                </div>
+                <div className="cc-detail-modal-body">
+                  <AccountDetail
+                    key={a.id}
+                    acct={a}
+                    onSaved={() => router.refresh()}
+                    onMerge={() => { setExpandedId(null); setModal({ mode: 'merge', acct: a }); }}
+                    onDelete={() => { setExpandedId(null); onDelete(a); }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {modal?.mode === 'merge' ? (
         <MergeModal
