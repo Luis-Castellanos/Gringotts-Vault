@@ -675,28 +675,29 @@ function AccountRowEl({
       </div>
       <div className="bal num">{fmtMoneyA(Math.abs(a.balance))}</div>
       <div className="row-actions">
-        {a.isActive ? (
+        {a.isActive && onClose && (
           <button
             type="button"
             className="row-action-btn danger"
             disabled={busy}
             onClick={(e) => {
               e.stopPropagation();
-              onClose?.(a.id);
+              onClose(a.id);
             }}
             title="Mark as closed"
             aria-label="Mark as closed"
           >
             ×
           </button>
-        ) : (
+        )}
+        {!a.isActive && onReopen && (
           <button
             type="button"
             className="row-action-btn"
             disabled={busy}
             onClick={(e) => {
               e.stopPropagation();
-              onReopen?.(a.id);
+              onReopen(a.id);
             }}
             title="Re-open"
             aria-label="Re-open"
@@ -1595,12 +1596,14 @@ function AccountDetailModal({
 }
 
 // ─── Main client ──────────────────────────────────────────────────────────
-export function AccountsClient({
+export function NetWorthClient({
   accounts,
   nwSeries,
+  readOnly = false,
 }: {
   accounts: AccountRow[];
   nwSeries: NWPoint[];
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<'active' | 'closed'>('active');
@@ -1895,12 +1898,14 @@ export function AccountsClient({
               List
             </button>
           </div>
-          <button type="button" className="pg-btn primary" onClick={() => setShowAdd(true)}>
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 2v10M2 7h10" />
-            </svg>
-            Add account
-          </button>
+          {!readOnly && (
+            <button type="button" className="pg-btn primary" onClick={() => setShowAdd(true)}>
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 2v10M2 7h10" />
+              </svg>
+              Add account
+            </button>
+          )}
         </div>
       </header>
 
@@ -2012,9 +2017,9 @@ export function AccountsClient({
                                     busy={busyId === a.id}
                                     isDragging={draggingId === a.id}
                                     dropEdge={dropTarget?.id === a.id ? dropTarget.edge : null}
-                                    onClick={() => setDetailId(a.id)}
-                                    onClose={handleClose}
-                                    onReopen={handleReopen}
+                                    onClick={readOnly ? undefined : () => setDetailId(a.id)}
+                                    onClose={readOnly ? undefined : handleClose}
+                                    onReopen={readOnly ? undefined : handleReopen}
                                     onDragStart={(e) => onCardDragStart(e, a.id, bucketKey)}
                                     onDragOver={(e) => onCardDragOver(e, a.id, bucketKey)}
                                     onDrop={(e) => onCardDrop(e, a.id, bucketKey, orderedRows)}
@@ -2081,9 +2086,9 @@ export function AccountsClient({
                               key={a.id}
                               a={a}
                               dimmed={!a.isActive}
-                              onClick={() => setDetailId(a.id)}
-                              onClose={handleClose}
-                              onReopen={handleReopen}
+                              onClick={readOnly ? undefined : () => setDetailId(a.id)}
+                              onClose={readOnly ? undefined : handleClose}
+                              onReopen={readOnly ? undefined : handleReopen}
                               busy={busyId === a.id}
                             />
                           ))

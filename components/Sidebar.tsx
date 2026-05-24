@@ -63,7 +63,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'Complete',
     items: [
-      { href: '/accounts', label: 'Accounts', Icon: IconAccounts },
+      { href: '/net-worth', label: 'Net Worth', Icon: IconNetWorth },
       { href: '/credit-cards', label: 'Credit Cards', Icon: IconCreditCard },
       { href: '/review', label: 'Review', Icon: IconReview, showBadge: true },
     ],
@@ -71,6 +71,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'Under development',
     items: [
+      { href: '/cashflow', label: 'Cashflow', Icon: IconCashflow },
       { href: '/payroll', label: 'Payroll', Icon: IconPayroll },
       { href: '/transactions', label: 'Transactions', Icon: IconTransactions },
     ],
@@ -79,8 +80,6 @@ const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Not started',
     items: [
       { href: '/', label: 'Dashboard', Icon: IconDashboard },
-      { href: '/cashflow', label: 'Cashflow', Icon: IconCashflow },
-      { href: '/net-worth', label: 'Net Worth', Icon: IconNetWorth },
       { href: '/reports', label: 'Reports', Icon: IconReports },
       { href: '/rentals', label: 'Rental Properties', Icon: IconRentals },
       { href: '/investments', label: 'Investments', Icon: IconInvestments },
@@ -91,6 +90,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'Manage',
     items: [
+      { href: '/accounts', label: 'Accounts', Icon: IconAccounts },
       { href: '/categories', label: 'Categories', Icon: IconCategories },
     ],
   },

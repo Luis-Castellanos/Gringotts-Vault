@@ -106,6 +106,17 @@ async function getOrCreateAccount(
     .where(and(eq(accounts.name, name), eq(accounts.accountNumber, accountNumber ?? '')));
   if (existing[0]) return existing[0].id;
 
+  // Fallback: the master-file label's name may differ from the curated account
+  // name (e.g. "Chase Prime" vs "Chase Prime Visa"). If the account number
+  // uniquely identifies one existing account, attach to it instead of spawning a
+  // duplicate. Ambiguous numbers (e.g. a shared last-4 across checking+savings)
+  // fall through to creation, where the exact-name match above already handled
+  // the legitimate cases.
+  if (accountNumber) {
+    const byNumber = await db.select().from(accounts).where(eq(accounts.accountNumber, accountNumber));
+    if (byNumber.length === 1) return byNumber[0]!.id;
+  }
+
   const { type, assetClass } = inferAccountType(name);
   const display = accountNumber ? `${name} ••${accountNumber}` : name;
 

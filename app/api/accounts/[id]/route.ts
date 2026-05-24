@@ -83,3 +83,26 @@ export const PATCH = handler(
     return ok({ id });
   },
 );
+
+/**
+ * DELETE /api/accounts/[id]
+ * Refuses if the account still has transactions — merge it into another account
+ * first (so history isn't orphaned).
+ */
+export const DELETE = handler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  const { id } = await ctx.params;
+
+  const [acct] = await db.select().from(accounts).where(eq(accounts.id, id)).limit(1);
+  if (!acct) return fail('not_found', 'Account not found.', 404);
+
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(transactions)
+    .where(eq(transactions.accountId, id));
+  if (n > 0) {
+    return fail('has_transactions', `This account has ${n} transaction${n === 1 ? '' : 's'}. Merge it into another account first.`, 409);
+  }
+
+  await db.delete(accounts).where(eq(accounts.id, id));
+  return ok({ id });
+});
