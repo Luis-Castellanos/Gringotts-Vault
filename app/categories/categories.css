@@ -45,9 +45,19 @@
   padding: 0 4px;
 }
 
-/* Section per flow type — the section is just a header + a grid of parent cards */
+/* Three flow-type columns (Inflows · Outflows · Transfers) side by side */
+.cat-cols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1100px) { .cat-cols { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 720px) { .cat-cols { grid-template-columns: 1fr; } }
+
+/* Each section is one column: header + a vertical stack of parent cards */
 .cat-section {
-  margin-bottom: 8px;
+  min-width: 0;
 }
 .cat-section-head {
   display: flex;
@@ -166,17 +176,15 @@
   list-style: none;
   margin: 8px 0 0;
   padding: 0;
-  /* Multi-column flow packs variable-height cards tightly — no ragged grid gaps. */
-  columns: 300px;
-  column-gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .cat-parent {
-  break-inside: avoid;
   background: var(--surface);
   border-radius: 12px;
   box-shadow: var(--shadow-card);
   padding: 4px 8px 8px;
-  margin: 0 0 12px;
 }
 .cat-children {
   list-style: none;
@@ -197,29 +205,37 @@
   background: var(--surface-hover);
 }
 .cat-row.parent {
-  grid-template-columns: 16px 11px 1fr auto auto;
+  grid-template-columns: 16px 22px 1fr auto auto;
 }
 .cat-row.parent .cat-name {
   font-weight: 600;
   font-size: 14.5px;
 }
 .cat-row.child {
-  margin-left: 16px;
+  grid-template-columns: 22px 1fr auto auto;
+  margin-left: 14px;
   padding: 5px 8px;
 }
 .cat-row.child .cat-name {
   font-size: 13.5px;
   color: var(--text-2);
 }
-.cat-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+.cat-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
 }
-.cat-dot.sm {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
+.cat-icon.sm {
+  width: 19px;
+  height: 19px;
+  font-size: 11px;
+  border-radius: 50%;
 }
 .cat-name {
   min-width: 0;
