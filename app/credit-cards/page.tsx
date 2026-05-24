@@ -123,11 +123,6 @@ export default async function CreditCardsPage() {
       annualFee: feeByAccount.get(r.id)?.amount ?? null,
       annualFeeDueDate: feeByAccount.has(r.id) ? addYear(feeByAccount.get(r.id)!.lastDate) : null,
       lifetimeSpend: spendByAccount.get(r.id) ?? null,
-      // Statement-level fields need parser metadata we don't have yet.
-      statementBalance: null,
-      statementClosingDate: null,
-      dueDate: null,
-      minPayment: null,
       signupBonus: null,
       benefits: null,
       isNoPreset: false,

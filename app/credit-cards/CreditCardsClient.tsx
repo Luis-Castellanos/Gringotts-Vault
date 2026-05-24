@@ -32,13 +32,8 @@ export type CreditCardData = {
   limit: number | null;
   apr: number | null;
   earliestTxnDate: string | null;
-  // Still stubs ↓
   annualFee: number | null;
   annualFeeDueDate: string | null;
-  statementBalance: number | null;
-  statementClosingDate: string | null;
-  dueDate: string | null;
-  minPayment: number | null;
   cashbackYTD: number | null;
   signupBonus: SignupBonus | null;
   benefits: string[] | null;
@@ -101,15 +96,6 @@ function daysBetween(fromISO: string, toISO: string): number {
   const a = new Date(fromISO + 'T00:00:00');
   const b = new Date(toISO + 'T00:00:00');
   return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
-}
-function relDays(iso: string | null): string | null {
-  if (!iso) return null;
-  const n = daysBetween(TODAY, iso);
-  if (n === 0) return 'today';
-  if (n === 1) return 'tomorrow';
-  if (n === -1) return 'yesterday';
-  if (n > 0) return `in ${n} days`;
-  return `${-n} days ago`;
 }
 function cardAge(openedISO: string | null): string {
   if (!openedISO) return '—';
@@ -478,12 +464,6 @@ function CardRow({
         </div>
         <div className="sub">
           {card.institution && <span className="b">{card.institution}</span>}
-          {card.dueDate && (
-            <>
-              <span className="dot">·</span>
-              <span>Due {fmtDate(card.dueDate, { short: true })}</span>
-            </>
-          )}
           {card.balance === 0 && (
             <>
               <span className="dot">·</span>
@@ -517,11 +497,9 @@ function CardRow({
           {card.balance > 0 ? fmtMoney(card.balance) : '$0.00'}
         </span>
         <span className="of">
-          {card.statementBalance != null && card.statementBalance !== card.balance
-            ? <>Stmt {fmtMoney0(card.statementBalance)}</>
-            : monthlyInterest(card) != null
-              ? <>~{fmtMoney(monthlyInterest(card))}/mo interest</>
-              : <>—</>}
+          {monthlyInterest(card) != null
+            ? <>~{fmtMoney(monthlyInterest(card))}/mo interest</>
+            : <>—</>}
         </span>
       </div>
       <div className="cc-chev">
@@ -729,7 +707,7 @@ function InlineDetails({
       </div>
 
       <div className="drawer-section">
-        <div className="h">Balance · this cycle</div>
+        <div className="h">Balance &amp; limit</div>
         <div className="cc-inline-stats">
           <div className={'drawer-stat' + (card.balance > 0 ? ' red' : '')}>
             <span className="lbl">Current balance</span>
@@ -738,24 +716,6 @@ function InlineDetails({
               {util != null
                 ? `${fmtPct(util, util < 1 ? 1 : 0)} of ${card.isNoPreset ? 'no preset' : fmtMoney0(card.limit)}`
                 : 'Set a limit below'}
-            </span>
-          </div>
-          <div className="drawer-stat">
-            <span className="lbl">Statement balance</span>
-            <span className="val num">{fmtMoney(card.statementBalance)}</span>
-            <span className="sub">
-              {card.statementClosingDate
-                ? `Closes ${fmtDate(card.statementClosingDate, { short: true })}`
-                : '—'}
-            </span>
-          </div>
-          <div className="drawer-stat">
-            <span className="lbl">Min payment</span>
-            <span className="val num">{fmtMoney(card.minPayment)}</span>
-            <span className="sub">
-              {card.dueDate
-                ? `Due ${fmtDate(card.dueDate, { short: true })} · ${relDays(card.dueDate)}`
-                : '—'}
             </span>
           </div>
 
