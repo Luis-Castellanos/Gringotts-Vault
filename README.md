@@ -1,4 +1,4 @@
-#Gringotts Vault
+# Gringotts Vault
 
 Personal finance app. Audience of one. Long-term build, not a sprint.
 
@@ -15,7 +15,7 @@ Personal finance app. Audience of one. Long-term build, not a sprint.
 
 ## Stack
 
-- **Database:** Postgres (local Docker for dev, Neon for prod)
+- **Database:** Postgres on Neon (shared between dev machines via the same `DATABASE_URL`)
 - **ORM:** Drizzle
 - **Framework:** Next.js 15 (App Router) + React 19 + TypeScript
 - **Styling:** Tailwind CSS v4 with CSS-first design tokens
@@ -26,50 +26,128 @@ The whole stack is intentionally explicit. API routes return `{ data } | { error
 discriminated unions; the frontend has a tiny `api()` helper that pattern-matches
 on those. Nothing is magic. Every line is yours.
 
-## Getting started
+## Running Vault
 
-### 1. Start a local Postgres
+### Run the dev server (every time)
 
-```bash
-docker compose up -d
+This is the flow you use every day to open Vault in your browser.
+
+**1. Open PowerShell.**
+Press the **Windows key**, type **PowerShell**, press **Enter**. A blue
+window opens with a prompt that looks like `PS C:\Users\LuisC>`.
+
+**2. Move into the Vault project folder.**
+Type this command exactly and press Enter:
+
+```powershell
+cd C:\Users\LuisC\code\vault-app
 ```
 
-This starts Postgres 16 on port 5432 with creds `vault:vault`. Data persists in
-a Docker volume. Stop with `docker compose down` (data preserved) or
-`docker compose down -v` (data wiped).
+Your prompt should now read `PS C:\Users\LuisC\code\vault-app>`. **This
+step is the one most commonly skipped.** If you run `npm run dev` from
+the default PowerShell folder (`C:\WINDOWS\System32`) or anywhere else,
+you will get this error:
 
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-# Edit .env:
-#   DATABASE_URL="postgresql://vault:vault@localhost:5432/vault"
+```
+npm error code ENOENT
+npm error path C:\WINDOWS\System32\package.json
 ```
 
-### 3. Install and migrate
+That error always means "you're in the wrong folder." Re-run the `cd`
+command above and try again.
 
-```bash
-pnpm install   # or npm install / yarn
-pnpm db:push   # creates tables from lib/db/schema.ts
-pnpm db:seed   # seeds the categories hierarchy
+**3. Start the dev server.**
+
+```powershell
+npm run dev
 ```
 
-### 4. Load your master file
+After a few seconds you'll see output ending with something like:
 
-```bash
-pnpm db:load-master /path/to/master.xlsx
+```
+▲ Next.js 15.x.x
+- Local:   http://localhost:3000
+✓ Ready in 2.3s
 ```
 
-This is idempotent — re-running skips duplicates. The same script handles
-appending new statement batches.
+**4. Open Vault in your browser.**
+Go to **<http://localhost:3000>**. Available pages so far:
 
-### 5. Run
+| Page          | URL                                       |
+| ------------- | ----------------------------------------- |
+| Home          | <http://localhost:3000>                   |
+| Credit Cards  | <http://localhost:3000/credit-cards>      |
+| Review Queue  | <http://localhost:3000/review>            |
 
-```bash
-pnpm dev
+**5. To stop the server**, click back into the PowerShell window and
+press **Ctrl + C**. Just closing the browser tab does *not* stop the
+server — it'll keep running in the background until you Ctrl+C the
+PowerShell window (or close it).
+
+### First-time setup (only once per computer)
+
+Skip this section if you've already set Vault up on this machine. You
+only need to do this the very first time on a new laptop.
+
+**1. Install Node.js.** Download the **LTS** installer from
+<https://nodejs.org/> and run it. This gives you `node` and `npm` (the
+package manager Vault uses). Confirm it worked by opening PowerShell
+and running `node --version` — you should see something like `v22.x.x`.
+
+**2. Clone the repo** to `C:\Users\LuisC\code\vault-app`. If you're
+reading this README from inside that folder, you've already done this.
+
+**3. Install the project's dependencies.** In PowerShell, after you've
+`cd`'d into the project folder (step 2 of "Run the dev server"):
+
+```powershell
+npm install
 ```
 
-Open http://localhost:3000/review.
+This takes 1–3 minutes the first time. It downloads everything Vault
+depends on into a `node_modules/` folder. Re-run this whenever you pull
+new code and the dependency list has changed.
+
+**4. Configure your database connection.** Vault talks to a Postgres
+database hosted on Neon. The connection string lives in a file called
+`.env` at the project root.
+
+If `.env` doesn't exist yet:
+
+```powershell
+copy .env.example .env
+```
+
+Then open `.env` in any text editor and paste your Neon `DATABASE_URL`
+into the line that starts with `DATABASE_URL=`.
+
+**5. Initialize the database tables** (only needed on a fresh database):
+
+```powershell
+npm run db:push    # creates tables from lib/db/schema.ts
+npm run db:seed    # seeds the categories hierarchy
+```
+
+If you're connecting to the existing shared Neon database, the tables
+are already there and you can skip this step.
+
+**6. Load your transaction data:**
+
+```powershell
+npm run db:load-master path\to\master.xlsx
+```
+
+This is idempotent — re-running skips duplicates. Use this same command
+each time you append new statement batches to `master.xlsx`.
+
+### Troubleshooting
+
+| What you see                                                                 | What it means                                                          | Fix                                                                                                |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `ENOENT: no such file or directory, open 'C:\WINDOWS\System32\package.json'` | You ran `npm run dev` from the wrong folder.                           | `cd C:\Users\LuisC\code\vault-app` first, then `npm run dev`.                                      |
+| `Error: connect ECONNREFUSED` / database errors                              | `.env` missing or `DATABASE_URL` is wrong.                             | Check `.env` exists in the project root and the Neon connection string is set.                     |
+| `Error: Cannot find module '...'`                                            | Dependencies missing or out of date.                                   | Run `npm install`.                                                                                 |
+| `Port 3000 is already in use`                                                | Another dev server is still running (or another app grabbed the port). | Find the other PowerShell window and press Ctrl+C, *or* start Vault on a different port: `npm run dev -- -p 3001`. |
 
 ## Project structure
 
