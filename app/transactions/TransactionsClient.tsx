@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { VendorLogo } from '@/components/VendorLogo';
+import { iconBg, iconFor } from '@/lib/categories/icons';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 export type TxnRow = {
@@ -850,9 +851,12 @@ export function TransactionsClient({
 
                       <div className="tx-category">
                         <span
-                          className={'tx-category-dot' + (t.categoryName ? '' : ' uncat')}
-                          style={t.categoryColor ? { background: t.categoryColor } : undefined}
-                        />
+                          className={'tx-category-icon' + (t.categoryName ? '' : ' uncat')}
+                          style={{ background: iconBg(t.categoryColor) }}
+                          aria-hidden
+                        >
+                          {iconFor(t.categoryName ?? 'Uncategorized')}
+                        </span>
                         <span className={'tx-category-name' + (t.categoryName ? '' : ' uncat')}>
                           {t.categoryName ?? 'Uncategorized'}
                         </span>
