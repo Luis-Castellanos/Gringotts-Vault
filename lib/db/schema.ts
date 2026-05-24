@@ -29,9 +29,17 @@ import {
   index,
   uniqueIndex,
   check,
+  customType,
   AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+
+// Postgres bytea <-> Node Buffer. Drizzle has no built-in bytea helper.
+export const bytea = customType<{ data: Buffer; default: false }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -167,6 +175,43 @@ export const imports = pgTable(
   (t) => ({
     accountIdx: index('imports_account_idx').on(t.accountId),
     importedAtIdx: index('imports_imported_at_idx').on(t.importedAt),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// documents — uploaded statement PDFs and their parse lifecycle.
+// The file itself is stored as bytea so it travels with the database (no
+// external blob store needed for self-hosting). The router fills detected_type
+// / issuer / account_ids; status walks uploaded -> parsing -> parsed | failed
+// | deferred | duplicate. content_hash dedups re-uploads of the same file.
+// detected_type / status are plain text (not enums) so new statement types can
+// be added without a schema migration.
+// ---------------------------------------------------------------------------
+
+export const documents = pgTable(
+  'documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    fileName: text('file_name').notNull(),
+    contentHash: text('content_hash').notNull(),
+    mimeType: text('mime_type').notNull().default('application/pdf'),
+    byteSize: integer('byte_size').notNull(),
+    data: bytea('data').notNull(),
+    detectedType: text('detected_type').notNull().default('unknown'),
+    detectedIssuer: text('detected_issuer'),
+    accountIds: jsonb('account_ids').$type<string[]>(),
+    accountLabel: text('account_label'),
+    statementPeriod: text('statement_period'),
+    status: text('status').notNull().default('uploaded'),
+    transactionCount: integer('transaction_count').notNull().default(0),
+    parseError: text('parse_error'),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+    parsedAt: timestamp('parsed_at', { withTimezone: true }),
+  },
+  (t) => ({
+    contentHashUnique: uniqueIndex('documents_content_hash_unique').on(t.contentHash),
+    uploadedAtIdx: index('documents_uploaded_at_idx').on(t.uploadedAt),
+    statusIdx: index('documents_status_idx').on(t.status),
   }),
 );
 

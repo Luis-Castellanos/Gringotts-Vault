@@ -12,3 +12,19 @@ next-env.d.ts
 
 # Reference screenshots / design inspo for Claude to read — local only, not shipped
 reference/
+
+# Python (vault-app/parser — bank-statement parser)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Statement data — never commit raw statements or generated workbooks
+*.pdf
+*.xlsx
+*.xls
+*.csv

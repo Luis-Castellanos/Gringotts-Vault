@@ -1,0 +1,10 @@
+# Python deps for the bank-statement parser (vault-app/parser).
+# Install:  pip install -r parser/requirements.txt
+#
+# NOTE: pdftotext is provided by the system package "poppler" (poppler-utils),
+# NOT by pip. Install it separately:
+#   - Windows: scoop install poppler  (or download poppler binaries)
+#   - macOS:   brew install poppler
+#   - Linux:   apt-get install poppler-utils
+pdfplumber>=0.11
+openpyxl>=3.1
