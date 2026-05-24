@@ -139,6 +139,31 @@
     font-size: 12px;
   }
 
+  /* Controls row below the composition: discreet tabs + sort + view */
+  .nw-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .nw-tabs { display: inline-flex; gap: 4px; }
+  .nw-tab {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-3);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 130ms ease;
+  }
+  .nw-tab:hover { color: var(--text-1); }
+  .nw-tab.active { background: var(--surface-hover); color: var(--text-1); }
+  .nw-tab .num { color: var(--text-3); font-weight: 500; margin-left: 3px; }
+
   /* Institution logo */
   .inst-logo {
     width: 32px;

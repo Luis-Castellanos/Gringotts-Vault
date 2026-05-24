@@ -1830,8 +1830,28 @@ export function NetWorthClient({
 
   return (
     <>
-      <header className="page-hd">
-        <div />
+      {tab === 'active' && (
+        <>
+          <NWChart
+            series={nwSeries}
+            range={range}
+            onRangeChange={setRange}
+            customRange={customRange}
+            onCustomRange={setCustomRange}
+          />
+          <Composition accounts={accounts} />
+        </>
+      )}
+
+      <header className="page-hd nw-controls">
+        <nav className="nw-tabs">
+          <button type="button" className={'nw-tab' + (tab === 'active' ? ' active' : '')} onClick={() => setTab('active')}>
+            Active <span className="num">{activeAccounts.length}</span>
+          </button>
+          <button type="button" className={'nw-tab' + (tab === 'closed' ? ' active' : '')} onClick={() => setTab('closed')}>
+            Closed <span className="num">{closedAccounts.length}</span>
+          </button>
+        </nav>
         <div className="page-actions">
           <label
             style={{
@@ -1907,38 +1927,8 @@ export function NetWorthClient({
         </div>
       </header>
 
-      <nav className="tabs">
-        <button
-          type="button"
-          className={'tab' + (tab === 'active' ? ' active' : '')}
-          onClick={() => setTab('active')}
-        >
-          Active <span className="count num">{activeAccounts.length}</span>
-        </button>
-        <button
-          type="button"
-          className={'tab' + (tab === 'closed' ? ' active' : '')}
-          onClick={() => setTab('closed')}
-        >
-          Closed <span className="count num">{closedAccounts.length}</span>
-        </button>
-      </nav>
-
       <div className="v1plus-layout">
         <div className="v1plus-main">
-          {tab === 'active' && (
-            <>
-              <NWChart
-                series={nwSeries}
-                range={range}
-                onRangeChange={setRange}
-                customRange={customRange}
-                onCustomRange={setCustomRange}
-              />
-              <Composition accounts={accounts} />
-            </>
-          )}
-
           {tab === 'closed' && visible.length === 0 && (
             <div className="card closed-state" style={{ marginTop: 16 }}>
               No closed accounts.
