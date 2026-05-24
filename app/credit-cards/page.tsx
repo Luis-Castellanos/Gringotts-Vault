@@ -34,6 +34,8 @@ export default async function CreditCardsPage() {
       closedAt: accounts.closedAt,
       creditLimit: accounts.creditLimit,
       apr: accounts.apr,
+      signupBonus: accounts.signupBonus,
+      benefits: accounts.benefits,
       // Balance owed = -SUM(amount). Outflows on a credit card are negative,
       // so -SUM gives a positive number representing what you owe.
       balanceRaw: sql<string | null>`COALESCE((-SUM(${transactions.amount}))::text, '0')`,
@@ -96,6 +98,10 @@ export default async function CreditCardsPage() {
     return d.toISOString().slice(0, 10);
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+  const daysUntil = (iso: string): number =>
+    Math.round((new Date(iso + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86_400_000);
+
   const publicDir = path.join(process.cwd(), 'public', 'card-art');
   const cards: CreditCardData[] = rows.map((r) => {
     const slug = slugify(r.name);
@@ -103,6 +109,21 @@ export default async function CreditCardsPage() {
     const artUrl = existsSync(path.join(publicDir, artFile))
       ? `/card-art/${artFile}`
       : null;
+
+    // Signup bonus: stored definition + derived spend-so-far (charges to date).
+    const spend = spendByAccount.get(r.id) ?? 0;
+    const signupBonus = r.signupBonus ? { ...r.signupBonus, spendSoFar: spend } : null;
+    const fee = feeByAccount.get(r.id);
+    const annualFeeDueDate = fee ? addYear(fee.lastDate) : null;
+
+    // Derive a state for the chips/cards: an unmet, in-window bonus takes
+    // priority, then a fee posting within 30 days, else steady.
+    let state: 'steady' | 'signup_bonus' | 'fee_due' = 'steady';
+    if (signupBonus && spend < signupBonus.spendRequired && signupBonus.spendDeadline >= today) {
+      state = 'signup_bonus';
+    } else if (fee && fee.amount > 0 && annualFeeDueDate && daysUntil(annualFeeDueDate) >= 0 && daysUntil(annualFeeDueDate) <= 30) {
+      state = 'fee_due';
+    }
 
     return {
       id: r.id,
@@ -120,14 +141,15 @@ export default async function CreditCardsPage() {
       earliestTxnDate: r.earliestTxnDate ?? null,
       // Derived from transactions:
       cashbackYTD: cashbackByAccount.get(r.id) ?? null,
-      annualFee: feeByAccount.get(r.id)?.amount ?? null,
-      annualFeeDueDate: feeByAccount.has(r.id) ? addYear(feeByAccount.get(r.id)!.lastDate) : null,
-      lifetimeSpend: spendByAccount.get(r.id) ?? null,
-      signupBonus: null,
-      benefits: null,
+      annualFee: fee?.amount ?? null,
+      annualFeeDueDate,
+      lifetimeSpend: spend || null,
+      // Manual-entry metadata (+ derived progress / state):
+      signupBonus,
+      benefits: r.benefits ?? null,
       isNoPreset: false,
       network: null,
-      state: 'steady',
+      state,
     };
   });
 

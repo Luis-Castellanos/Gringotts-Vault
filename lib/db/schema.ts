@@ -25,6 +25,7 @@ import {
   timestamp,
   integer,
   numeric,
+  jsonb,
   index,
   uniqueIndex,
   check,
@@ -91,6 +92,17 @@ export const accounts = pgTable(
     originalPrincipal: numeric('original_principal', { precision: 14, scale: 2 }),
     maturityDate: date('maturity_date'),
     accountSubtype: text('account_subtype'),
+    // Manual-entry credit-card metadata (Vault-managed, not from the parser).
+    //   signupBonus → { amount, type, valuationCents, spendRequired, spendDeadline }
+    //   benefits    → string[] of perks (travel credit, lounge access, …)
+    signupBonus: jsonb('signup_bonus').$type<{
+      amount: number;
+      type: string;
+      valuationCents: number;
+      spendRequired: number;
+      spendDeadline: string;
+    }>(),
+    benefits: jsonb('benefits').$type<string[]>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

@@ -34,6 +34,17 @@ const bodySchema = z.object({
   originalPrincipal: z.number().nonnegative().nullable().optional(),
   maturityDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
   accountSubtype: z.string().max(60).nullable().optional(),
+  signupBonus: z
+    .object({
+      amount: z.number().nonnegative(),
+      type: z.string().max(40),
+      valuationCents: z.number().nonnegative(),
+      spendRequired: z.number().nonnegative(),
+      spendDeadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD'),
+    })
+    .nullable()
+    .optional(),
+  benefits: z.array(z.string().max(120)).max(20).nullable().optional(),
 });
 
 export const PATCH = handler(
@@ -81,6 +92,10 @@ export const PATCH = handler(
     if (body.originalPrincipal !== undefined) patch.originalPrincipal = body.originalPrincipal != null ? body.originalPrincipal.toFixed(2) : null;
     if (body.maturityDate !== undefined) patch.maturityDate = body.maturityDate;
     if (body.accountSubtype !== undefined) patch.accountSubtype = body.accountSubtype;
+    if (body.signupBonus !== undefined) patch.signupBonus = body.signupBonus;
+    if (body.benefits !== undefined) {
+      patch.benefits = body.benefits && body.benefits.length > 0 ? body.benefits : null;
+    }
     if (body.type !== undefined) {
       patch.type = body.type;
       patch.assetClass = body.type === 'credit_card' || body.type === 'loan' ? 'liability' : 'asset';

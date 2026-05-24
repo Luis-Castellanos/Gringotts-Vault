@@ -642,6 +642,121 @@ function PayoffCalc({ balance, apr }: { balance: number; apr: number }) {
   );
 }
 
+function BenefitsEditor({ card, onUpdated }: { card: CreditCardData; onUpdated: () => void }) {
+  const [items, setItems] = useState<string[]>(card.benefits ?? []);
+  const [draft, setDraft] = useState('');
+  const persist = async (next: string[]) => {
+    setItems(next);
+    const r = await patchAccount(card.id, { benefits: next });
+    if (r.ok) onUpdated();
+  };
+  const add = () => {
+    const v = draft.trim();
+    if (!v) return;
+    persist([...items, v]);
+    setDraft('');
+  };
+  return (
+    <div className="cc-benefits" onClick={(e) => e.stopPropagation()}>
+      {items.map((b, i) => (
+        <div key={i} className="cc-benefit-row">
+          <span className="dot" />
+          <span className="t">{b}</span>
+          <button type="button" className="x" aria-label="Remove benefit" onClick={() => persist(items.filter((_, idx) => idx !== i))}>×</button>
+        </div>
+      ))}
+      <div className="cc-benefit-add">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
+          placeholder="Add a benefit (e.g. $300 travel credit)"
+          maxLength={120}
+        />
+        <button type="button" onClick={add} disabled={!draft.trim()}>Add</button>
+      </div>
+    </div>
+  );
+}
+
+function SignupBonusEditor({ card, onUpdated }: { card: CreditCardData; onUpdated: () => void }) {
+  const sb = card.signupBonus;
+  const [editing, setEditing] = useState(false);
+  const [amount, setAmount] = useState(String(sb?.amount ?? ''));
+  const [type, setType] = useState(sb?.type ?? 'points');
+  const [valuation, setValuation] = useState(String(sb?.valuationCents ?? ''));
+  const [spendReq, setSpendReq] = useState(String(sb?.spendRequired ?? ''));
+  const [deadline, setDeadline] = useState(sb?.spendDeadline ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    const a = Number(amount);
+    const sr = Number(spendReq);
+    if (!a || !sr || !deadline) { setError('Amount, required spend and deadline are all needed.'); return; }
+    setSaving(true);
+    setError(null);
+    const r = await patchAccount(card.id, {
+      signupBonus: {
+        amount: a,
+        type: type.trim() || 'points',
+        valuationCents: Number(valuation) || 0,
+        spendRequired: sr,
+        spendDeadline: deadline,
+      },
+    });
+    setSaving(false);
+    if (!r.ok) { setError(r.error); return; }
+    setEditing(false);
+    onUpdated();
+  }
+  async function clear() {
+    setSaving(true);
+    await patchAccount(card.id, { signupBonus: null });
+    setSaving(false);
+    setEditing(false);
+    onUpdated();
+  }
+
+  if (!editing) {
+    return sb ? (
+      <div className="cc-sb-summary" onClick={(e) => e.stopPropagation()}>
+        <span className="t num">
+          {sb.amount.toLocaleString()} {sb.type} · {fmtMoney0(sb.spendRequired)} by {fmtDate(sb.spendDeadline, { short: true })}
+        </span>
+        <div className="acts">
+          <button type="button" onClick={() => setEditing(true)}>Edit</button>
+          <button type="button" className="danger" onClick={clear} disabled={saving}>Remove</button>
+        </div>
+      </div>
+    ) : (
+      <button type="button" className="cc-add-btn" onClick={(e) => { e.stopPropagation(); setEditing(true); }}>
+        + Add signup bonus
+      </button>
+    );
+  }
+  return (
+    <div className="cc-sb-form" onClick={(e) => e.stopPropagation()}>
+      <div className="row">
+        <label>Bonus amount<input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="60000" /></label>
+        <label>Unit<input type="text" value={type} onChange={(e) => setType(e.target.value)} placeholder="points" /></label>
+        <label>Value (¢/unit)<input type="number" step="0.1" value={valuation} onChange={(e) => setValuation(e.target.value)} placeholder="1.5" /></label>
+      </div>
+      <div className="row">
+        <label>Required spend ($)<input type="number" value={spendReq} onChange={(e) => setSpendReq(e.target.value)} placeholder="4000" /></label>
+        <label>Spend by<input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} /></label>
+      </div>
+      {error && <div className="err">{error}</div>}
+      <div className="acts">
+        {sb && <button type="button" className="danger" onClick={clear} disabled={saving}>Remove</button>}
+        <button type="button" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+        <button type="button" className="primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save bonus'}</button>
+      </div>
+    </div>
+  );
+}
+
 function InlineDetails({
   card,
   onUpdated,
@@ -847,6 +962,13 @@ function InlineDetails({
               </span>
             </div>
           </div>
+        </div>
+
+        <div className="drawer-section">
+          <div className="h">Signup bonus &amp; benefits</div>
+          <SignupBonusEditor card={card} onUpdated={onUpdated} />
+          <div className="cc-benefits-label">Benefits</div>
+          <BenefitsEditor card={card} onUpdated={onUpdated} />
         </div>
       </div>
 
