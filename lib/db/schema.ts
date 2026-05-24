@@ -69,6 +69,20 @@ export const flowTypeEnum = pgEnum('flow_type', ['inflow', 'outflow', 'transfer'
 // accounts
 // ---------------------------------------------------------------------------
 
+// account_types — the editable account/asset taxonomy. lib/account-types.ts
+// holds the canonical seed; user-added types live only here. accounts.type
+// references slug (plain text, not an enum, so the list can grow at runtime).
+export const accountTypes = pgTable('account_types', {
+  slug: text('slug').primaryKey(),
+  label: text('label').notNull(),
+  assetClass: assetClassEnum('asset_class').notNull().default('asset'),
+  groupKey: text('group').notNull().default('other'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isArchived: boolean('is_archived').notNull().default(false),
+  isBuiltin: boolean('is_builtin').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const accounts = pgTable(
   'accounts',
   {
