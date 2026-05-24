@@ -1,0 +1,220 @@
+/* Per-account detail page (/accounts/[id]) — balance header + chart, then a
+   two-column body: the account-scoped transaction list + a summary sidebar.
+   Uses the shared theme tokens. */
+
+.account-detail-page {
+  background: var(--bg);
+  color: var(--text-1);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.ad-header {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  padding: 16px 20px 8px;
+  margin-bottom: 16px;
+}
+.ad-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ad-crumb {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  min-width: 0;
+}
+.ad-crumb a {
+  color: var(--text-3);
+  text-decoration: none;
+}
+.ad-crumb a:hover { color: var(--text-1); text-decoration: underline; }
+.ad-crumb .sep { color: var(--text-3); }
+.ad-name { font-weight: 700; color: var(--text-1); letter-spacing: -0.01em; }
+.ad-last4 { color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.ad-period {
+  display: inline-flex;
+  background: var(--surface-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.ad-period-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+.ad-period-btn:hover { color: var(--text-1); }
+.ad-period-btn.active {
+  background: var(--surface);
+  color: var(--text-1);
+  box-shadow: var(--shadow-card);
+}
+
+.ad-balance {
+  margin-top: 12px;
+}
+.ad-balance-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.ad-balance-value {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.ad-change {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ad-change.pos { color: var(--green-text); }
+.ad-change.neg { color: var(--red-text); }
+.ad-change .arrow { font-size: 10px; }
+.ad-change .pct { font-weight: 500; }
+.ad-change-period {
+  color: var(--text-3);
+  font-weight: 500;
+  margin-left: 6px;
+}
+
+/* ── Chart ────────────────────────────────────────────────────────────── */
+.ad-chart {
+  position: relative;
+  margin-top: 8px;
+}
+.ad-chart-empty {
+  color: var(--text-3);
+  font-size: 13px;
+  padding: 40px 0;
+  text-align: center;
+}
+.ad-chart svg { display: block; width: 100%; }
+.ad-grid { stroke: var(--line); stroke-width: 1; }
+.ad-grid-label {
+  fill: var(--text-3);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.ad-line { stroke: var(--green); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ad-area { fill: color-mix(in srgb, var(--green) 12%, transparent); }
+.ad-x-label { fill: var(--text-3); font-size: 10px; }
+.ad-hover-line { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+.ad-hover-dot { fill: var(--green); stroke: var(--surface); stroke-width: 2; }
+.ad-tip {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  background: var(--surface-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+  padding: 6px 10px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
+}
+.ad-tip-date { font-size: 11px; color: var(--text-3); }
+.ad-tip-val { font-size: 13px; font-weight: 700; color: var(--text-1); font-variant-numeric: tabular-nums; }
+
+/* ── Body: transactions + summary ─────────────────────────────────────── */
+.ad-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 18px;
+  align-items: start;
+}
+.ad-transactions { min-width: 0; }
+.ad-summary {
+  position: sticky;
+  top: 60px;
+}
+.ad-card {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  padding: 18px 18px;
+}
+.ad-card h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.ad-util { margin-bottom: 16px; }
+.ad-util-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+.ad-util-top strong { color: var(--text-1); font-size: 14px; }
+.ad-util-bar {
+  height: 8px;
+  border-radius: 6px;
+  background: var(--surface-elev);
+  overflow: hidden;
+}
+.ad-util-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--green);
+  transition: width 240ms ease;
+}
+.ad-util-fill.mid { background: #e0a83d; }
+.ad-util-fill.high { background: var(--red); }
+
+.ad-stats {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ad-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.ad-stat:first-child { border-top: 0; }
+.ad-stat dt { font-size: 12.5px; color: var(--text-3); }
+.ad-stat dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 940px) {
+  .ad-body { grid-template-columns: 1fr; }
+  .ad-summary { position: static; }
+}

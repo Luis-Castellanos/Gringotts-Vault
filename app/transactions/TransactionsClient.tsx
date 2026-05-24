@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -338,7 +339,7 @@ type FilterTab = 'categories' | 'merchants' | 'accounts' | 'date' | 'amount' | '
 
 function FilterPanel({
   open, onClose, filters, setFilters,
-  categories, accounts, allMerchants,
+  categories, accounts, allMerchants, hideAccounts = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -347,6 +348,7 @@ function FilterPanel({
   categories: CatLite[];
   accounts: AcctLite[];
   allMerchants: string[];
+  hideAccounts?: boolean;
 }) {
   const [tab, setTab] = useState<FilterTab>('categories');
   const [catSearch, setCatSearch] = useState('');
@@ -424,7 +426,9 @@ function FilterPanel({
                 ['date', 'Date', filters.dateRange !== 'all' ? 1 : 0],
                 ['amount', 'Amount', filters.amountMin || filters.amountMax ? 1 : 0],
                 ['other', 'Other', (filters.hideTransfers ? 1 : 0) + (filters.needsReviewOnly ? 1 : 0)],
-              ] as const).map(([id, label, count]) => (
+              ] as const)
+                .filter(([id]) => !(hideAccounts && id === 'accounts'))
+                .map(([id, label, count]) => (
                 <button
                   type="button"
                   key={id}
@@ -653,12 +657,22 @@ function FilterPanel({
 
 // ─── Main client ──────────────────────────────────────────────────────────
 export function TransactionsClient({
-  txns, total: initialTotal, accounts, categories, merchants, pageSize,
+  txns, total: initialTotal, accounts, categories, merchants, pageSize, lockAccountId,
 }: {
-  txns: TxnRow[]; total: number; accounts: AcctLite[]; categories: CatLite[]; merchants: string[]; pageSize: number;
+  txns: TxnRow[]; total: number; accounts: AcctLite[]; categories: CatLite[];
+  merchants: string[]; pageSize: number;
+  // When set, the list is locked to one account: the account filter is fixed,
+  // the Accounts filter tab is hidden, and the per-row account column is dropped
+  // (it would be redundant). Used by the per-account detail page.
+  lockAccountId?: string;
 }) {
+  const scoped = !!lockAccountId;
+  const baseFilters = useMemo<Filters>(
+    () => (lockAccountId ? { ...DEFAULT_FILTERS, accountIds: [lockAccountId] } : DEFAULT_FILTERS),
+    [lockAccountId],
+  );
   const searchParams = useSearchParams();
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<Filters>(baseFilters);
 
   // Apply incoming filters from the URL once (e.g. drill-down from Cashflow:
   // ?cats=<ids>&from=YYYY-MM-DD&to=YYYY-MM-DD).
@@ -797,8 +811,11 @@ export function TransactionsClient({
     [categories],
   );
 
-  const filterCount = activeFilterCount(filters);
+  // The locked account doesn't count as a user-applied filter.
+  const filterCount =
+    activeFilterCount(filters) - (scoped && filters.accountIds.length > 0 ? 1 : 0);
   const hasAnyFilter = filterCount > 0 || filters.search !== '';
+  const clearFilters = () => setFilters(baseFilters);
 
   return (
     <>
@@ -832,21 +849,20 @@ export function TransactionsClient({
             : `${total.toLocaleString()} ${total === 1 ? 'transaction' : 'transactions'}`}
         </span>
         {hasAnyFilter && (
-          <button type="button" className="clear-btn"
-            onClick={() => { setFilters(DEFAULT_FILTERS); }}>
+          <button type="button" className="clear-btn" onClick={clearFilters}>
             Clear filters
           </button>
         )}
       </div>
 
-      <div className="tx-list">
+      <div className={'tx-list' + (scoped ? ' scope-account' : '')}>
         {rows.length === 0 ? (
           <div className="tx-empty">
             No transactions match your filters.
             {hasAnyFilter && (
               <>
                 {' '}
-                <button type="button" className="clear-btn" onClick={() => setFilters(DEFAULT_FILTERS)} style={{ textDecoration: 'underline' }}>
+                <button type="button" className="clear-btn" onClick={clearFilters} style={{ textDecoration: 'underline' }}>
                   Clear filters
                 </button>
               </>
@@ -903,13 +919,26 @@ export function TransactionsClient({
                         </span>
                       </div>
 
-                      <div className="tx-account">
-                        <AccountLogo institution={t.accountInstitution} />
-                        <span className="tx-account-name">
-                          {t.accountName}
-                          {t.accountLast4 ? ` ····${t.accountLast4}` : ''}
-                        </span>
-                      </div>
+                      {!scoped &&
+                        (t.accountId ? (
+                          <Link
+                            href={`/accounts/${t.accountId}`}
+                            className="tx-account is-link"
+                            onClick={(e) => e.stopPropagation()}
+                            title={`View ${t.accountName}`}
+                          >
+                            <AccountLogo institution={t.accountInstitution} />
+                            <span className="tx-account-name">
+                              {t.accountName}
+                              {t.accountLast4 ? ` ····${t.accountLast4}` : ''}
+                            </span>
+                          </Link>
+                        ) : (
+                          <div className="tx-account">
+                            <AccountLogo institution={t.accountInstitution} />
+                            <span className="tx-account-name">{t.accountName}</span>
+                          </div>
+                        ))}
 
                       <div className={'tx-amount' + (isPositive && !t.isTransfer ? ' pos' : '')}>
                         {fmtMoney(t.amount, { sign: isPositive })}
@@ -963,6 +992,7 @@ export function TransactionsClient({
         categories={categories}
         accounts={accounts}
         allMerchants={allMerchants}
+        hideAccounts={scoped}
       />
     </>
   );

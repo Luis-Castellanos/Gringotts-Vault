@@ -380,6 +380,19 @@
     gap: 8px;
     min-width: 0;
   }
+  a.tx-account.is-link {
+    text-decoration: none;
+    color: inherit;
+    border-radius: 6px;
+  }
+  a.tx-account.is-link:hover .tx-account-name {
+    color: var(--text-1);
+    text-decoration: underline;
+  }
+  /* Account-scoped list (per-account page): no account column. */
+  .tx-list.scope-account .tx-row {
+    grid-template-columns: minmax(0, 4fr) 1.2fr 104px 18px;
+  }
   .tx-account-logo {
     width: 22px;
     height: 22px;
