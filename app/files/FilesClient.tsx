@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { IconUpload } from '@/components/nav-icons';
 import { faviconUrl, instDomain, instInitials } from '@/lib/institution-logo';
@@ -38,7 +38,12 @@ const STATUS_STYLE: Record<string, string> = {
   failed: 'bg-negative/15 text-negative',
 };
 
-const COLS = 'grid-cols-[1fr_130px_150px_140px_100px_100px_140px_44px]';
+// Resizable columns: File Name flexes (1fr), the rest are draggable px widths,
+// the trailing action column is fixed. Widths persist in localStorage.
+const MIN_W = 70;
+const DEFAULT_W = { type: 130, account: 150, period: 140, txns: 110, status: 100, uploaded: 150 };
+type ColKey = keyof typeof DEFAULT_W;
+const COL_STORAGE_KEY = 'vault-files-col-widths';
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -85,6 +90,56 @@ export function FilesClient({ rows: initialRows }: { rows: FileRow[] }) {
   const [confirm, setConfirm] = useState<FileRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [w, setW] = useState(DEFAULT_W);
+
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem(COL_STORAGE_KEY);
+      if (s) setW((prev) => ({ ...prev, ...JSON.parse(s) }));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(w));
+    } catch {
+      /* ignore */
+    }
+  }, [w]);
+
+  const gridStyle = {
+    gridTemplateColumns: `minmax(160px,1fr) ${w.type}px ${w.account}px ${w.period}px ${w.txns}px ${w.status}px ${w.uploaded}px 44px`,
+  };
+
+  function startResize(e: React.PointerEvent, key: ColKey) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = w[key];
+    function move(ev: PointerEvent) {
+      setW((prev) => ({ ...prev, [key]: Math.max(MIN_W, startW + (ev.clientX - startX)) }));
+    }
+    function up() {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  const handle = (key: ColKey) => (
+    <span
+      onPointerDown={(e) => startResize(e, key)}
+      className="group absolute right-[-7px] top-0 z-10 flex h-full w-3.5 cursor-col-resize items-center justify-center"
+      aria-hidden
+    >
+      <span className="h-3.5 w-px bg-transparent group-hover:bg-accent-500 transition-colors" />
+    </span>
+  );
 
   async function remove(row: FileRow, withData: boolean) {
     setBusy(true);
@@ -146,21 +201,25 @@ export function FilesClient({ rows: initialRows }: { rows: FileRow[] }) {
         </div>
       ) : (
         <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden">
-          <div className={`grid ${COLS} gap-3 px-4 py-2.5 border-b border-border-subtle text-[10.5px] font-semibold uppercase tracking-[0.07em] text-text-muted text-center`}>
+          <div
+            style={gridStyle}
+            className="grid gap-3 px-4 py-2.5 border-b border-border-subtle text-[10.5px] font-semibold uppercase tracking-[0.07em] text-text-muted text-center"
+          >
             <div className="text-left">File Name</div>
-            <div>Type</div>
-            <div>Account</div>
-            <div>Period</div>
-            <div>Transactions</div>
-            <div>Status</div>
-            <div>Uploaded</div>
+            <div className="relative">Type{handle('type')}</div>
+            <div className="relative">Account{handle('account')}</div>
+            <div className="relative">Period{handle('period')}</div>
+            <div className="relative">Transactions{handle('txns')}</div>
+            <div className="relative">Status{handle('status')}</div>
+            <div className="relative">Uploaded{handle('uploaded')}</div>
             <div />
           </div>
           <div className="flex flex-col">
             {rows.map((r) => (
               <div
                 key={r.id}
-                className={`grid ${COLS} gap-3 px-4 py-3 border-t border-border-subtle items-center text-[13px] text-center first:border-t-0`}
+                style={gridStyle}
+                className="grid gap-3 px-4 py-3 border-t border-border-subtle items-center text-[13px] text-center first:border-t-0"
               >
                 <a
                   href={`/api/documents/${r.id}`}
