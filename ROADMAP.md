@@ -245,6 +245,18 @@ Ideas for later, in no particular order. May or may not get built.
 - [ ] **Move Categories taxonomy and Vendors list into Vault.** Today they live
   in master.xlsx because iterating in Excel is fast. Eventually they belong in
   Vault so categorization can be a first-class in-app concept.
+  - [x] **Categories management page** — shipped 2026-05-24 at `/categories`.
+    View the full taxonomy grouped by flow type (parent → child tree with
+    transaction counts); add / rename / remove categories + subcategories; and
+    merge (reassign all of a category's transactions into another, isTransfer
+    following the target, with optional delete-after). API: POST /api/categories,
+    PATCH + DELETE /api/categories/[id], POST /api/categories/[id]/reassign.
+  - ⚠️ **Source-of-truth tension:** `load-master.ts` still upserts the taxonomy
+    from master.xlsx's Categories sheet on every import, so in-Vault edits to
+    master-defined categories (renames, deletes) get overwritten on the next
+    import. Resolve by either making the loader insert-only for existing
+    categories, or promoting Vault to the taxonomy source of truth. Vendors list
+    still lives in Excel.
 - [ ] **Native iOS app** — Swift/SwiftUI, talks to Vault API. Only build if PWA stops being
   enough and you can articulate what's missing. Likely a year+ out.
 

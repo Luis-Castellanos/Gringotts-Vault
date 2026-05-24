@@ -2,6 +2,15 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-24 — **Categories management page + mutation API.** New `/categories`
+  page: the full taxonomy grouped by Inflows / Outflows / Transfers, parent→child
+  tree with transaction counts, and add / rename / delete (guarded) / merge
+  actions. Merge reassigns all of a category's transactions into another
+  (isTransfer follows the target's flow_type) with optional delete-after. New
+  API: POST /api/categories, PATCH + DELETE /api/categories/[id], and
+  POST /api/categories/[id]/reassign. Added to a new "Manage" sidebar group.
+  Caveat: `load-master.ts` still upserts the taxonomy from master.xlsx on import,
+  so edits to master-defined categories can be overwritten on the next import.
 - 2026-05-23 — **Data-pipeline overhaul + Cashflow page shipped (Phase A).**
   Master.xlsx grew a 3-tier taxonomy (Type → Category → Sub-category, 102 rows)
   and a per-row `Type` column. Added a `flow_type` enum (inflow/outflow/transfer)
