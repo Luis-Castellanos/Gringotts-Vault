@@ -28,6 +28,7 @@ export const GET = handler(async (req: NextRequest) => {
 
   const aminRaw = sp.get('amin');
   const amaxRaw = sp.get('amax');
+  const typeRaw = sp.get('type');
   const filters: TxnFilters = {
     search: sp.get('q') ?? undefined,
     from: sp.get('from'),
@@ -37,6 +38,7 @@ export const GET = handler(async (req: NextRequest) => {
     merchants: sp.getAll('merchant'),
     amountMin: aminRaw ? Math.abs(Number(aminRaw)) : null,
     amountMax: amaxRaw ? Math.abs(Number(amaxRaw)) : null,
+    amountType: typeRaw === 'debit' || typeRaw === 'credit' ? typeRaw : undefined,
     hideTransfers: sp.get('hideTransfers') === '1',
     needsReviewOnly: sp.get('needsReview') === '1',
   };

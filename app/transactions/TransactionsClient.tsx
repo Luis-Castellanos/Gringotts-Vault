@@ -39,6 +39,8 @@ export type CatLite = {
 
 // ─── Filter state ─────────────────────────────────────────────────────────
 type DateRangeId = '7' | '30' | '90' | 'ytd' | '365' | 'all' | 'custom';
+type AmountMode = 'gt' | 'lt' | 'eq' | 'between';
+type AmountType = 'all' | 'debit' | 'credit';
 
 type Filters = {
   search: string;
@@ -48,8 +50,11 @@ type Filters = {
   accountIds: string[];
   categoryIds: string[]; // includes '__uncategorized__'
   merchants: string[];
-  amountMin: string;
-  amountMax: string;
+  amountMode: AmountMode;
+  amountValue: string; // for gt / lt / eq
+  amountMin: string; // for between
+  amountMax: string; // for between
+  amountType: AmountType; // debits (outflow) / credits (inflow)
   hideTransfers: boolean;
   needsReviewOnly: boolean;
 };
@@ -62,8 +67,11 @@ const DEFAULT_FILTERS: Filters = {
   accountIds: [],
   categoryIds: [],
   merchants: [],
+  amountMode: 'between',
+  amountValue: '',
   amountMin: '',
   amountMax: '',
+  amountType: 'all',
   hideTransfers: false,
   needsReviewOnly: false,
 };
@@ -148,13 +156,19 @@ function rangeStartISO(range: DateRangeId): string | null {
   return start.toISOString().slice(0, 10);
 }
 
+// True when the amount value/range filter is set (separate from the debit/credit type).
+function amountActive(f: Filters): boolean {
+  return f.amountMode === 'between' ? !!(f.amountMin || f.amountMax) : !!f.amountValue;
+}
+
 // Count active filters (drives the badge on the Filters button)
 function activeFilterCount(f: Filters): number {
   let n = 0;
   if (f.accountIds.length > 0) n++;
   if (f.categoryIds.length > 0) n++;
   if (f.merchants.length > 0) n++;
-  if (f.amountMin || f.amountMax) n++;
+  if (amountActive(f)) n++;
+  if (f.amountType !== 'all') n++;
   if (f.dateRange !== 'all') n++;
   if (f.hideTransfers) n++;
   if (f.needsReviewOnly) n++;
@@ -178,8 +192,17 @@ function buildTxnQuery(f: Filters, sort: SortId): string {
   for (const a of f.accountIds) p.append('account', a);
   for (const c of f.categoryIds) p.append('cat', c);
   for (const m of f.merchants) p.append('merchant', m);
-  if (f.amountMin) p.set('amin', f.amountMin);
-  if (f.amountMax) p.set('amax', f.amountMax);
+  // Amount: gt/lt/eq use a single value; between uses min/max. Server compares
+  // against abs(amount) via amin/amax.
+  if (f.amountMode === 'between') {
+    if (f.amountMin) p.set('amin', f.amountMin);
+    if (f.amountMax) p.set('amax', f.amountMax);
+  } else if (f.amountValue) {
+    if (f.amountMode === 'gt') p.set('amin', f.amountValue);
+    else if (f.amountMode === 'lt') p.set('amax', f.amountValue);
+    else if (f.amountMode === 'eq') { p.set('amin', f.amountValue); p.set('amax', f.amountValue); }
+  }
+  if (f.amountType !== 'all') p.set('type', f.amountType);
   if (f.hideTransfers) p.set('hideTransfers', '1');
   if (f.needsReviewOnly) p.set('needsReview', '1');
   return p.toString();
@@ -458,11 +481,12 @@ function AccountLogo({ institution, size = 22 }: { institution: string; size?: n
 
 // ─── Inline filter dropdowns (one per dimension, next to the search box) ──
 function FilterChip({
-  label, count, width = 300, children,
+  label, count, width = 300, onClear, children,
 }: {
   label: string;
   count: number;
   width?: number;
+  onClear?: () => void;
   children: (close: () => void) => React.ReactNode;
 }) {
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
@@ -488,6 +512,11 @@ function FilterChip({
           <div className="tx-inline-backdrop" onClick={(e) => { e.stopPropagation(); setAnchor(null); }} />
           <div className="tx-filter-pop" style={{ left: anchor.x, top: anchor.y, width }} onClick={(e) => e.stopPropagation()}>
             {children(() => setAnchor(null))}
+            {onClear && count > 0 && (
+              <div className="tx-filter-foot">
+                <button type="button" className="tx-filter-clear" onClick={onClear}>Clear</button>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -533,7 +562,7 @@ function FiltersBar({
 
   return (
     <>
-      <FilterChip label="Category" count={filters.categoryIds.length} width={320}>
+      <FilterChip label="Category" count={filters.categoryIds.length} width={320} onClear={() => setFilters({ ...filters, categoryIds: [] })}>
         {() => (
           <>
             <div className="filter-search">
@@ -580,7 +609,7 @@ function FiltersBar({
       </FilterChip>
 
       {!scoped && (
-        <FilterChip label="Account" count={filters.accountIds.length} width={300}>
+        <FilterChip label="Account" count={filters.accountIds.length} width={300} onClear={() => setFilters({ ...filters, accountIds: [] })}>
           {() => (
             <>
               <div className="filter-search">
@@ -602,7 +631,7 @@ function FiltersBar({
         </FilterChip>
       )}
 
-      <FilterChip label="Merchant" count={filters.merchants.length} width={300}>
+      <FilterChip label="Merchant" count={filters.merchants.length} width={300} onClear={() => setFilters({ ...filters, merchants: [] })}>
         {() => (
           <>
             <div className="filter-search">
@@ -624,7 +653,7 @@ function FiltersBar({
         )}
       </FilterChip>
 
-      <FilterChip label="Date" count={filters.dateRange !== 'all' ? 1 : 0} width={300}>
+      <FilterChip label="Date" count={filters.dateRange !== 'all' ? 1 : 0} width={300} onClear={() => setFilters({ ...filters, dateRange: 'all', customFrom: '', customTo: '' })}>
         {() => (
           <div className="filter-section">
             <div className="preset-row">
@@ -652,25 +681,62 @@ function FiltersBar({
         )}
       </FilterChip>
 
-      <FilterChip label="Amount" count={filters.amountMin || filters.amountMax ? 1 : 0} width={280}>
+      <FilterChip
+        label="Amount"
+        count={(amountActive(filters) ? 1 : 0) + (filters.amountType !== 'all' ? 1 : 0)}
+        width={280}
+        onClear={() => setFilters({ ...filters, amountMode: 'between', amountValue: '', amountMin: '', amountMax: '', amountType: 'all' })}
+      >
         {() => (
           <div className="filter-section">
-            <div className="row-2">
-              <label className="field">Min ($)
-                <input type="number" value={filters.amountMin} step="0.01" inputMode="decimal" placeholder="e.g. 10"
-                  onChange={(e) => setFilters({ ...filters, amountMin: e.target.value })} />
-              </label>
-              <label className="field">Max ($)
-                <input type="number" value={filters.amountMax} step="0.01" inputMode="decimal" placeholder="e.g. 500"
-                  onChange={(e) => setFilters({ ...filters, amountMax: e.target.value })} />
-              </label>
+            <div className="filter-subhead">Amount</div>
+            <div className="preset-row">
+              {([['gt', 'Greater than'], ['lt', 'Less than'], ['eq', 'Equal to'], ['between', 'Between']] as const).map(
+                ([m, lbl]) => (
+                  <button type="button" key={m}
+                    className={'preset-btn' + (filters.amountMode === m ? ' active' : '')}
+                    onClick={() => setFilters({ ...filters, amountMode: m })}>
+                    {lbl}
+                  </button>
+                ),
+              )}
             </div>
-            <p className="filter-hint">Compares against the absolute amount.</p>
+            {filters.amountMode === 'between' ? (
+              <div className="row-2">
+                <label className="field">Min ($)
+                  <input type="number" value={filters.amountMin} step="0.01" inputMode="decimal" placeholder="0"
+                    onChange={(e) => setFilters({ ...filters, amountMin: e.target.value })} />
+                </label>
+                <label className="field">Max ($)
+                  <input type="number" value={filters.amountMax} step="0.01" inputMode="decimal" placeholder="Any"
+                    onChange={(e) => setFilters({ ...filters, amountMax: e.target.value })} />
+                </label>
+              </div>
+            ) : (
+              <label className="field">Amount ($)
+                <input type="number" value={filters.amountValue} step="0.01" inputMode="decimal" placeholder="0.00"
+                  onChange={(e) => setFilters({ ...filters, amountValue: e.target.value })} />
+              </label>
+            )}
+            <div className="filter-subhead">Type</div>
+            <div className="preset-row">
+              <button type="button"
+                className={'preset-btn' + (filters.amountType === 'debit' ? ' active' : '')}
+                onClick={() => setFilters({ ...filters, amountType: filters.amountType === 'debit' ? 'all' : 'debit' })}>
+                Debits only
+              </button>
+              <button type="button"
+                className={'preset-btn' + (filters.amountType === 'credit' ? ' active' : '')}
+                onClick={() => setFilters({ ...filters, amountType: filters.amountType === 'credit' ? 'all' : 'credit' })}>
+                Credits only
+              </button>
+            </div>
+            <p className="filter-hint">Amount compares against the absolute value.</p>
           </div>
         )}
       </FilterChip>
 
-      <FilterChip label="More" count={(filters.hideTransfers ? 1 : 0) + (filters.needsReviewOnly ? 1 : 0)} width={280}>
+      <FilterChip label="More" count={(filters.hideTransfers ? 1 : 0) + (filters.needsReviewOnly ? 1 : 0)} width={280} onClear={() => setFilters({ ...filters, hideTransfers: false, needsReviewOnly: false })}>
         {() => (
           <div className="filter-list" style={{ paddingTop: 8 }}>
             <label className="filter-option">
@@ -1451,9 +1517,6 @@ export function TransactionsClient({
             <option key={opt.id} value={opt.id}>{opt.label}</option>
           ))}
         </select>
-        <span className="count">
-          {`${rows.length.toLocaleString()} ${rows.length === 1 ? 'transaction' : 'transactions'}`}
-        </span>
         {hasAnyFilter && (
           <button type="button" className="clear-btn" onClick={clearFilters}>
             Clear filters

@@ -41,6 +41,7 @@ export type TxnFilters = {
   merchants?: string[];
   amountMin?: number | null; // compared against abs(amount)
   amountMax?: number | null;
+  amountType?: 'debit' | 'credit'; // debit = outflow (amount<0), credit = inflow (amount>0)
   hideTransfers?: boolean;
   needsReviewOnly?: boolean;
 };
@@ -78,6 +79,8 @@ function buildConditions(f?: TxnFilters): (SQL | undefined)[] {
   if (f.amountMax != null && !Number.isNaN(f.amountMax)) {
     c.push(sql`abs(${transactions.amount}) <= ${f.amountMax}`);
   }
+  if (f.amountType === 'debit') c.push(sql`${transactions.amount} < 0`);
+  else if (f.amountType === 'credit') c.push(sql`${transactions.amount} > 0`);
   if (f.hideTransfers) c.push(eq(transactions.isTransfer, false));
   if (f.needsReviewOnly) c.push(eq(transactions.needsReview, true));
   return c;
