@@ -18,6 +18,7 @@ export type FileRow = {
   parseError: string | null;
   uploadedAt: string; // ISO
   accountId: string | null;
+  accountType: string | null;
   institution: string | null;
   last4: string | null;
 };
@@ -57,7 +58,7 @@ function periodStart(p: string): string {
 function sortVal(r: FileRow, key: SortKey): string | number {
   switch (key) {
     case 'fileName': return r.fileName.toLowerCase();
-    case 'type': return (TYPE_LABEL[r.detectedType] ?? r.detectedType).toLowerCase();
+    case 'type': return (r.accountType ?? r.detectedType).toLowerCase();
     case 'account': return `${r.institution ?? ''}${r.last4 ?? ''}`.toLowerCase();
     case 'period': return r.statementPeriod ? periodStart(r.statementPeriod) : '';
     case 'txns': return r.transactionCount ?? 0;
@@ -69,7 +70,7 @@ function sortVal(r: FileRow, key: SortKey): string | number {
 const DESC_FIRST: SortKey[] = ['txns', 'uploaded'];
 
 function matches(r: FileRow, q: string): boolean {
-  return [r.fileName, r.institution, r.last4, TYPE_LABEL[r.detectedType] ?? r.detectedType, r.detectedIssuer, r.statementPeriod, r.status]
+  return [r.fileName, r.institution, r.last4, r.accountType, TYPE_LABEL[r.detectedType] ?? r.detectedType, r.detectedIssuer, r.statementPeriod, r.status]
     .some((f) => f != null && String(f).toLowerCase().includes(q));
 }
 
@@ -113,7 +114,13 @@ function TrashIcon() {
   );
 }
 
-export function FilesClient({ rows: initialRows }: { rows: FileRow[] }) {
+export function FilesClient({
+  rows: initialRows,
+  typeOptions,
+}: {
+  rows: FileRow[];
+  typeOptions: { slug: string; label: string }[];
+}) {
   const [rows, setRows] = useState<FileRow[]>(initialRows);
   const [confirm, setConfirm] = useState<FileRow | null>(null);
   const [busy, setBusy] = useState(false);
@@ -192,6 +199,31 @@ export function FilesClient({ rows: initialRows }: { rows: FileRow[] }) {
       <span className="h-3.5 w-px bg-transparent group-hover:bg-accent-500 transition-colors" />
     </span>
   );
+
+  // Changing a file's Type re-types its matched account (and any sibling files
+  // pointing at the same account). Optimistic, with revert on failure.
+  async function changeType(row: FileRow, slug: string) {
+    const acctId = row.accountId;
+    if (!acctId || slug === row.accountType) return;
+    const prev = row.accountType;
+    setRows((rs) => rs.map((r) => (r.accountId === acctId ? { ...r, accountType: slug } : r)));
+    setError(null);
+    try {
+      const res = await fetch(`/api/accounts/${acctId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: slug }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.error) {
+        setError(json.error.message ?? 'Could not change type.');
+        setRows((rs) => rs.map((r) => (r.accountId === acctId ? { ...r, accountType: prev } : r)));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change type.');
+      setRows((rs) => rs.map((r) => (r.accountId === acctId ? { ...r, accountType: prev } : r)));
+    }
+  }
 
   async function remove(row: FileRow, withData: boolean) {
     setBusy(true);
@@ -298,8 +330,26 @@ export function FilesClient({ rows: initialRows }: { rows: FileRow[] }) {
                 >
                   {r.fileName}
                 </a>
-                <div className="text-text-secondary truncate" title={r.detectedIssuer ?? undefined}>
-                  {TYPE_LABEL[r.detectedType] ?? r.detectedType}
+                <div className="min-w-0">
+                  {r.accountId ? (
+                    <select
+                      value={r.accountType ?? ''}
+                      onChange={(e) => changeType(r, e.target.value)}
+                      className="mx-auto max-w-full rounded-md border border-border-subtle bg-surface-1 px-1.5 py-0.5 text-[12px] text-text-secondary focus:outline-none focus:border-border-strong"
+                      title="Account type — changing this re-types the account"
+                    >
+                      {r.accountType && !typeOptions.some((o) => o.slug === r.accountType) && (
+                        <option value={r.accountType}>{r.accountType}</option>
+                      )}
+                      {typeOptions.map((o) => (
+                        <option key={o.slug} value={o.slug}>{o.label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-text-secondary truncate" title={r.detectedIssuer ?? undefined}>
+                      {TYPE_LABEL[r.detectedType] ?? r.detectedType}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center justify-center gap-1.5 min-w-0">
                   {r.last4 || r.institution ? (

@@ -1,7 +1,7 @@
-import { desc, inArray } from 'drizzle-orm';
+import { asc, desc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { accounts, documents } from '@/lib/db/schema';
+import { accountTypes, accounts, documents } from '@/lib/db/schema';
 import { Sidebar } from '@/components/Sidebar';
 import { FilesClient, type FileRow } from './FilesClient';
 
@@ -36,6 +36,13 @@ export default async function FilesPage() {
     : [];
   const acctMap = new Map(accts.map((a) => [a.id, a]));
 
+  // Live (non-archived) taxonomy for the editable Type dropdown.
+  const typeOptions = await db
+    .select({ slug: accountTypes.slug, label: accountTypes.label })
+    .from(accountTypes)
+    .where(eq(accountTypes.isArchived, false))
+    .orderBy(asc(accountTypes.sortOrder));
+
   const rows: FileRow[] = docs.map((d) => {
     const accountId = d.accountIds?.[0] ?? null;
     const acct = accountId ? acctMap.get(accountId) : undefined;
@@ -51,6 +58,7 @@ export default async function FilesPage() {
       parseError: d.parseError,
       uploadedAt: d.uploadedAt.toISOString(),
       accountId,
+      accountType: acct?.type ?? null,
       institution: acct?.institution ?? null,
       last4: acct?.number ?? null,
     };
@@ -61,7 +69,7 @@ export default async function FilesPage() {
       <Sidebar />
       <div className="flex-1 flex justify-center">
         <main className="w-full max-w-[1400px] px-10 pt-8 pb-20">
-          <FilesClient rows={rows} />
+          <FilesClient rows={rows} typeOptions={typeOptions} />
         </main>
       </div>
     </div>
