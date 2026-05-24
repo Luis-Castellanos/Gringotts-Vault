@@ -243,12 +243,24 @@ function TxnDetail({
   txn, categories, onSaved,
 }: { txn: TxnRow; categories: CatLite[]; onSaved: (patch: TxnPatch) => void }) {
   const [merchant, setMerchant] = useState(txn.merchant);
-  const [categoryId, setCategoryId] = useState<string>(txn.categoryId ?? '');
+  const [parentId, setParentId] = useState<string>(() => {
+    const a = txn.categoryId ? categories.find((c) => c.id === txn.categoryId) : null;
+    return a ? a.parentId ?? a.id : '';
+  });
+  const [childId, setChildId] = useState<string>(() => {
+    const a = txn.categoryId ? categories.find((c) => c.id === txn.categoryId) : null;
+    return a && a.parentId ? a.id : '';
+  });
   const [notes, setNotes] = useState(txn.notes ?? '');
   const [isTransfer, setIsTransfer] = useState(txn.isTransfer);
   const [needsReview, setNeedsReview] = useState(txn.needsReview);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Effective category = the leaf (sub-category) if chosen, else the top-level.
+  const categoryId = childId || parentId;
+  const parents = categories.filter((c) => c.parentId === null);
+  const subs = categories.filter((c) => c.parentId === parentId);
 
   const dirty =
     merchant !== txn.merchant ||
@@ -286,23 +298,36 @@ function TxnDetail({
         </label>
         <label>
           Category
-          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+          <select value={parentId} onChange={(e) => { setParentId(e.target.value); setChildId(''); }}>
             <option value="">— Uncategorized —</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.parentName ? `${c.parentName} → ${c.name}` : c.name}</option>
+            {parents.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </label>
-        <label className="check-row" style={{ alignSelf: 'end', paddingBottom: 8 }}>
-          <input type="checkbox" checked={isTransfer} onChange={(e) => setIsTransfer(e.target.checked)} />
-          Mark as transfer (excluded from spending / income)
+        <label>
+          Sub-category
+          <select
+            value={childId}
+            onChange={(e) => setChildId(e.target.value)}
+            disabled={!parentId || subs.length === 0}
+          >
+            <option value="">{subs.length === 0 ? '— None —' : '— Use category only —'}</option>
+            {subs.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
         </label>
-        <label className="span-2">
+        <label className="span-3">
           Notes
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
             placeholder="Anything to remember about this transaction…" maxLength={1000} />
         </label>
-        <label className="check-row" style={{ alignSelf: 'end', paddingBottom: 8 }}>
+        <label className="check-row">
+          <input type="checkbox" checked={isTransfer} onChange={(e) => setIsTransfer(e.target.checked)} />
+          Mark as transfer (excluded from spending / income)
+        </label>
+        <label className="check-row">
           <input type="checkbox" checked={needsReview} onChange={(e) => setNeedsReview(e.target.checked)} />
           {needsReview ? 'In review queue' : 'Send back to review queue'}
         </label>
@@ -346,10 +371,9 @@ function AccountLogo({ institution, size = 22 }: { institution: string; size?: n
 type FilterTab = 'categories' | 'merchants' | 'accounts' | 'date' | 'amount' | 'other';
 
 function FilterPanel({
-  open, onClose, filters, setFilters,
+  onClose, filters, setFilters,
   categories, accounts, allMerchants, hideAccounts = false,
 }: {
-  open: boolean;
   onClose: () => void;
   filters: Filters;
   setFilters: (next: Filters) => void;
@@ -368,8 +392,6 @@ function FilterPanel({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-
-  if (!open) return null;
 
   const total = activeFilterCount(filters);
 
@@ -663,7 +685,115 @@ function FilterPanel({
   );
 }
 
-// ─── Main client ──────────────────────────────────────────────────────────
+// ─── Inline quick-edit pickers (row cells) ────────────────────────────────
+type Anchor = { x: number; y: number };
+
+function CategoryPicker({
+  categories, currentId, anchor, onPick, onClose,
+}: {
+  categories: CatLite[];
+  currentId: string | null;
+  anchor: Anchor;
+  onPick: (id: string) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const query = q.trim().toLowerCase();
+  const parents = categories.filter((c) => c.parentId === null);
+  const childrenOf = (pid: string) => categories.filter((c) => c.parentId === pid);
+  const matches = (c: CatLite) =>
+    !query || c.name.toLowerCase().includes(query) || (c.parentName ?? '').toLowerCase().includes(query);
+
+  return (
+    <>
+      <div className="tx-inline-backdrop" onClick={(e) => { e.stopPropagation(); onClose(); }} />
+      <div className="tx-inline-pop" style={{ left: anchor.x, top: anchor.y }} onClick={(e) => e.stopPropagation()}>
+        <input
+          className="tx-inline-search"
+          autoFocus
+          placeholder="Search categories…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <div className="tx-inline-list">
+          {parents.map((p) => {
+            const kids = childrenOf(p.id);
+            if (kids.length === 0) {
+              if (!matches(p)) return null;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={'tx-inline-item' + (currentId === p.id ? ' on' : '')}
+                  onClick={() => onPick(p.id)}
+                >
+                  <span className="ic">{iconFor(p.name)}</span>
+                  <span className="nm">{p.name}</span>
+                </button>
+              );
+            }
+            const shownKids = query ? kids.filter(matches) : kids;
+            if (shownKids.length === 0 && !matches(p)) return null;
+            return (
+              <div key={p.id} className="tx-inline-group">
+                <div className="tx-inline-head">{p.name}</div>
+                {shownKids.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={'tx-inline-item sub' + (currentId === c.id ? ' on' : '')}
+                    onClick={() => onPick(c.id)}
+                  >
+                    <span className="ic">{iconFor(c.name)}</span>
+                    <span className="nm">{c.name}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AccountPicker({
+  accounts, currentId, anchor, onPick, onClose,
+}: {
+  accounts: AcctLite[];
+  currentId: string | null;
+  anchor: Anchor;
+  onPick: (id: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div className="tx-inline-backdrop" onClick={(e) => { e.stopPropagation(); onClose(); }} />
+      <div className="tx-inline-pop" style={{ left: anchor.x, top: anchor.y }} onClick={(e) => e.stopPropagation()}>
+        <div className="tx-inline-list">
+          {accounts.length === 0 && <div className="tx-inline-empty">No accounts.</div>}
+          {accounts.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              className={'tx-inline-item' + (currentId === a.id ? ' on' : '')}
+              onClick={() => onPick(a.id)}
+            >
+              <AccountLogo institution={a.institution} size={18} />
+              <span className="nm">{a.name}</span>
+            </button>
+          ))}
+        </div>
+        {currentId && (
+          <Link href={`/accounts/${currentId}`} className="tx-inline-foot" onClick={(e) => e.stopPropagation()}>
+            View account →
+          </Link>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ─── Table view ───────────────────────────────────────────────────────────
 function SortCaret({ dir }: { dir: 'asc' | 'desc' | null }) {
   if (!dir) return null;
@@ -671,7 +801,7 @@ function SortCaret({ dir }: { dir: 'asc' | 'desc' | null }) {
 }
 
 function TxnTable({
-  rows, scoped, sortBy, onHeaderSort, selectMode, selected, onRowClick, selectedId, categories, onSaved,
+  rows, scoped, sortBy, onHeaderSort, selectMode, selected, onRowClick, selectedId, categories, onSaved, inline,
 }: {
   rows: TxnRow[];
   scoped: boolean;
@@ -683,6 +813,14 @@ function TxnTable({
   selectedId: string | null;
   categories: CatLite[];
   onSaved: (id: string, patch: TxnPatch) => void;
+  inline: {
+    editCell: { id: string; field: 'cat' | 'acct'; x: number; y: number } | null;
+    openEdit: (e: React.MouseEvent, id: string, field: 'cat' | 'acct') => void;
+    accounts: AcctLite[];
+    onPickCategory: (id: string, categoryId: string) => void;
+    onPickAccount: (id: string, accountId: string) => void;
+    onClose: () => void;
+  };
 }) {
   const dateDir = sortBy === 'date-asc' ? 'asc' : sortBy === 'date-desc' ? 'desc' : null;
   const amtDir = sortBy === 'amount-low' ? 'asc' : sortBy === 'amount-high' ? 'desc' : null;
@@ -733,7 +871,11 @@ function TxnTable({
                   </div>
                 </td>
                 <td className="td-cat">
-                  <div className="tx-category">
+                  <div
+                    className={'tx-category editable' + (selectMode ? ' no-edit' : '')}
+                    onClick={(e) => { if (!selectMode) inline.openEdit(e, t.id, 'cat'); }}
+                    title="Change category"
+                  >
                     <span
                       className={'tx-category-icon' + (t.categoryName ? '' : ' uncat')}
                       style={{ background: iconBg(t.categoryColor) }}
@@ -744,24 +886,39 @@ function TxnTable({
                     <span className={'tx-category-name' + (t.categoryName ? '' : ' uncat')}>
                       {t.categoryName ?? 'Uncategorized'}
                     </span>
+                    {inline.editCell?.id === t.id && inline.editCell.field === 'cat' && (
+                      <CategoryPicker
+                        categories={categories}
+                        currentId={t.categoryId}
+                        anchor={{ x: inline.editCell.x, y: inline.editCell.y }}
+                        onPick={(cid) => inline.onPickCategory(t.id, cid)}
+                        onClose={inline.onClose}
+                      />
+                    )}
                   </div>
                 </td>
                 {!scoped && (
                   <td className="td-acct">
-                    {t.accountId ? (
-                      <Link href={`/accounts/${t.accountId}`} className="tx-account is-link" onClick={(e) => e.stopPropagation()}>
-                        <AccountLogo institution={t.accountInstitution} />
-                        <span className="tx-account-name">
-                          {t.accountName}
-                          {t.accountLast4 ? ` ····${t.accountLast4}` : ''}
-                        </span>
-                      </Link>
-                    ) : (
-                      <div className="tx-account">
-                        <AccountLogo institution={t.accountInstitution} />
-                        <span className="tx-account-name">{t.accountName}</span>
-                      </div>
-                    )}
+                    <div
+                      className={'tx-account editable' + (selectMode ? ' no-edit' : '')}
+                      onClick={(e) => { if (!selectMode) inline.openEdit(e, t.id, 'acct'); }}
+                      title="Change account"
+                    >
+                      <AccountLogo institution={t.accountInstitution} />
+                      <span className="tx-account-name">
+                        {t.accountName}
+                        {t.accountLast4 ? ` ····${t.accountLast4}` : ''}
+                      </span>
+                      {inline.editCell?.id === t.id && inline.editCell.field === 'acct' && (
+                        <AccountPicker
+                          accounts={inline.accounts}
+                          currentId={t.accountId}
+                          anchor={{ x: inline.editCell.x, y: inline.editCell.y }}
+                          onPick={(aid) => inline.onPickAccount(t.id, aid)}
+                          onClose={inline.onClose}
+                        />
+                      )}
+                    </div>
                   </td>
                 )}
                 <td className={'td-amt' + (isPositive && !t.isTransfer ? ' pos' : '')}>
@@ -827,6 +984,18 @@ export function TransactionsClient({
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+
+  // Inline quick-edit popover (category / account) anchored to the clicked cell
+  const [editCell, setEditCell] = useState<{ id: string; field: 'cat' | 'acct'; x: number; y: number } | null>(null);
+  const openEdit = (e: React.MouseEvent, id: string, field: 'cat' | 'acct') => {
+    e.stopPropagation();
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setEditCell((cur) =>
+      cur && cur.id === id && cur.field === field
+        ? null
+        : { id, field, x: Math.min(r.left, window.innerWidth - 264), y: r.bottom + 4 },
+    );
+  };
 
   // Saved views (filter/sort presets)
   const [views, setViews] = useState<SavedView[]>([]);
@@ -985,7 +1154,7 @@ export function TransactionsClient({
       return n;
     });
   }, []);
-  const enterSelect = () => { setSelectMode(true); setSelectedId(null); };
+  const enterSelect = () => { setSelectMode(true); setSelectedId(null); setEditCell(null); };
   const exitSelect = () => { setSelectMode(false); setSelected(new Set()); };
 
   const bulkApply = useCallback(
@@ -1007,6 +1176,42 @@ export function TransactionsClient({
       void runFetch(0);
     },
     [selected, bulkBusy, runFetch],
+  );
+
+  // Inline single-row edits (optimistic, then persist).
+  const applyCategory = useCallback(
+    async (id: string, categoryId: string) => {
+      setEditCell(null);
+      setRows((prev) =>
+        prev.map((r) => {
+          if (r.id !== id) return r;
+          const cat = categories.find((c) => c.id === categoryId) ?? null;
+          return { ...r, categoryId, categoryName: cat?.name ?? null, categoryColor: cat?.color ?? null, needsReview: false };
+        }),
+      );
+      await categorizeTxn(id, { categoryId });
+    },
+    [categories],
+  );
+  const applyAccount = useCallback(
+    async (id: string, accountId: string) => {
+      setEditCell(null);
+      setRows((prev) =>
+        prev.map((r) => {
+          if (r.id !== id) return r;
+          const a = accounts.find((x) => x.id === accountId);
+          return {
+            ...r,
+            accountId,
+            accountName: a?.name ?? r.accountName,
+            accountInstitution: a?.institution ?? r.accountInstitution,
+            accountLast4: '',
+          };
+        }),
+      );
+      await patchTxn(id, { accountId });
+    },
+    [accounts],
   );
 
   const persistViews = useCallback((next: SavedView[]) => {
@@ -1181,6 +1386,14 @@ export function TransactionsClient({
             selectedId={selectedId}
             categories={categories}
             onSaved={patchLocalRow}
+            inline={{
+              editCell,
+              openEdit,
+              accounts,
+              onPickCategory: applyCategory,
+              onPickAccount: applyAccount,
+              onClose: () => setEditCell(null),
+            }}
           />
         ) : (
           grouped.map((group) => (
@@ -1223,7 +1436,11 @@ export function TransactionsClient({
                         </span>
                       </div>
 
-                      <div className="tx-category">
+                      <div
+                        className={'tx-category editable' + (selectMode ? ' no-edit' : '')}
+                        onClick={(e) => { if (!selectMode) openEdit(e, t.id, 'cat'); }}
+                        title="Change category"
+                      >
                         <span
                           className={'tx-category-icon' + (t.categoryName ? '' : ' uncat')}
                           style={{ background: iconBg(t.categoryColor) }}
@@ -1234,28 +1451,39 @@ export function TransactionsClient({
                         <span className={'tx-category-name' + (t.categoryName ? '' : ' uncat')}>
                           {t.categoryName ?? 'Uncategorized'}
                         </span>
+                        {editCell?.id === t.id && editCell.field === 'cat' && (
+                          <CategoryPicker
+                            categories={categories}
+                            currentId={t.categoryId}
+                            anchor={{ x: editCell.x, y: editCell.y }}
+                            onPick={(cid) => applyCategory(t.id, cid)}
+                            onClose={() => setEditCell(null)}
+                          />
+                        )}
                       </div>
 
-                      {!scoped &&
-                        (t.accountId ? (
-                          <Link
-                            href={`/accounts/${t.accountId}`}
-                            className="tx-account is-link"
-                            onClick={(e) => e.stopPropagation()}
-                            title={`View ${t.accountName}`}
-                          >
-                            <AccountLogo institution={t.accountInstitution} />
-                            <span className="tx-account-name">
-                              {t.accountName}
-                              {t.accountLast4 ? ` ····${t.accountLast4}` : ''}
-                            </span>
-                          </Link>
-                        ) : (
-                          <div className="tx-account">
-                            <AccountLogo institution={t.accountInstitution} />
-                            <span className="tx-account-name">{t.accountName}</span>
-                          </div>
-                        ))}
+                      {!scoped && (
+                        <div
+                          className={'tx-account editable' + (selectMode ? ' no-edit' : '')}
+                          onClick={(e) => { if (!selectMode) openEdit(e, t.id, 'acct'); }}
+                          title="Change account"
+                        >
+                          <AccountLogo institution={t.accountInstitution} />
+                          <span className="tx-account-name">
+                            {t.accountName}
+                            {t.accountLast4 ? ` ····${t.accountLast4}` : ''}
+                          </span>
+                          {editCell?.id === t.id && editCell.field === 'acct' && (
+                            <AccountPicker
+                              accounts={accounts}
+                              currentId={t.accountId}
+                              anchor={{ x: editCell.x, y: editCell.y }}
+                              onPick={(aid) => applyAccount(t.id, aid)}
+                              onClose={() => setEditCell(null)}
+                            />
+                          )}
+                        </div>
+                      )}
 
                       <div className={'tx-amount' + (isPositive && !t.isTransfer ? ' pos' : '')}>
                         {fmtMoney(t.amount, { sign: isPositive })}
@@ -1333,16 +1561,17 @@ export function TransactionsClient({
         </div>
       )}
 
-      <FilterPanel
-        open={showFilters}
-        onClose={() => setShowFilters(false)}
-        filters={filters}
-        setFilters={setFilters}
-        categories={categories}
-        accounts={accounts}
-        allMerchants={allMerchants}
-        hideAccounts={scoped}
-      />
+      {showFilters && (
+        <FilterPanel
+          onClose={() => setShowFilters(false)}
+          filters={filters}
+          setFilters={setFilters}
+          categories={categories}
+          accounts={accounts}
+          allMerchants={allMerchants}
+          hideAccounts={scoped}
+        />
+      )}
     </>
   );
 }

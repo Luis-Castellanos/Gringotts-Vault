@@ -20,6 +20,7 @@ import { merchantPrefix } from '@/lib/transactions/merchant';
 
 const bodySchema = z.object({
   merchant: z.string().optional(),
+  accountId: z.string().uuid().optional(),
   isTransfer: z.boolean().optional(),
   needsReview: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
@@ -37,6 +38,7 @@ export const PATCH = handler(
 
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (body.merchant !== undefined) patch.merchant = body.merchant;
+    if (body.accountId !== undefined) patch.accountId = body.accountId;
     if (body.isTransfer !== undefined) patch.isTransfer = body.isTransfer;
     if (body.needsReview !== undefined) patch.needsReview = body.needsReview;
     if (body.tags !== undefined) patch.tags = body.tags;
