@@ -21,6 +21,7 @@ import {
   IconCategories,
   IconCreditCard,
   IconDashboard,
+  IconFiles,
   IconForecasting,
   IconInvestments,
   IconNetWorth,
@@ -33,6 +34,7 @@ import {
   IconSettings,
   IconTax,
   IconTransactions,
+  IconUpload,
 } from './nav-icons';
 
 type NavHref =
@@ -49,7 +51,9 @@ type NavHref =
   | '/investments'
   | '/tax'
   | '/forecasting'
-  | '/categories';
+  | '/categories'
+  | '/upload'
+  | '/files';
 
 type NavItem = {
   href: NavHref;
@@ -85,6 +89,13 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: '/investments', label: 'Investments', Icon: IconInvestments },
       { href: '/tax', label: 'Tax', Icon: IconTax },
       { href: '/forecasting', label: 'Forecasting', Icon: IconForecasting },
+    ],
+  },
+  {
+    label: 'Data',
+    items: [
+      { href: '/upload', label: 'Upload', Icon: IconUpload },
+      { href: '/files', label: 'Files', Icon: IconFiles },
     ],
   },
   {

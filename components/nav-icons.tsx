@@ -45,6 +45,25 @@ export function IconCategories({ className, size = 18 }: IconProps) {
   );
 }
 
+export function IconUpload({ className, size = 18 }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="M7 9l5-5 5 5" />
+      <path d="M12 4v12" />
+    </svg>
+  );
+}
+
+export function IconFiles({ className, size = 18 }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+    </svg>
+  );
+}
+
 export function IconCreditCard({ className, size = 18 }: IconProps) {
   return (
     <svg {...base(size, className)}>
