@@ -191,6 +191,7 @@ type TxnPatch = {
   notes: string;
   isTransfer: boolean;
   needsReview: boolean;
+  date?: string; // only present when the date was changed (triggers a re-sort)
 };
 
 // Saved views (filter + sort presets), persisted to localStorage.
@@ -259,32 +260,52 @@ function TxnDetail({
   onViewMerchant: (merchant: string) => void;
 }) {
   const [merchant, setMerchant] = useState(txn.merchant);
-  const [categoryId, setCategoryId] = useState<string>(txn.categoryId ?? '');
+  const [parentId, setParentId] = useState<string>(() => {
+    const a = txn.categoryId ? categories.find((c) => c.id === txn.categoryId) : null;
+    return a ? a.parentId ?? a.id : '';
+  });
+  const [childId, setChildId] = useState<string>(() => {
+    const a = txn.categoryId ? categories.find((c) => c.id === txn.categoryId) : null;
+    return a && a.parentId ? a.id : '';
+  });
+  const [date, setDate] = useState(txn.date);
   const [notes, setNotes] = useState(txn.notes ?? '');
   const [isTransfer, setIsTransfer] = useState(txn.isTransfer);
   const [needsReview, setNeedsReview] = useState(txn.needsReview);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [catPickerAt, setCatPickerAt] = useState<Anchor | null>(null);
+  const [picker, setPicker] = useState<{ field: 'parent' | 'child'; x: number; y: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const cat = categoryId ? categories.find((c) => c.id === categoryId) ?? null : null;
-  const catLabel = cat ? (cat.parentName ? `${cat.parentName} → ${cat.name}` : cat.name) : 'Uncategorized';
+  // Effective category = sub-category (leaf) if chosen, else the top-level.
+  const categoryId = childId || parentId;
+  const parents = categories.filter((c) => c.parentId === null);
+  const subs = categories.filter((c) => c.parentId === parentId);
+  const parentCat = categories.find((c) => c.id === parentId) ?? null;
+  const childCat = categories.find((c) => c.id === childId) ?? null;
   const isPositive = txn.amount > 0;
 
   const dirty =
     merchant !== txn.merchant ||
     categoryId !== (txn.categoryId ?? '') ||
+    date !== txn.date ||
     notes !== (txn.notes ?? '') ||
     isTransfer !== txn.isTransfer ||
     needsReview !== txn.needsReview;
 
+  function openPicker(e: React.MouseEvent, field: 'parent' | 'child') {
+    const r = e.currentTarget.getBoundingClientRect();
+    setPicker({ field, x: Math.min(r.left, window.innerWidth - 264), y: r.bottom + 4 });
+  }
+
   async function save() {
     setSaving(true);
     setError(null);
+    const dateChanged = date !== txn.date;
     const patchBody: Record<string, unknown> = {};
     if (merchant !== txn.merchant) patchBody.merchant = merchant.trim();
+    if (dateChanged) patchBody.date = date;
     if (notes !== (txn.notes ?? '')) patchBody.notes = notes;
     if (isTransfer !== txn.isTransfer) patchBody.isTransfer = isTransfer;
     if (needsReview !== txn.needsReview) patchBody.needsReview = needsReview;
@@ -297,7 +318,14 @@ function TxnDetail({
       if (!r.ok) { setSaving(false); setError(r.error); return; }
     }
     setSaving(false);
-    onSaved({ merchant: merchant.trim(), categoryId, notes, isTransfer, needsReview });
+    onSaved({
+      merchant: merchant.trim(),
+      categoryId,
+      notes,
+      isTransfer,
+      needsReview,
+      ...(dateChanged ? { date } : {}),
+    });
   }
 
   async function copyRaw() {
@@ -350,40 +378,58 @@ function TxnDetail({
       </div>
 
       <div className="tx-form-grid">
-        <label>
+        <label className="span-3">
           Merchant
           <input type="text" value={merchant} onChange={(e) => setMerchant(e.target.value)} maxLength={200} />
         </label>
         <div className="txd-field">
           <span className="txd-field-label">Category</span>
-          <button
-            type="button"
-            className="txd-cat-btn"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setCatPickerAt({ x: Math.min(r.left, window.innerWidth - 264), y: r.bottom + 4 });
-            }}
-          >
-            <span className="ic" style={{ background: iconBg(cat?.color ?? null) }}>{iconFor(cat?.name ?? 'Uncategorized')}</span>
-            <span className="nm">{catLabel}</span>
+          <button type="button" className="txd-cat-btn" onClick={(e) => openPicker(e, 'parent')}>
+            <span className="ic" style={{ background: iconBg(parentCat?.color ?? null) }}>{iconFor(parentCat?.name ?? 'Uncategorized')}</span>
+            <span className="nm">{parentCat?.name ?? 'Uncategorized'}</span>
             <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="chev">
               <path d="M3.5 5l3.5 3.5L10.5 5" />
             </svg>
           </button>
-          {catPickerAt && (
-            <CategoryPicker
-              categories={categories}
-              currentId={categoryId || null}
-              anchor={catPickerAt}
-              onPick={(cid) => { setCategoryId(cid); setCatPickerAt(null); }}
-              onClose={() => setCatPickerAt(null)}
-            />
-          )}
+        </div>
+        <div className="txd-field">
+          <span className="txd-field-label">Sub-category</span>
+          <button
+            type="button"
+            className="txd-cat-btn"
+            disabled={!parentId || subs.length === 0}
+            onClick={(e) => openPicker(e, 'child')}
+          >
+            <span className="ic" style={{ background: iconBg(childCat?.color ?? null) }}>
+              {childCat ? iconFor(childCat.name) : '•'}
+            </span>
+            <span className="nm">
+              {childCat ? childCat.name : subs.length === 0 ? 'None' : 'Use category only'}
+            </span>
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="chev">
+              <path d="M3.5 5l3.5 3.5L10.5 5" />
+            </svg>
+          </button>
         </div>
         <div className="txd-field">
           <span className="txd-field-label">Date</span>
-          <div className="txd-static">{fmtDateShort(txn.date)}</div>
+          <input type="date" value={date} max={TODAY} onChange={(e) => setDate(e.target.value)} />
         </div>
+        {picker && (
+          <CatFlatPicker
+            items={picker.field === 'parent' ? parents : subs}
+            currentId={picker.field === 'parent' ? parentId || null : childId || null}
+            anchor={{ x: picker.x, y: picker.y }}
+            allowNone
+            noneLabel={picker.field === 'parent' ? 'Uncategorized' : 'Use category only'}
+            onPick={(id) => {
+              if (picker.field === 'parent') { setParentId(id); setChildId(''); }
+              else setChildId(id);
+              setPicker(null);
+            }}
+            onClose={() => setPicker(null)}
+          />
+        )}
         <label className="span-3">
           Notes
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
@@ -869,6 +915,52 @@ function AccountPicker({
   );
 }
 
+// Flat searchable category picker (one level) — used by the expanded detail's
+// Category and Sub-category fields.
+function CatFlatPicker({
+  items, currentId, anchor, onPick, onClose, allowNone = false, noneLabel = 'None',
+}: {
+  items: CatLite[];
+  currentId: string | null;
+  anchor: Anchor;
+  onPick: (id: string) => void;
+  onClose: () => void;
+  allowNone?: boolean;
+  noneLabel?: string;
+}) {
+  const [q, setQ] = useState('');
+  const query = q.trim().toLowerCase();
+  const shown = query ? items.filter((c) => c.name.toLowerCase().includes(query)) : items;
+  return (
+    <>
+      <div className="tx-inline-backdrop" onClick={(e) => { e.stopPropagation(); onClose(); }} />
+      <div className="tx-inline-pop" style={{ left: anchor.x, top: anchor.y }} onClick={(e) => e.stopPropagation()}>
+        <input className="tx-inline-search" autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="tx-inline-list">
+          {allowNone && !query && (
+            <button type="button" className={'tx-inline-item' + (!currentId ? ' on' : '')} onClick={() => onPick('')}>
+              <span className="ic" style={{ background: 'var(--surface-elev)' }}>•</span>
+              <span className="nm">{noneLabel}</span>
+            </button>
+          )}
+          {shown.length === 0 && <div className="tx-inline-empty">No matches.</div>}
+          {shown.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={'tx-inline-item' + (currentId === c.id ? ' on' : '')}
+              onClick={() => onPick(c.id)}
+            >
+              <span className="ic" style={{ background: iconBg(c.color) }}>{iconFor(c.name)}</span>
+              <span className="nm">{c.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Table view ───────────────────────────────────────────────────────────
 function SortCaret({ dir }: { dir: 'asc' | 'desc' | null }) {
   if (!dir) return null;
@@ -1244,6 +1336,16 @@ export function TransactionsClient({
     },
     [baseFilters],
   );
+  // A date change re-sorts/re-groups, so refetch the full set; otherwise patch
+  // the row in place to preserve scroll.
+  const handleSaved = useCallback(
+    (id: string, patch: TxnPatch) => {
+      setSelectedId(null);
+      if (patch.date !== undefined) void runFetch();
+      else patchLocalRow(id, patch);
+    },
+    [patchLocalRow, runFetch],
+  );
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -1482,7 +1584,7 @@ export function TransactionsClient({
             onRowClick={(id, isOpen) => (selectMode ? toggleSelect(id) : setSelectedId(isOpen ? null : id))}
             selectedId={selectedId}
             categories={categories}
-            onSaved={patchLocalRow}
+            onSaved={handleSaved}
             inline={{
               editCell,
               openEdit,
@@ -1601,10 +1703,7 @@ export function TransactionsClient({
                           <TxnDetail
                             txn={t}
                             categories={categories}
-                            onSaved={(patch) => {
-                              setSelectedId(null);
-                              patchLocalRow(t.id, patch);
-                            }}
+                            onSaved={(patch) => handleSaved(t.id, patch)}
                             onDeleted={() => removeRow(t.id)}
                             onViewMerchant={viewMerchant}
                           />
