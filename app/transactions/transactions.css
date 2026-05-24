@@ -62,11 +62,11 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-    padding: 10px 14px;
+    padding: 8px 12px;
     background: var(--surface);
     border-radius: 12px;
     box-shadow: var(--shadow-card);
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
   .tx-toolbar input[type='search'],
   .tx-toolbar select {
@@ -126,7 +126,7 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding: 10px 16px;
+    padding: 6px 12px;
     background: var(--surface-elev);
     border-top: 1px solid var(--line);
     font-size: 12px;
@@ -159,10 +159,10 @@
   /* Transaction row */
   .tx-row {
     display: grid;
-    grid-template-columns: minmax(0, 2.6fr) 1fr 1.15fr 116px 22px;
+    grid-template-columns: minmax(0, 3.6fr) 0.85fr 1fr 104px 18px;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: 10px;
+    padding: 8px 12px;
     cursor: pointer;
     transition: background 120ms ease;
   }

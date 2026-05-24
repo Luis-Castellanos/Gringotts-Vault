@@ -50,7 +50,7 @@ export default async function TransactionsPage() {
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex-1 flex justify-center">
-        <main className="transactions-page w-full max-w-[1600px] px-12 pt-6 pb-20">
+        <main className="transactions-page w-full max-w-[1600px] px-6 pt-6 pb-20">
           <TransactionsClient txns={txns} total={total} accounts={acctLites} categories={catLites} merchants={merchants} pageSize={PAGE_SIZE} />
         </main>
       </div>
