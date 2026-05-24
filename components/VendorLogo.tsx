@@ -2,26 +2,17 @@
 
 import { useEffect, useState } from 'react';
 
-/**
- * VendorLogo — tries Clearbit's logo service first (great for actual brand
- * logos like Amazon, Apple, Chase), falls back to a colored letter circle
- * when no logo is found. Used in the Transactions list and anywhere we
- * surface a merchant name.
- *
- * Optional `domainHint` lets callers override the auto-derived domain for
- * merchants whose name doesn't map cleanly to their domain.
- */
+import { vendorDomain } from '@/lib/vendor-domain';
 
-function merchantSlug(merchant: string): string {
-  return merchant
-    .toLowerCase()
-    .replace(/['']/g, '') // strip curly + straight apostrophes
-    .replace(/&/g, 'and')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
+/**
+ * VendorLogo — resolves a merchant to a brand domain (curated keyword map, then
+ * a name-based slug) and pulls its logo from Clearbit. Falls back to a colored
+ * letter circle when no logo is found. Used in the Transactions list and
+ * anywhere we surface a merchant name.
+ *
+ * Optional `domainHint` lets callers override the auto-derived domain (full
+ * domain incl. TLD, e.g. "apple.com") for merchants that don't map cleanly.
+ */
 
 function initials(name: string): string {
   return name
@@ -51,15 +42,15 @@ export function VendorLogo({
   size?: number;
   className?: string;
 }) {
-  const slug = domainHint || merchantSlug(merchant);
+  const domain = domainHint || vendorDomain(merchant);
   const [failed, setFailed] = useState(false);
 
-  // Re-attempt when the merchant changes (e.g., after rename)
+  // Re-attempt when the merchant/domain changes (e.g., after rename)
   useEffect(() => {
     setFailed(false);
-  }, [slug]);
+  }, [domain]);
 
-  const showLogo = !failed && slug.length > 0;
+  const showLogo = !failed && domain.length > 0;
   const bgColor = colorFor(merchant);
 
   return (
@@ -70,7 +61,7 @@ export function VendorLogo({
     >
       {showLogo ? (
         <img
-          src={`https://logo.clearbit.com/${slug}.com`}
+          src={`https://logo.clearbit.com/${domain}`}
           alt=""
           width={size}
           height={size}
