@@ -100,15 +100,34 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
 
 #### Designed pages (build first, in priority order)
 
-- [ ] **Accounts page** — Monarch-style dedicated main page. Designed in Claude.ai
-  artifacts. Highest priority.
-- [ ] **Credit Cards page** — Dedicated page (also accessible from Accounts).
-  Designed in Claude.ai artifacts; current design supersedes all prior versions.
-  Schema additions to the `accounts` table will be determined by the design when
-  it lands in this repo.
-- [ ] **Payroll page** — Paystub-driven view of income, gross/net, taxes,
-  deductions, employer 401k match. Designed in Claude.ai artifacts. Depends on
-  the bank-statement-extractor supporting paystubs.
+- [x] **Credit Cards page** — shipped 2026-05-23. Phase A: list + grid views
+  (grid default), drag-to-reorder with localStorage persistence, sort
+  dropdown, click-to-open detail modal, inline-editable Card name / Institution /
+  Last 4 / Credit limit / APR / Opened (server-validated against earliest
+  transaction), Mark-as-closed + Re-open, Add Card via Monarch-style flow.
+  Schema added: `accounts.credit_limit`, `accounts.apr` (Phase B start).
+  Card name is now DB-backed (dropped LS nickname pattern).
+- [x] **Accounts page** — shipped 2026-05-23. Phase A: list + grid views
+  (grid default), NW area chart from cumulative transaction history with
+  range toggle including custom date range, composition stacked bar, grouped
+  sections (Cash / Investments / Liabilities) with sub-groups, credit cards
+  aggregated into one row that links to /credit-cards, 12-week per-account
+  sparklines, sort dropdown, per-subgroup drag-to-reorder, Monarch-style
+  2-step Add Account flow (category picker → form), asset detail modal
+  (editable name/institution/last4/opened with same validation), Show/Hide
+  closed accounts toggle, Mark-as-closed + Re-open on both views.
+  Type-specific fields (APY for savings, gain% for brokerage, monthly payment
+  for loans) deferred to future schema migrations.
+- [x] **Payroll page** — shipped 2026-05-23 (Phase A). Three tabs: Single stub
+  (hero + interactive donut + Earnings / Deductions / Taxes / Employer cards
+  + Imputed footnote, prev/next nav), All stubs (table with year filter and
+  event chips), YTD summary (year picker, big hero, 4 colored metric cards,
+  monthly stacked bar chart with event dots + hover tooltip, Saved+Invested,
+  Year events timeline, full tax breakdown). **Phase A data is hardcoded** in
+  `lib/payroll/data.ts` (13 stubs from the design handoff). When the
+  bank-statement-extractor adds paystub support, swap that file for a server
+  query against a `paystubs` table — `computeStub` and `computeYTD` port
+  straight over.
 
 #### Data layer (prerequisites for the reporting pages)
 

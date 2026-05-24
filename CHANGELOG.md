@@ -2,6 +2,31 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-23 — **Payroll page shipped (Phase A).** Three tabs: Single stub with
+  hero + 3-slice interactive donut + breakdown cards, All stubs table with year
+  filter, YTD summary with year picker + 4 metric cards + monthly stacked bar
+  chart with event timeline. Data is hardcoded in `lib/payroll/data.ts` (13
+  stubs from the design handoff); swap for a `paystubs` table query when the
+  bank-statement-extractor adds paystub support.
+- 2026-05-23 — **Accounts page shipped + Credit Cards expanded (Phase A).**
+  Accounts: list + grid views (grid default), NW chart from cumulative
+  transactions with custom date range, composition bar, grouped sections with
+  per-bucket drag-to-reorder, Monarch-style Add Account flow (category picker
+  → form), asset detail modal with editable name/inst/last4/opened (server-
+  validated against earliest transaction), Mark-as-closed + Re-open in both
+  views, Show/Hide closed accounts toggle, sort dropdown, sparklines per
+  account. Credit Cards: grid view added (default), drag-to-reorder, detail
+  modal opened by clicking a grid card, "Manual" sort option added and made
+  default, Card name backed by DB (dropped LS nickname), inline-editable
+  Institution + Last 4 alongside existing Credit limit / APR / Opened.
+- 2026-05-23 — **Credit Cards page shipped (Phase A).** Initial build: list
+  view with inline expansion (Card info + Balance · this cycle + Benefits +
+  Rewards & fees + Close action), editable Credit limit / APR / Opened with
+  server-side validation, Add Card modal, light/dark theme system added to
+  globals.css, ThemeProvider + toggle in Sidebar, real PNG card art via
+  `next/image` with quality=95 for retina sharpness, README dev-server
+  instructions rewritten for step-by-step clarity. Schema added:
+  `accounts.credit_limit`, `accounts.apr`.
 - 2026-05-23 — Roadmap audit and restructure. Pulled paystub parser into Phase 2
   (bank-statement-extractor now covers all statement types including paystubs).
   Clarified data pipeline: categorization happens in `master.xlsx` (Categories +
