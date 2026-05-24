@@ -50,6 +50,7 @@ export type CreditCardData = {
 const TODAY = new Date().toISOString().slice(0, 10);
 
 const SORT_OPTIONS = [
+  { id: 'manual', label: 'Manual (drag to reorder)' },
   { id: 'smart', label: 'Recommended' },
   { id: 'balance', label: 'Balance · high → low' },
   { id: 'util', label: 'Utilization · high → low' },
@@ -331,9 +332,10 @@ type EditableStatProps = {
   display: string;
   isPlaceholder?: boolean;
   initialValue: string;
-  inputType: 'currency' | 'percent' | 'date';
+  inputType: 'currency' | 'percent' | 'date' | 'text';
   sub?: string;
-  max?: string; // for date inputs
+  max?: string;
+  placeholder?: string;
   onSave: (raw: string) => Promise<PatchResult>;
 };
 
@@ -345,6 +347,7 @@ function EditableStat({
   inputType,
   sub,
   max,
+  placeholder,
   onSave,
 }: EditableStatProps) {
   const [editing, setEditing] = useState(false);
@@ -390,10 +393,16 @@ function EditableStat({
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
   if (editing) {
-    const inputProps: React.InputHTMLAttributes<HTMLInputElement> =
-      inputType === 'date'
-        ? { type: 'date', max }
-        : { type: 'text', inputMode: 'decimal', placeholder: inputType === 'currency' ? '0.00' : '0.0' };
+    let inputProps: React.InputHTMLAttributes<HTMLInputElement>;
+    if (inputType === 'date') {
+      inputProps = { type: 'date', max };
+    } else if (inputType === 'currency') {
+      inputProps = { type: 'text', inputMode: 'decimal', placeholder: placeholder ?? '0.00' };
+    } else if (inputType === 'percent') {
+      inputProps = { type: 'text', inputMode: 'decimal', placeholder: placeholder ?? '0.0' };
+    } else {
+      inputProps = { type: 'text', placeholder };
+    }
     return (
       <div className="drawer-stat is-editable" onClick={stop}>
         <span className="lbl">{label}</span>
@@ -624,6 +633,52 @@ function InlineDetails({
   return (
     <div className="cc-expand-content">
       {(card.state === 'signup_bonus' || card.state === 'fee_due') && <StateCard card={card} />}
+
+      <div className="drawer-section">
+        <div className="h">Card info</div>
+        <div className="drawer-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          <EditableStat
+            label="Card name"
+            display={card.name}
+            initialValue={card.name}
+            inputType="text"
+            placeholder="e.g. Chase Sapphire Reserve"
+            onSave={async (raw) => {
+              const trimmed = raw.trim();
+              if (!trimmed) return { ok: false, error: 'Name cannot be empty.' };
+              const r = await patchAccount(card.id, { name: trimmed });
+              if (r.ok) onUpdated();
+              return r;
+            }}
+          />
+          <EditableStat
+            label="Institution"
+            display={card.institution || 'Click to set'}
+            isPlaceholder={!card.institution}
+            initialValue={card.institution}
+            inputType="text"
+            placeholder="e.g. Chase"
+            onSave={async (raw) => {
+              const r = await patchAccount(card.id, { institution: raw.trim() || null });
+              if (r.ok) onUpdated();
+              return r;
+            }}
+          />
+          <EditableStat
+            label="Last 4"
+            display={card.last4 || 'Click to set'}
+            isPlaceholder={!card.last4}
+            initialValue={card.last4}
+            inputType="text"
+            placeholder="1234"
+            onSave={async (raw) => {
+              const r = await patchAccount(card.id, { accountNumber: raw.trim() || null });
+              if (r.ok) onUpdated();
+              return r;
+            }}
+          />
+        </div>
+      </div>
 
       <div className="drawer-section">
         <div className="h">Balance · this cycle</div>
@@ -1057,45 +1112,207 @@ function AddCardModal({
   );
 }
 
+// ─── Grid view card ───────────────────────────────────────────────────────
+function CardGridItem({
+  card,
+  displayName,
+  isDragging,
+  dropEdge,
+  onClick,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: {
+  card: CreditCardData;
+  displayName: string;
+  isDragging: boolean;
+  dropEdge: 'before' | 'after' | null;
+  onClick: () => void;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+}) {
+  const hasLimit = card.limit != null && card.limit > 0;
+  const util = hasLimit ? (card.balance / (card.limit as number)) * 100 : null;
+  const tone = util != null ? utilTone(util) : 'green';
+  const cls =
+    'cc-grid-card' +
+    (isDragging ? ' dragging' : '') +
+    (dropEdge === 'before' ? ' drop-before' : '') +
+    (dropEdge === 'after' ? ' drop-after' : '');
+  return (
+    <div
+      className={cls}
+      draggable
+      onClick={onClick}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+    >
+      <CardArt card={card} />
+      <div className="grid-name">{displayName}</div>
+      <div className="grid-sub">
+        {card.institution && <span>{card.institution}</span>}
+        {card.last4 && <span className="num">•••• {card.last4}</span>}
+        <StateChip card={card} />
+      </div>
+      <div className="grid-bal-row">
+        <span className={'grid-bal num' + (card.balance > 0 ? ' red' : '')}>
+          {card.balance > 0 ? fmtMoney(card.balance) : '$0.00'}
+        </span>
+        {card.apr != null && (
+          <span style={{ fontSize: 11, color: 'var(--text-3)' }} className="num">
+            APR {card.apr}%
+          </span>
+        )}
+      </div>
+      <div className="grid-util">
+        {hasLimit && util != null ? (
+          <>
+            <div className="meta">
+              <span>Util</span>
+              <span className={'pct ' + tone}>{fmtPct(util, util < 1 ? 1 : 0)}</span>
+            </div>
+            <div className="bar">
+              <div className={'fill ' + tone} style={{ width: Math.min(100, util) + '%' }} />
+            </div>
+            <div className="meta">
+              <span>
+                {fmtMoney0(card.balance)} of {fmtMoney0(card.limit)}
+              </span>
+            </div>
+          </>
+        ) : (
+          <span className="placeholder">No credit limit on file</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Detail modal (used in grid view) ─────────────────────────────────────
+function CardDetailModal({
+  card,
+  displayName,
+  onClose,
+  onUpdated,
+}: {
+  card: CreditCardData;
+  displayName: string;
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="cc-modal-root">
+      <div className="cc-modal-backdrop" onClick={onClose}>
+        <div
+          className="cc-detail-modal"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${displayName} details`}
+        >
+          <div className="cc-detail-modal-header">
+            <CardArt card={card} />
+            <div className="cc-detail-modal-title">
+              <h2>{displayName}</h2>
+              <p>
+                {card.institution}
+                {card.last4 ? ` · •••• ${card.last4}` : ''}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="cc-detail-modal-close"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+          <div className="cc-detail-modal-body">
+            <InlineDetails
+              card={card}
+              onUpdated={() => {
+                onUpdated();
+                onClose();
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main client component ─────────────────────────────────────────────────
-const NICKNAMES_KEY = 'cc:nicknames';
+const ORDER_KEY = 'cc:order';
 
 export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Keeps the most-recently-opened card's content mounted briefly after close
+  // so the height-collapse transition has real content to shrink against.
+  const [shownId, setShownId] = useState<string | null>(null);
+  const shownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'closed'>('active');
-  const [sortBy, setSortBy] = useState<SortId>('smart');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [sortBy, setSortBy] = useState<SortId>('manual');
   const [filterBy, setFilterBy] = useState<FilterId>('all');
-  const [nicknames, setNicknames] = useState<Record<string, string>>({});
   const [showAddModal, setShowAddModal] = useState(false);
+  // Manual order (grid view) + drag-and-drop state
+  const [manualOrder, setManualOrder] = useState<string[]>([]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; edge: 'before' | 'after' } | null>(null);
+
+  useEffect(() => {
+    if (selectedId) {
+      if (shownTimerRef.current) clearTimeout(shownTimerRef.current);
+      setShownId(selectedId);
+    } else if (shownId) {
+      shownTimerRef.current = setTimeout(() => setShownId(null), 500);
+    }
+    return () => {
+      if (shownTimerRef.current) clearTimeout(shownTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(NICKNAMES_KEY);
-      if (raw) setNicknames(JSON.parse(raw));
+      const raw = localStorage.getItem(ORDER_KEY);
+      if (raw) setManualOrder(JSON.parse(raw));
     } catch {
       // ignore
     }
   }, []);
   useEffect(() => {
     try {
-      localStorage.setItem(NICKNAMES_KEY, JSON.stringify(nicknames));
+      localStorage.setItem(ORDER_KEY, JSON.stringify(manualOrder));
     } catch {
       // ignore
     }
-  }, [nicknames]);
+  }, [manualOrder]);
 
-  function setCardNickname(cardId: string, value: string) {
-    setNicknames((prev) => {
-      const next = { ...prev };
-      const trimmed = (value || '').trim();
-      if (!trimmed) delete next[cardId];
-      else next[cardId] = trimmed;
-      return next;
-    });
+  async function renameCard(cardId: string, newName: string) {
+    const trimmed = (newName || '').trim();
+    if (!trimmed) return;
+    const r = await patchAccount(cardId, { name: trimmed });
+    if (r.ok) router.refresh();
+    else alert(r.error);
   }
-  const displayNameOf = (card: CreditCardData) =>
-    nicknames[card.id] || card.displayName || card.name;
+  const displayNameOf = (card: CreditCardData) => card.name;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1128,6 +1345,20 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
     const dueOf = (c: CreditCardData) =>
       c.dueDate ? new Date(c.dueDate).getTime() : Infinity;
     switch (sortBy) {
+      case 'manual': {
+        if (manualOrder.length > 0) {
+          const idx = new Map(manualOrder.map((id, i) => [id, i]));
+          sorted.sort((a, b) => {
+            const ai = idx.get(a.id);
+            const bi = idx.get(b.id);
+            if (ai != null && bi != null) return ai - bi;
+            if (ai != null) return -1;
+            if (bi != null) return 1;
+            return a.name.localeCompare(b.name);
+          });
+        }
+        break;
+      }
       case 'balance':
         sorted.sort((a, b) => b.balance - a.balance); break;
       case 'util':
@@ -1142,7 +1373,7 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
           new Date(a.openedDate || '1970-01-01').getTime(),
         ); break;
       case 'name':
-        sorted.sort((a, b) => displayNameOf(a).localeCompare(displayNameOf(b))); break;
+        sorted.sort((a, b) => a.name.localeCompare(b.name)); break;
       case 'smart':
       default:
         sorted.sort((a, b) => {
@@ -1154,8 +1385,7 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
         break;
     }
     return sorted;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, sortBy, filterBy, nicknames]);
+  }, [active, sortBy, filterBy, manualOrder]);
 
   const filterCounts: Record<FilterId, number> = useMemo(() => ({
     all: active.length,
@@ -1164,6 +1394,63 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
     signup: active.filter((c) => c.state === 'signup_bonus').length,
     fee: active.filter((c) => c.state === 'fee_due').length,
   }), [active]);
+
+  // Grid view uses the same sorted+filtered list as list view (sortBy is shared).
+  const gridFiltered = sortedActive;
+
+  function onCardDragStart(e: React.DragEvent, id: string) {
+    setDraggingId(id);
+    setSelectedId(null);
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', id); } catch { /* ignore */ }
+  }
+  function onCardDragOver(e: React.DragEvent, id: string) {
+    if (!draggingId || id === draggingId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const edge = (e.clientX - rect.left) < rect.width / 2 ? 'before' : 'after';
+    setDropTarget((cur) =>
+      cur && cur.id === id && cur.edge === edge ? cur : { id, edge },
+    );
+  }
+  function onCardDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    const sourceId = draggingId;
+    const target = dropTarget;
+    setDraggingId(null);
+    setDropTarget(null);
+    if (!sourceId || sourceId === targetId || !target) return;
+
+    const visibleIds = gridFiltered.map((c) => c.id);
+    const visibleSet = new Set(visibleIds);
+    const allActiveIds = active.map((c) => c.id);
+
+    const next = [...visibleIds];
+    const sourceIdx = next.indexOf(sourceId);
+    let targetIdx = next.indexOf(target.id);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+    next.splice(sourceIdx, 1);
+    if (sourceIdx < targetIdx) targetIdx -= 1;
+    const insertAt = target.edge === 'before' ? targetIdx : targetIdx + 1;
+    next.splice(insertAt, 0, sourceId);
+
+    const base = manualOrder.length > 0 ? manualOrder : allActiveIds;
+    const merged: string[] = [];
+    let cursor = 0;
+    for (const id of base) {
+      if (visibleSet.has(id)) merged.push(next[cursor++]!);
+      else merged.push(id);
+    }
+    for (const id of allActiveIds) if (!merged.includes(id)) merged.push(id);
+    setManualOrder(merged);
+    // Switch sort to manual so the user's drag actually takes effect immediately.
+    if (sortBy !== 'manual') setSortBy('manual');
+  }
+  function onCardDragEnd() {
+    setDraggingId(null);
+    setDropTarget(null);
+  }
 
   async function reopenCard(id: string) {
     const result = await patchAccount(id, { isActive: true });
@@ -1178,6 +1465,35 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
           <h1 className="page-title">Credit cards</h1>
         </div>
         <div className="page-actions">
+          <div className="view-toggle" role="tablist" aria-label="View">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'grid'}
+              className={view === 'grid' ? 'active' : ''}
+              onClick={() => setView('grid')}
+            >
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <rect x="2" y="2" width="4" height="4" rx="0.8" />
+                <rect x="8" y="2" width="4" height="4" rx="0.8" />
+                <rect x="2" y="8" width="4" height="4" rx="0.8" />
+                <rect x="8" y="8" width="4" height="4" rx="0.8" />
+              </svg>
+              Grid
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'list'}
+              className={view === 'list' ? 'active' : ''}
+              onClick={() => setView('list')}
+            >
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <path d="M2 4h10M2 7h10M2 10h10" />
+              </svg>
+              List
+            </button>
+          </div>
           <button type="button" className="pg-btn primary" onClick={() => setShowAddModal(true)}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 2v10M2 7h10" />
@@ -1239,23 +1555,45 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
               </select>
             </label>
           </div>
-          {sortedActive.length === 0 ? (
+          {view === 'grid' ? (
+            gridFiltered.length === 0 ? (
+              <div className="card cc-no-results">No cards match this filter.</div>
+            ) : (
+              <div className="cc-grid">
+                {gridFiltered.map((c) => (
+                  <CardGridItem
+                    key={c.id}
+                    card={c}
+                    displayName={displayNameOf(c)}
+                    isDragging={draggingId === c.id}
+                    dropEdge={dropTarget?.id === c.id ? dropTarget.edge : null}
+                    onClick={() => setSelectedId(c.id)}
+                    onDragStart={(e) => onCardDragStart(e, c.id)}
+                    onDragOver={(e) => onCardDragOver(e, c.id)}
+                    onDrop={(e) => onCardDrop(e, c.id)}
+                    onDragEnd={onCardDragEnd}
+                  />
+                ))}
+              </div>
+            )
+          ) : sortedActive.length === 0 ? (
             <div className="card cc-no-results">No cards match this filter.</div>
           ) : (
             <div className="cc-list">
               {sortedActive.map((c) => {
                 const isOpen = selectedId === c.id;
+                const showContent = isOpen || shownId === c.id;
                 return (
                   <div key={c.id} className={'cc-row-wrap' + (isOpen ? ' open' : '')}>
                     <CardRow
                       card={c}
                       displayName={displayNameOf(c)}
                       onClick={() => setSelectedId(isOpen ? null : c.id)}
-                      onRename={(name) => setCardNickname(c.id, name)}
+                      onRename={(name) => renameCard(c.id, name)}
                     />
                     <div className="cc-expand" aria-hidden={!isOpen}>
                       <div className="cc-expand-inner">
-                        {isOpen && (
+                        {showContent && (
                           <InlineDetails
                             card={c}
                             onUpdated={() => router.refresh()}
@@ -1337,6 +1675,19 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
           }}
         />
       )}
+
+      {view === 'grid' && selectedId && (() => {
+        const card = cards.find((c) => c.id === selectedId);
+        if (!card) return null;
+        return (
+          <CardDetailModal
+            card={card}
+            displayName={displayNameOf(card)}
+            onClose={() => setSelectedId(null)}
+            onUpdated={() => router.refresh()}
+          />
+        );
+      })()}
     </>
   );
 }
