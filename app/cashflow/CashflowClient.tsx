@@ -75,6 +75,8 @@ const DEFAULT_RANGE: Record<Gran, number | 'all'> = { month: 12, quarter: 8, yea
 export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: CatAgg[] }) {
   const [gran, setGran] = useState<Gran>('month');
   const [dim, setDim] = useState<Dim>('category');
+  const [sortKey, setSortKey] = useState<'amount' | 'amount-asc' | 'name'>('amount');
+  const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState<string>('');
   const [hover, setHover] = useState<{ key: string; x: number } | null>(null);
   const [rangeN, setRangeN] = useState<number | 'all'>(DEFAULT_RANGE.month);
@@ -133,12 +135,19 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
       e.amount += amount;
       target.set(k, e);
     }
-    const sortDesc = (a: { amount: number }, b: { amount: number }) => b.amount - a.amount;
-    return {
-      income: [...inflow.values()].filter((r) => Math.abs(r.amount) > 0.005).sort(sortDesc),
-      expense: [...outflow.values()].filter((r) => Math.abs(r.amount) > 0.005).sort(sortDesc),
+    const q = filter.trim().toLowerCase();
+    const prep = (m: Map<string, { key: string; name: string; color: string | null; amount: number }>) => {
+      let arr = [...m.values()].filter((r) => Math.abs(r.amount) > 0.005);
+      if (q) arr = arr.filter((r) => r.name.toLowerCase().includes(q));
+      arr.sort((a, b) => {
+        if (sortKey === 'name') return a.name.localeCompare(b.name);
+        if (sortKey === 'amount-asc') return a.amount - b.amount;
+        return b.amount - a.amount;
+      });
+      return arr;
     };
-  }, [cats, gran, selected, dim]);
+    return { income: prep(inflow), expense: prep(outflow) };
+  }, [cats, gran, selected, dim, filter, sortKey]);
 
   const selIndex = visible.findIndex((b) => b.key === selected);
   const step = (delta: number) => {
@@ -222,18 +231,38 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
       {/* Breakdown */}
       <div className="cf-break-head">
         <h2>Breakdown</h2>
-        <div className="cf-seg sm" role="tablist" aria-label="Breakdown grouping">
-          {(['category', 'group'] as Dim[]).map((d) => (
-            <button key={d} role="tab" aria-selected={dim === d} className={dim === d ? 'active' : ''} onClick={() => setDim(d)}>
-              {d === 'category' ? 'Category' : 'Group'}
-            </button>
-          ))}
+        <div className="cf-break-controls">
+          <input
+            className="cf-break-search"
+            type="search"
+            placeholder="Filter…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            aria-label="Filter categories"
+          />
+          <select
+            className="cf-break-sort"
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as 'amount' | 'amount-asc' | 'name')}
+            aria-label="Sort breakdown"
+          >
+            <option value="amount">Amount ↓</option>
+            <option value="amount-asc">Amount ↑</option>
+            <option value="name">Name A–Z</option>
+          </select>
+          <div className="cf-seg sm" role="tablist" aria-label="Breakdown grouping">
+            {(['category', 'group'] as Dim[]).map((d) => (
+              <button key={d} role="tab" aria-selected={dim === d} className={dim === d ? 'active' : ''} onClick={() => setDim(d)}>
+                {d === 'category' ? 'Category' : 'Group'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="cf-break-grid">
-        <BreakdownPanel title="Income" rows={breakdown.income} total={income} tone="green" />
-        <BreakdownPanel title="Expenses" rows={breakdown.expense} total={expense} tone="red" />
+      <div className="cf-break-stack">
+        <BreakdownPanel title="Inflows" rows={breakdown.income} total={income} tone="green" />
+        <BreakdownPanel title="Outflows" rows={breakdown.expense} total={expense} tone="red" />
       </div>
     </div>
   );
