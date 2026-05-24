@@ -846,6 +846,110 @@
     border-color: var(--text-2);
   }
 
+  /* ─── Saved views popover ────────────────────────────────────────── */
+  .tx-views {
+    position: relative;
+    display: inline-flex;
+  }
+  .tx-views-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+  }
+  .tx-views-pop {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 50;
+    width: 260px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+    padding: 8px;
+  }
+  .tx-views-empty {
+    padding: 10px 8px;
+    font-size: 12.5px;
+    color: var(--text-3);
+  }
+  .tx-views-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    max-height: 260px;
+    overflow-y: auto;
+    margin-bottom: 6px;
+  }
+  .tx-view-row {
+    display: flex;
+    align-items: center;
+    border-radius: 7px;
+  }
+  .tx-view-row:hover { background: var(--surface-hover); }
+  .tx-view-row .name {
+    flex: 1;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    text-align: left;
+    color: var(--text-1);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-radius: 7px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tx-view-row .del {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--text-3);
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 7px;
+  }
+  .tx-view-row .del:hover { color: var(--red-text); }
+  .tx-views-save {
+    display: flex;
+    gap: 6px;
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+  }
+  .tx-views-save input {
+    flex: 1;
+    min-width: 0;
+    appearance: none;
+    background: var(--surface-elev);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 12.5px;
+    color: var(--text-1);
+    font-family: inherit;
+    outline: none;
+  }
+  .tx-views-save input:focus { border-color: var(--text-3); }
+  .tx-views-save button {
+    appearance: none;
+    background: var(--text-1);
+    color: var(--bg);
+    border: 0;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .tx-views-save button:disabled { opacity: 0.45; cursor: not-allowed; }
+
   /* ─── Bulk-select action bar (floating) ──────────────────────────── */
   .tx-bulkbar {
     position: fixed;

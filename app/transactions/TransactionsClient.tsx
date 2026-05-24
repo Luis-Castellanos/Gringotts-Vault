@@ -194,6 +194,10 @@ type TxnPatch = {
   needsReview: boolean;
 };
 
+// Saved views (filter + sort presets), persisted to localStorage.
+type SavedView = { id: string; name: string; filters: Filters; sortBy: SortId };
+const VIEWS_KEY = 'transactions:views:v1';
+
 // ─── Save helpers ─────────────────────────────────────────────────────────
 type SaveResult = { ok: true } | { ok: false; error: string };
 
@@ -701,6 +705,19 @@ export function TransactionsClient({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
 
+  // Saved views (filter/sort presets)
+  const [views, setViews] = useState<SavedView[]>([]);
+  const [viewsOpen, setViewsOpen] = useState(false);
+  const [viewName, setViewName] = useState('');
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(VIEWS_KEY);
+      if (raw) setViews(JSON.parse(raw) as SavedView[]);
+    } catch {
+      /* ignore malformed storage */
+    }
+  }, []);
+
   // Filtering, search and sort all run server-side. `rows` holds the current
   // result page(s); `total` is the count matching the active filters. Changing
   // a filter/sort refetches page 0 (debounced); scrolling appends pages. A
@@ -848,6 +865,29 @@ export function TransactionsClient({
     [selected, bulkBusy, runFetch],
   );
 
+  const persistViews = useCallback((next: SavedView[]) => {
+    setViews(next);
+    try {
+      localStorage.setItem(VIEWS_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore quota / private-mode errors */
+    }
+  }, []);
+  const saveCurrentView = () => {
+    const name = viewName.trim();
+    if (!name) return;
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+    // Replace any existing view with the same name.
+    persistViews([...views.filter((v) => v.name !== name), { id, name, filters, sortBy }]);
+    setViewName('');
+  };
+  const applyView = (v: SavedView) => {
+    setFilters({ ...DEFAULT_FILTERS, ...v.filters });
+    setSortBy(v.sortBy);
+    setViewsOpen(false);
+  };
+  const deleteView = (id: string) => persistViews(views.filter((v) => v.id !== id));
+
   // The locked account doesn't count as a user-applied filter.
   const filterCount =
     activeFilterCount(filters) - (scoped && filters.accountIds.length > 0 ? 1 : 0);
@@ -884,6 +924,51 @@ export function TransactionsClient({
           </svg>
           {selectMode ? 'Done' : 'Select'}
         </button>
+        {!scoped && (
+          <div className="tx-views">
+            <button
+              type="button"
+              className={'tx-toolbar-btn' + (viewsOpen ? ' has-filters' : '')}
+              onClick={() => setViewsOpen((o) => !o)}
+            >
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 3.5h10M2 7h10M2 10.5h6" />
+              </svg>
+              Views
+              {views.length > 0 && <span className="badge">{views.length}</span>}
+            </button>
+            {viewsOpen && (
+              <>
+                <div className="tx-views-backdrop" onClick={() => setViewsOpen(false)} />
+                <div className="tx-views-pop">
+                  {views.length === 0 ? (
+                    <div className="tx-views-empty">No saved views yet.</div>
+                  ) : (
+                    <div className="tx-views-list">
+                      {views.map((v) => (
+                        <div className="tx-view-row" key={v.id}>
+                          <button type="button" className="name" onClick={() => applyView(v)}>{v.name}</button>
+                          <button type="button" className="del" aria-label={`Delete ${v.name}`} onClick={() => deleteView(v.id)}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="tx-views-save">
+                    <input
+                      type="text"
+                      placeholder="Save current filters as…"
+                      value={viewName}
+                      onChange={(e) => setViewName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') saveCurrentView(); }}
+                      maxLength={40}
+                    />
+                    <button type="button" disabled={!viewName.trim()} onClick={saveCurrentView}>Save</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <div className="spacer" />
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortId)}>
           {SORT_OPTIONS.map((opt) => (
