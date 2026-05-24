@@ -161,6 +161,13 @@
   stroke-linecap: round;
   opacity: 0.9;
 }
+.cf-line {
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.cf-line-income { stroke: var(--green); }
+.cf-line-expense { stroke: var(--red); }
 .cf-net-dot {
   fill: var(--text-1);
 }

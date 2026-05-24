@@ -65,11 +65,6 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] 
   return [ref, w];
 }
 
-const RANGES: Record<Gran, { label: string; n: number | 'all' }[]> = {
-  month: [{ label: '12M', n: 12 }, { label: '24M', n: 24 }, { label: 'All', n: 'all' }],
-  quarter: [{ label: '2Y', n: 8 }, { label: '4Y', n: 16 }, { label: 'All', n: 'all' }],
-  year: [{ label: 'All', n: 'all' }],
-};
 const DEFAULT_RANGE: Record<Gran, number | 'all'> = { month: 12, quarter: 8, year: 'all' };
 
 export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: CatAgg[] }) {
@@ -79,9 +74,9 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
   const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState<string>('');
   const [hover, setHover] = useState<{ key: string; x: number } | null>(null);
-  const [rangeN, setRangeN] = useState<number | 'all'>(DEFAULT_RANGE.month);
+  const [chartType, setChartType] = useState<'bars' | 'line' | 'net'>('bars');
   const [offset, setOffset] = useState(0); // buckets shifted back from the latest window
-  useEffect(() => { setRangeN(DEFAULT_RANGE[gran]); setOffset(0); }, [gran]);
+  useEffect(() => { setOffset(0); }, [gran]);
 
   // Bucket the monthly series into the chosen granularity.
   const buckets = useMemo(() => {
@@ -96,7 +91,8 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
     return [...m.values()].sort((a, b) => a.key.localeCompare(b.key));
   }, [series, gran]);
 
-  const count = rangeN === 'all' ? buckets.length : Math.min(rangeN, buckets.length);
+  const range = DEFAULT_RANGE[gran];
+  const count = range === 'all' ? buckets.length : Math.min(range, buckets.length);
   const endIdx = Math.max(0, buckets.length - 1 - offset);
   const startIdx = Math.max(0, endIdx - count + 1);
   const visible = buckets.slice(startIdx, endIdx + 1);
@@ -180,16 +176,16 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
 
       {/* Range + paging */}
       <div className="cf-controls">
-        <div className="cf-seg sm" role="tablist" aria-label="Range">
-          {RANGES[gran].map((r) => (
+        <div className="cf-seg sm" role="tablist" aria-label="Chart type">
+          {(['bars', 'line', 'net'] as const).map((t) => (
             <button
-              key={r.label}
+              key={t}
               role="tab"
-              aria-selected={rangeN === r.n}
-              className={rangeN === r.n ? 'active' : ''}
-              onClick={() => { setRangeN(r.n); setOffset(0); }}
+              aria-selected={chartType === t}
+              className={chartType === t ? 'active' : ''}
+              onClick={() => setChartType(t)}
             >
-              {r.label}
+              {t === 'bars' ? 'Bars' : t === 'line' ? 'Lines' : 'Net'}
             </button>
           ))}
         </div>
@@ -210,6 +206,7 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
         onSelect={setSelected}
         onHover={setHover}
         gran={gran}
+        chartType={chartType}
       />
 
       {/* Selected period summary */}
@@ -277,6 +274,7 @@ function Chart({
   onSelect,
   onHover,
   gran,
+  chartType,
 }: {
   visible: { key: string; income: number; expense: number }[];
   selected: string;
@@ -284,6 +282,7 @@ function Chart({
   onSelect: (k: string) => void;
   onHover: (h: { key: string; x: number } | null) => void;
   gran: Gran;
+  chartType: 'bars' | 'line' | 'net';
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const H = 300;
@@ -306,6 +305,8 @@ function Chart({
   const yFor = (v: number) => zeroY - (v / maxMag) * halfH;
 
   const netPts = visible.map((b, i) => `${cx(i)},${yFor(b.income - b.expense)}`).join(' ');
+  const incPts = visible.map((b, i) => `${cx(i)},${yFor(b.income)}`).join(' ');
+  const expPts = visible.map((b, i) => `${cx(i)},${yFor(-b.expense)}`).join(' ');
   const hoverBucket = hover ? visible.find((b) => b.key === hover.key) : null;
 
   // Gridlines at ±maxMag and ±maxMag/2 plus zero.
@@ -337,8 +338,12 @@ function Chart({
               onClick={() => onSelect(b.key)}
             >
               {isSel && <rect x={cx(i) - slot / 2} y={padTop - 6} width={slot} height={plotH + 12} className="cf-sel-bg" rx={6} />}
-              <rect x={x} y={zeroY - incH} width={barW} height={Math.max(incH, 0)} className="cf-bar-income" rx={2} />
-              <rect x={x} y={zeroY} width={barW} height={Math.max(expH, 0)} className="cf-bar-expense" rx={2} />
+              {chartType === 'bars' && (
+                <>
+                  <rect x={x} y={zeroY - incH} width={barW} height={Math.max(incH, 0)} className="cf-bar-income" rx={2} />
+                  <rect x={x} y={zeroY} width={barW} height={Math.max(expH, 0)} className="cf-bar-expense" rx={2} />
+                </>
+              )}
               <text x={cx(i)} y={H - 10} textAnchor="middle" className={`cf-x-label${isSel ? ' sel' : ''}`}>
                 {periodLabel(b.key, gran, true)}
               </text>
@@ -346,7 +351,15 @@ function Chart({
           );
         })}
 
-        {/* Net line on top */}
+        {/* Income / expense lines (line view) */}
+        {chartType === 'line' && (
+          <>
+            <polyline points={incPts} className="cf-line cf-line-income" fill="none" />
+            <polyline points={expPts} className="cf-line cf-line-expense" fill="none" />
+          </>
+        )}
+
+        {/* Net line on top (all views) */}
         <polyline points={netPts} className="cf-net-line" fill="none" />
         {visible.map((b, i) => (
           <circle key={b.key} cx={cx(i)} cy={yFor(b.income - b.expense)} r={b.key === selected ? 3.5 : 2} className="cf-net-dot" />
