@@ -45,12 +45,9 @@
   padding: 0 4px;
 }
 
-/* Section per flow type */
+/* Section per flow type — the section is just a header + a grid of parent cards */
 .cat-section {
-  background: var(--surface);
-  border-radius: 16px;
-  box-shadow: var(--shadow-card);
-  padding: 14px 18px 16px;
+  margin-bottom: 8px;
 }
 .cat-section-head {
   display: flex;
@@ -135,6 +132,30 @@
   border-color: var(--text-3);
 }
 
+.cat-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.cat-tool-btn {
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+.cat-tool-btn:hover {
+  color: var(--text-1);
+  background: var(--surface-hover);
+  border-color: var(--text-3);
+}
+
 .cat-empty {
   color: var(--text-3);
   font-size: 13px;
@@ -143,15 +164,22 @@
 
 .cat-list {
   list-style: none;
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+.cat-parent {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  padding: 4px 8px 8px;
 }
 .cat-children {
   list-style: none;
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   padding: 0;
 }
 
@@ -175,8 +203,8 @@
   font-size: 14.5px;
 }
 .cat-row.child {
-  margin-left: 24px;
-  padding: 6px 8px;
+  margin-left: 16px;
+  padding: 5px 8px;
 }
 .cat-row.child .cat-name {
   font-size: 13.5px;

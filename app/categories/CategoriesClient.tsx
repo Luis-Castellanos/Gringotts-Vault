@@ -39,6 +39,8 @@ export function CategoriesClient({ nodes }: { nodes: CatNode[] }) {
     setCollapsedFlows((s) => { const n = new Set(s); n.has(f) ? n.delete(f) : n.add(f); return n; });
   const toggleParent = (id: string) =>
     setCollapsedParents((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const expandAll = () => { setCollapsedFlows(new Set()); setCollapsedParents(new Set()); };
+  const collapseAll = () => setCollapsedParents(new Set(parents.map((p) => p.id)));
 
   const parents = useMemo(
     () => nodes.filter((n) => n.parentId === null).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
@@ -102,6 +104,11 @@ export function CategoriesClient({ nodes }: { nodes: CatNode[] }) {
 
   return (
     <div className="cat">
+      <div className="cat-toolbar">
+        <button type="button" className="cat-tool-btn" onClick={expandAll}>Expand all</button>
+        <button type="button" className="cat-tool-btn" onClick={collapseAll}>Collapse all</button>
+      </div>
+
       {error && (
         <div className="cat-error" role="alert">
           <span>{error}</span>
