@@ -101,6 +101,8 @@ export function ReviewQueueClient() {
   const similar = queue?.similar ?? [];
   const suggested = queue?.suggestedCategory;
 
+  // Quick pills = the suggestion (if any) + every top-level category. They wrap
+  // to fill the section; the +More dropdown drills into sub-categories.
   const quickCategories = useMemo<Category[]>(() => {
     if (!categories.length) return [];
     const out: Category[] = [];
@@ -109,11 +111,10 @@ export function ReviewQueueClient() {
       const c = categories.find((x) => x.id === suggested.id);
       if (c) { out.push(c); seen.add(c.id); }
     }
-    const topLevel = categories
-      .filter((c) => !c.parent && c.slug !== 'income' && c.slug !== 'uncategorized')
-      .slice(0, 7);
+    const topLevel = categories.filter(
+      (c) => !c.parent && c.slug !== 'income' && c.slug !== 'uncategorized',
+    );
     for (const c of topLevel) {
-      if (out.length >= 7) break;
       if (!seen.has(c.id)) { out.push(c); seen.add(c.id); }
     }
     return out;
@@ -439,12 +440,21 @@ function CategoryPills({
   onPick: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const q = query.trim().toLowerCase();
-  const results = q
-    ? all.filter((c) => c.name.toLowerCase().includes(q) || (c.parent?.name ?? '').toLowerCase().includes(q))
-    : all;
-  const pick = (id: string) => { onPick(id); setOpen(false); setQuery(''); };
+  const pick = (id: string) => { onPick(id); setOpen(false); };
+  const parents = all.filter((c) => !c.parent);
+  const childrenOf = (pid: string) => all.filter((c) => c.parent?.id === pid);
+
+  const row = (c: Category) => (
+    <button
+      key={c.id}
+      type="button"
+      onClick={() => pick(c.id)}
+      className={`flex items-center gap-2.5 w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-surface-3 ${pendingId === c.id ? 'bg-accent-soft text-accent-200' : 'text-text-secondary'}`}
+    >
+      <span className="text-base leading-none">{iconFor(c.name)}</span>
+      <span className="truncate">{c.name}</span>
+    </button>
+  );
 
   return (
     <div className="relative mb-4">
@@ -464,7 +474,7 @@ function CategoryPills({
               onClick={() => onPick(c.id)}
               className={`inline-flex items-center gap-2.5 px-4 py-2.5 rounded-full text-[15px] cursor-pointer transition-colors ${ringClass}`}
             >
-              <kbd>{i + 1}</kbd>
+              {i < 9 && <kbd>{i + 1}</kbd>}
               <span className="text-base leading-none">{iconFor(c.name)}</span>
               <span>{c.name}</span>
             </button>
@@ -477,34 +487,24 @@ function CategoryPills({
         >
           + More…
         </button>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          placeholder="Search categories…"
-          className="bg-surface-base border border-border-strong rounded-full px-4 py-2.5 text-[15px] text-text-secondary w-52 outline-none focus:border-text-muted"
-        />
       </div>
 
       {open && (
         <>
-          <div className="fixed inset-0 z-30" onClick={() => { setOpen(false); }} />
-          <div className="absolute left-0 top-full mt-2 z-40 w-[380px] max-w-full max-h-[320px] overflow-y-auto bg-surface-2 border border-border-strong rounded-xl shadow-2xl p-1.5">
-            {results.length === 0 && (
-              <div className="px-3 py-3 text-sm text-text-muted">No categories match.</div>
-            )}
-            {results.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => pick(c.id)}
-                className={`flex items-center gap-2.5 w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-surface-3 ${pendingId === c.id ? 'bg-accent-soft text-accent-200' : 'text-text-secondary'}`}
-              >
-                <span className="text-base leading-none">{iconFor(c.name)}</span>
-                <span className="truncate">{c.parent ? `${c.parent.name} → ${c.name}` : c.name}</span>
-              </button>
-            ))}
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-2 z-40 w-[420px] max-w-full max-h-[360px] overflow-y-auto bg-surface-2 border border-border-strong rounded-xl shadow-2xl p-2">
+            {parents.map((p) => {
+              const kids = childrenOf(p.id);
+              if (kids.length === 0) return row(p);
+              return (
+                <div key={p.id} className="mb-1">
+                  <div className="px-2.5 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    {p.name}
+                  </div>
+                  {kids.map((c) => row(c))}
+                </div>
+              );
+            })}
           </div>
         </>
       )}
