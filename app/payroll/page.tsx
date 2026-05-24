@@ -9,7 +9,7 @@ export default function PayrollPage() {
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex-1 flex justify-center">
-        <main className="payroll-page w-full max-w-[1600px] px-12 pt-10 pb-20">
+        <main className="payroll-page w-full max-w-[1600px] px-12 pt-6 pb-12">
           <PayrollClient />
         </main>
       </div>
