@@ -88,7 +88,7 @@ export default async function CreditCardsPage() {
     <div className="flex min-h-[calc(100vh_-_44px)]">
       <Sidebar />
       <div className="flex-1 flex justify-center">
-        <main className="cc-page w-full max-w-[1600px] px-12 pt-10 pb-20">
+        <main className="cc-page w-full max-w-[1600px] px-6 pt-6 pb-20">
           <CreditCardsClient cards={cards} />
         </main>
       </div>

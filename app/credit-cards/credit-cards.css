@@ -1046,9 +1046,43 @@
   /* ─── Grid view ─────────────────────────────────────── */
   .cc-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 12px;
   }
+  /* Compact density — smaller, denser cards */
+  .cc-grid.compact {
+    grid-template-columns: repeat(auto-fill, minmax(164px, 1fr));
+    gap: 10px;
+  }
+  .cc-grid.compact .cc-grid-card { padding: 9px; gap: 7px; border-radius: 12px; }
+  .cc-grid.compact .cc-grid-card .grid-name { font-size: 12.5px; }
+  .cc-grid.compact .cc-grid-card .grid-sub { font-size: 10.5px; margin-top: -4px; gap: 5px; }
+  .cc-grid.compact .cc-grid-card .grid-bal { font-size: 16px; }
+  .cc-grid.compact .cc-grid-card .grid-util { gap: 3px; }
+  .cc-grid.compact .cc-grid-card .grid-util .bar { height: 6px; }
+  .cc-grid.compact .cc-grid-card .grid-util .meta { font-size: 10.5px; }
+
+  /* Density toggle button (matches the view toggle) */
+  .cc-density {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-elev);
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: color 120ms ease, background 120ms ease;
+  }
+  .cc-density:hover { color: var(--text-1); }
+  .cc-density.active {
+    background: var(--surface);
+    color: var(--text-1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 0.5px var(--line);
+  }
+  .cc-density svg { display: block; }
   .cc-grid-card {
     position: relative;
     background: var(--surface);

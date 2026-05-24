@@ -1234,6 +1234,16 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
   const shownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'closed'>('active');
   const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    try { setCompact(localStorage.getItem('cc:compact') === '1'); } catch { /* ignore */ }
+  }, []);
+  const toggleCompact = () =>
+    setCompact((v) => {
+      const n = !v;
+      try { localStorage.setItem('cc:compact', n ? '1' : '0'); } catch { /* ignore */ }
+      return n;
+    });
   const [sortBy, setSortBy] = useState<SortId>('manual');
   const [filterBy, setFilterBy] = useState<FilterId>('all');
   // Manual order (grid view) + drag-and-drop state
@@ -1489,6 +1499,22 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
                 List
               </button>
             </div>
+            {view === 'grid' && (
+              <button
+                type="button"
+                className={'cc-density' + (compact ? ' active' : '')}
+                onClick={toggleCompact}
+                aria-pressed={compact}
+                title={compact ? 'Comfortable cards' : 'Compact cards'}
+                aria-label="Toggle card density"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  {compact
+                    ? <path d="M2 3h10M2 7h10M2 11h10" />
+                    : <path d="M2 4h10M2 10h10" />}
+                </svg>
+              </button>
+            )}
             <label className="cc-sort">
               <span>Sort by</span>
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortId)}>
@@ -1509,7 +1535,7 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
             gridFiltered.length === 0 ? (
               <div className="card cc-no-results">No cards match this filter.</div>
             ) : (
-              <div className="cc-grid">
+              <div className={'cc-grid' + (compact ? ' compact' : '')}>
                 {gridFiltered.map((c) => (
                   <CardGridItem
                     key={c.id}
