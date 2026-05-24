@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export type AcctType =
@@ -42,6 +42,8 @@ const TYPE_LABEL: Record<AcctType, string> = {
   cash: 'Cash', other: 'Other',
 };
 const TYPE_OPTIONS = Object.keys(TYPE_LABEL) as AcctType[];
+// Order types appear within the Assets / Liabilities sub-groups.
+const TYPE_ORDER: AcctType[] = ['checking', 'savings', 'cash', 'brokerage', 'retirement', 'credit_card', 'loan', 'other'];
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -99,20 +101,49 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [showClosed, setShowClosed] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<Group>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const toggleGroup = (g: Group) =>
+  const toggleGroup = (g: string) =>
     setCollapsed((s) => { const n = new Set(s); n.has(g) ? n.delete(g) : n.add(g); return n; });
 
   const visible = showClosed ? accounts : accounts.filter((a) => a.isActive);
   const closedCount = accounts.filter((a) => !a.isActive).length;
 
-  const grouped = useMemo(() => {
-    const m: Record<Group, AcctRow[]> = { Cash: [], Investments: [], Liabilities: [], Other: [] };
-    for (const a of visible) m[KIND[a.type]].push(a);
-    for (const g of GROUPS) m[g].sort((a, b) => a.name.localeCompare(b.name));
-    return m;
-  }, [visible]);
+  function renderAccount(a: AcctRow) {
+    const open = expandedId === a.id;
+    return (
+      <li key={a.id} className={`acctset-item${open ? ' open' : ''}${a.isActive ? '' : ' closed'}`}>
+        <div
+          className="acctset-row"
+          role="button"
+          tabIndex={0}
+          onClick={() => setExpandedId(open ? null : a.id)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(open ? null : a.id); } }}
+        >
+          <Caret open={open} small />
+          <InstLogo institution={a.institution} />
+          <span className="acctset-name">
+            {a.name}
+            {!a.isActive && <span className="acctset-badge">Closed</span>}
+            <span className="acctset-rowsub">
+              {a.institution || '—'}{a.last4 ? ` · ····${a.last4}` : ''} · {TYPE_LABEL[a.type]}
+            </span>
+          </span>
+          <span className="acctset-bal numeric">{usd.format(a.balance)}</span>
+          <span className="acctset-txns numeric">{a.count.toLocaleString()} txns</span>
+        </div>
+        {open && (
+          <AccountDetail
+            key={a.id}
+            acct={a}
+            onSaved={() => router.refresh()}
+            onMerge={() => setModal({ mode: 'merge', acct: a })}
+            onDelete={() => onDelete(a)}
+          />
+        )}
+      </li>
+    );
+  }
 
   async function call(method: string, url: string, body?: unknown): Promise<boolean> {
     setBusy(true);
@@ -158,57 +189,40 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
         </div>
       )}
 
-      {GROUPS.map((g) => {
-        const rows = grouped[g];
-        if (rows.length === 0) return null;
-        const isCollapsed = collapsed.has(g);
-        const total = rows.reduce((s, a) => s + a.balance, 0);
+      {(['Assets', 'Liabilities'] as const).map((top) => {
+        const isLiab = top === 'Liabilities';
+        const accts = visible.filter((a) => (a.assetClass === 'liability') === isLiab);
+        if (accts.length === 0) return null;
+        const isCollapsed = collapsed.has(top);
+        const total = accts.reduce((s, a) => s + a.balance, 0);
+        const byType = new Map<AcctType, AcctRow[]>();
+        for (const a of accts) {
+          const arr = byType.get(a.type) ?? [];
+          arr.push(a);
+          byType.set(a.type, arr);
+        }
         return (
-          <section key={g} className={`acctset-section${isCollapsed ? ' collapsed' : ''}`}>
-            <button className="acctset-section-head" onClick={() => toggleGroup(g)} aria-expanded={!isCollapsed}>
+          <section key={top} className={`acctset-section${isCollapsed ? ' collapsed' : ''}`}>
+            <button className="acctset-section-head" onClick={() => toggleGroup(top)} aria-expanded={!isCollapsed}>
               <Caret open={!isCollapsed} />
-              <h2>{g} <span className="acctset-count">{rows.length}</span></h2>
+              <h2>{top} <span className="acctset-count">{accts.length}</span></h2>
               <span className="acctset-section-total numeric">{usd.format(total)}</span>
             </button>
-            {!isCollapsed && (
-              <ul className="acctset-list">
-                {rows.map((a) => {
-                  const open = expandedId === a.id;
-                  return (
-                    <li key={a.id} className={`acctset-item${open ? ' open' : ''}${a.isActive ? '' : ' closed'}`}>
-                      <div
-                        className="acctset-row"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setExpandedId(open ? null : a.id)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(open ? null : a.id); } }}
-                      >
-                        <Caret open={open} small />
-                        <InstLogo institution={a.institution} />
-                        <span className="acctset-name">
-                          {a.name}
-                          {!a.isActive && <span className="acctset-badge">Closed</span>}
-                          <span className="acctset-rowsub">
-                            {a.institution || '—'}{a.last4 ? ` · ····${a.last4}` : ''} · {TYPE_LABEL[a.type]}
-                          </span>
-                        </span>
-                        <span className="acctset-bal numeric">{usd.format(a.balance)}</span>
-                        <span className="acctset-txns numeric">{a.count.toLocaleString()} txns</span>
-                      </div>
-                      {open && (
-                        <AccountDetail
-                          key={a.id}
-                          acct={a}
-                          onSaved={() => router.refresh()}
-                          onMerge={() => setModal({ mode: 'merge', acct: a })}
-                          onDelete={() => onDelete(a)}
-                        />
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            {!isCollapsed &&
+              TYPE_ORDER.filter((t) => byType.has(t)).map((t) => {
+                const typeRows = byType.get(t)!.slice().sort((a, b) => a.name.localeCompare(b.name));
+                const typeTotal = typeRows.reduce((s, a) => s + a.balance, 0);
+                return (
+                  <div key={t} className="acctset-subgroup">
+                    <div className="acctset-subgroup-head">
+                      <span className="acctset-subgroup-name">{TYPE_LABEL[t]}</span>
+                      <span className="acctset-subgroup-count">{typeRows.length}</span>
+                      <span className="acctset-subgroup-total numeric">{usd.format(typeTotal)}</span>
+                    </div>
+                    <ul className="acctset-list">{typeRows.map(renderAccount)}</ul>
+                  </div>
+                );
+              })}
           </section>
         );
       })}
