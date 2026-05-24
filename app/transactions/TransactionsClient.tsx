@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { VendorLogo } from '@/components/VendorLogo';
 import { iconBg, iconFor } from '@/lib/categories/icons';
@@ -232,6 +232,10 @@ async function categorizeTxn(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Network error' };
   }
+}
+
+function fmtDateShort(iso: string): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // ─── Inline expansion: edit a single transaction ─────────────────────────
@@ -660,6 +664,125 @@ function FilterPanel({
 }
 
 // ─── Main client ──────────────────────────────────────────────────────────
+// ─── Table view ───────────────────────────────────────────────────────────
+function SortCaret({ dir }: { dir: 'asc' | 'desc' | null }) {
+  if (!dir) return null;
+  return <span className="tx-th-caret">{dir === 'asc' ? '▲' : '▼'}</span>;
+}
+
+function TxnTable({
+  rows, scoped, sortBy, onHeaderSort, selectMode, selected, onRowClick, selectedId, categories, onSaved,
+}: {
+  rows: TxnRow[];
+  scoped: boolean;
+  sortBy: SortId;
+  onHeaderSort: (col: 'date' | 'merchant' | 'amount') => void;
+  selectMode: boolean;
+  selected: Set<string>;
+  onRowClick: (id: string, isOpen: boolean) => void;
+  selectedId: string | null;
+  categories: CatLite[];
+  onSaved: (id: string, patch: TxnPatch) => void;
+}) {
+  const dateDir = sortBy === 'date-asc' ? 'asc' : sortBy === 'date-desc' ? 'desc' : null;
+  const amtDir = sortBy === 'amount-low' ? 'asc' : sortBy === 'amount-high' ? 'desc' : null;
+  const merchActive = sortBy === 'merchant';
+  const cols = scoped ? 4 : 5;
+
+  return (
+    <table className="tx-table">
+      <thead>
+        <tr>
+          <th className="th-date sortable" onClick={() => onHeaderSort('date')}>Date <SortCaret dir={dateDir} /></th>
+          <th className="th-merchant sortable" onClick={() => onHeaderSort('merchant')}>
+            Description {merchActive && <span className="tx-th-caret">▲</span>}
+          </th>
+          <th className="th-cat">Category</th>
+          {!scoped && <th className="th-acct">Account</th>}
+          <th className="th-amt sortable" onClick={() => onHeaderSort('amount')}>Amount <SortCaret dir={amtDir} /></th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((t) => {
+          const isOpen = selectedId === t.id;
+          const isSel = selected.has(t.id);
+          const isPositive = t.amount > 0;
+          return (
+            <Fragment key={t.id}>
+              <tr
+                className={
+                  'tx-trow' +
+                  (t.isTransfer ? ' transfer' : '') +
+                  (t.needsReview ? ' needs-review' : '') +
+                  (selectMode && isSel ? ' selected' : '') +
+                  (isOpen ? ' open' : '')
+                }
+                title={t.rawDescription}
+                onClick={() => onRowClick(t.id, isOpen)}
+              >
+                <td className="td-date">{fmtDateShort(t.date)}</td>
+                <td className="td-merchant">
+                  <div className="tx-merchant">
+                    {selectMode && <span className={'tx-check' + (isSel ? ' on' : '')} aria-hidden />}
+                    <VendorLogo merchant={t.merchant} size={24} />
+                    <span className="tx-merchant-name">
+                      {t.merchant}
+                      {t.needsReview && <span className="tx-pill review">Review</span>}
+                      {t.isTransfer && <span className="tx-pill transfer">Transfer</span>}
+                    </span>
+                  </div>
+                </td>
+                <td className="td-cat">
+                  <div className="tx-category">
+                    <span
+                      className={'tx-category-icon' + (t.categoryName ? '' : ' uncat')}
+                      style={{ background: iconBg(t.categoryColor) }}
+                      aria-hidden
+                    >
+                      {iconFor(t.categoryName ?? 'Uncategorized')}
+                    </span>
+                    <span className={'tx-category-name' + (t.categoryName ? '' : ' uncat')}>
+                      {t.categoryName ?? 'Uncategorized'}
+                    </span>
+                  </div>
+                </td>
+                {!scoped && (
+                  <td className="td-acct">
+                    {t.accountId ? (
+                      <Link href={`/accounts/${t.accountId}`} className="tx-account is-link" onClick={(e) => e.stopPropagation()}>
+                        <AccountLogo institution={t.accountInstitution} />
+                        <span className="tx-account-name">
+                          {t.accountName}
+                          {t.accountLast4 ? ` ····${t.accountLast4}` : ''}
+                        </span>
+                      </Link>
+                    ) : (
+                      <div className="tx-account">
+                        <AccountLogo institution={t.accountInstitution} />
+                        <span className="tx-account-name">{t.accountName}</span>
+                      </div>
+                    )}
+                  </td>
+                )}
+                <td className={'td-amt' + (isPositive && !t.isTransfer ? ' pos' : '')}>
+                  {fmtMoney(t.amount, { sign: isPositive })}
+                </td>
+              </tr>
+              {isOpen && (
+                <tr className="tx-trow-detail">
+                  <td colSpan={cols}>
+                    <TxnDetail txn={t} categories={categories} onSaved={(patch) => onSaved(t.id, patch)} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 export function TransactionsClient({
   txns, total: initialTotal, accounts, categories, merchants, pageSize, lockAccountId,
 }: {
@@ -709,14 +832,35 @@ export function TransactionsClient({
   const [views, setViews] = useState<SavedView[]>([]);
   const [viewsOpen, setViewsOpen] = useState(false);
   const [viewName, setViewName] = useState('');
+
+  // List vs. table view + row density (persisted)
+  const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
+  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
   useEffect(() => {
     try {
       const raw = localStorage.getItem(VIEWS_KEY);
       if (raw) setViews(JSON.parse(raw) as SavedView[]);
+      const vm = localStorage.getItem('transactions:view');
+      if (vm === 'table' || vm === 'list') setViewMode(vm);
+      const d = localStorage.getItem('transactions:density');
+      if (d === 'compact' || d === 'comfortable') setDensity(d);
     } catch {
       /* ignore malformed storage */
     }
   }, []);
+  const changeView = (v: 'list' | 'table') => {
+    setViewMode(v);
+    try { localStorage.setItem('transactions:view', v); } catch { /* ignore */ }
+  };
+  const changeDensity = (d: 'comfortable' | 'compact') => {
+    setDensity(d);
+    try { localStorage.setItem('transactions:density', d); } catch { /* ignore */ }
+  };
+  const clickHeaderSort = (col: 'date' | 'merchant' | 'amount') => {
+    if (col === 'date') setSortBy((s) => (s === 'date-desc' ? 'date-asc' : 'date-desc'));
+    else if (col === 'amount') setSortBy((s) => (s === 'amount-high' ? 'amount-low' : 'amount-high'));
+    else setSortBy('merchant');
+  };
 
   // Filtering, search and sort all run server-side. `rows` holds the current
   // result page(s); `total` is the count matching the active filters. Changing
@@ -970,6 +1114,31 @@ export function TransactionsClient({
           </div>
         )}
         <div className="spacer" />
+        <div className="tx-seg" role="group" aria-label="View mode">
+          <button type="button" className={viewMode === 'list' ? 'active' : ''} onClick={() => changeView('list')} aria-label="List view" title="List view">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M2 3.5h10M2 7h10M2 10.5h10" />
+            </svg>
+          </button>
+          <button type="button" className={viewMode === 'table' ? 'active' : ''} onClick={() => changeView('table')} aria-label="Table view" title="Table view">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="2" y="2.5" width="10" height="9" rx="1" /><path d="M2 5.5h10M6 5.5v6" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        <button
+          type="button"
+          className="tx-toolbar-btn icon"
+          onClick={() => changeDensity(density === 'compact' ? 'comfortable' : 'compact')}
+          title={density === 'compact' ? 'Comfortable rows' : 'Compact rows'}
+          aria-label="Toggle density"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            {density === 'compact'
+              ? <path d="M2 3.5h10M2 7h10M2 10.5h10" />
+              : <path d="M2 4h10M2 10h10" />}
+          </svg>
+        </button>
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortId)}>
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.id} value={opt.id}>{opt.label}</option>
@@ -987,7 +1156,7 @@ export function TransactionsClient({
         )}
       </div>
 
-      <div className={'tx-list' + (scoped ? ' scope-account' : '')}>
+      <div className={'tx-list' + (scoped ? ' scope-account' : '') + (density === 'compact' ? ' compact' : '')}>
         {rows.length === 0 ? (
           <div className="tx-empty">
             No transactions match your filters.
@@ -1000,6 +1169,19 @@ export function TransactionsClient({
               </>
             )}
           </div>
+        ) : viewMode === 'table' ? (
+          <TxnTable
+            rows={rows}
+            scoped={scoped}
+            sortBy={sortBy}
+            onHeaderSort={clickHeaderSort}
+            selectMode={selectMode}
+            selected={selected}
+            onRowClick={(id, isOpen) => (selectMode ? toggleSelect(id) : setSelectedId(isOpen ? null : id))}
+            selectedId={selectedId}
+            categories={categories}
+            onSaved={patchLocalRow}
+          />
         ) : (
           grouped.map((group) => (
             <div key={group.date}>

@@ -1030,4 +1030,100 @@
     border-radius: 8px;
     cursor: pointer;
   }
+
+  /* ─── View segmented control + density toggle ────────────────────── */
+  .tx-seg {
+    display: inline-flex;
+    background: var(--surface-elev);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .tx-seg button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-3);
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    transition: background 140ms ease, color 140ms ease;
+  }
+  .tx-seg button:hover { color: var(--text-1); }
+  .tx-seg button.active {
+    background: var(--surface);
+    color: var(--text-1);
+    box-shadow: var(--shadow-card);
+  }
+  .tx-toolbar-btn.icon { padding: 7px 9px; }
+
+  /* ─── Table view ─────────────────────────────────────────────────── */
+  .tx-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .tx-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-elev);
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .tx-table th.sortable { cursor: pointer; user-select: none; }
+  .tx-table th.sortable:hover { color: var(--text-1); }
+  .tx-th-caret { font-size: 8px; margin-left: 2px; }
+  .tx-table th.th-amt,
+  .tx-table td.td-amt { text-align: right; }
+  .tx-trow {
+    border-top: 1px solid var(--line);
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .tx-trow:hover { background: var(--surface-hover); }
+  .tx-trow.selected { background: var(--green-tint); }
+  .tx-trow.open { background: var(--surface-hover); }
+  .tx-trow.transfer { opacity: 0.82; }
+  .tx-table td {
+    padding: 9px 12px;
+    vertical-align: middle;
+  }
+  .tx-table td.td-date {
+    color: var(--text-3);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    width: 1%;
+  }
+  .tx-table td.td-amt {
+    font-weight: 600;
+    color: var(--text-1);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .tx-table td.td-amt.pos { color: var(--green-text); }
+  .tx-table .tx-merchant-name { font-weight: 500; }
+  .tx-trow.needs-review td.td-date {
+    box-shadow: inset 2px 0 0 var(--amber-text);
+  }
+  .tx-trow-detail > td {
+    padding: 0 12px 12px;
+    background: var(--surface);
+  }
+
+  /* ─── Density: compact ───────────────────────────────────────────── */
+  .tx-list.compact .tx-row { padding: 4px 12px; gap: 8px; }
+  .tx-list.compact .tx-date-hd { padding: 4px 12px; }
+  .tx-list.compact .tx-table td { padding: 5px 12px; }
+  .tx-list.compact .tx-table thead th { padding: 6px 12px; }
 }
