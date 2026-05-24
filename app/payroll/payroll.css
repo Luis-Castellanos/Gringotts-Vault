@@ -2,11 +2,11 @@
    Scoped under .payroll-page. Uses theme-aware tokens from app/globals.css. */
 
 .payroll-page {
-  /* Density locked to "regular" */
-  --card-pad: 18px;
-  --row-pad: 11px;
-  --gap: 12px;
-  --line-fz: 15px;
+  /* Density locked to "comfy" — bigger, more readable */
+  --card-pad: 24px;
+  --row-pad: 14px;
+  --gap: 16px;
+  --line-fz: 16px;
 
   background: var(--bg);
   color: var(--text-1);
@@ -31,7 +31,7 @@
     margin-bottom: 16px;
   }
   .page-title {
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 700;
     letter-spacing: -0.02em;
     margin: 0;
@@ -68,15 +68,28 @@
 
   /* ─── Stub picker sub-header ───────────────────────── */
   .stub-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 12px;
-    gap: 16px;
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 18px;
   }
-  .stub-bar-l { display: flex; flex-direction: column; gap: 1px; }
+  /* Date + period + voucher + salary on one horizontal row */
+  .stub-bar-l {
+    display: flex; align-items: baseline; gap: 14px;
+    flex-wrap: wrap;
+    min-width: 0; flex: 1;
+  }
   .stub-date {
-    font-size: 18px; font-weight: 600; letter-spacing: -0.015em;
+    font-size: 22px; font-weight: 600; letter-spacing: -0.015em;
   }
-  .stub-meta { color: var(--text-3); font-size: 12px; }
+  .stub-meta-inline {
+    display: flex; align-items: baseline; gap: 8px;
+    color: var(--text-3); font-size: 14px;
+    flex-wrap: wrap;
+  }
+  .stub-meta-inline .dot { opacity: 0.5; }
+  .stub-meta-inline b { color: var(--text-2); font-weight: 500; }
+  /* Legacy column version kept as a fallback for views that haven't switched yet */
+  .stub-meta { color: var(--text-3); font-size: 13px; }
   .stub-meta b { color: var(--text-2); font-weight: 500; }
   .stub-nav { display: flex; align-items: center; gap: 3px; }
   .stub-nav button {
@@ -128,6 +141,25 @@
   .row-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
   @media (max-width: 820px) { .row-pair { grid-template-columns: 1fr; } }
 
+  /* Single-stub layout — 3-column grid so the whole view fits in one
+     viewport without scrolling. Hero / Employer / Footnote span full width. */
+  .single-stub {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--gap);
+  }
+  .single-stub > .hero,
+  .single-stub > .employer-card,
+  .single-stub > .footnote {
+    grid-column: 1 / -1;
+  }
+  @media (max-width: 1200px) {
+    .single-stub { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    .single-stub { grid-template-columns: 1fr; }
+  }
+
   .eyebrow {
     font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--text-3);
@@ -177,7 +209,7 @@
   .hero-top .eyebrow { line-height: 1; }
   .hero-top .hero-sub { margin-left: auto; }
   .hero-display {
-    font-size: 48px; font-weight: 700; letter-spacing: -0.035em;
+    font-size: 56px; font-weight: 700; letter-spacing: -0.035em;
     line-height: 1; color: var(--text-1);
   }
   .hero-display .cents { font-size: 0.52em; color: var(--text-2); font-weight: 600; }
@@ -193,8 +225,8 @@
   }
   .deposit-row {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 9px 13px;
-    font-size: 14px;
+    padding: 11px 15px;
+    font-size: 15px;
   }
   .deposit-row + .deposit-row { border-top: 1px solid var(--line); }
   .deposit-row .bank {

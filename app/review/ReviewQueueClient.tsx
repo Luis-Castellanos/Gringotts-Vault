@@ -656,7 +656,7 @@ function RenameDialog({
 }) {
   return (
     <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="w-[520px] bg-[#18181b] border border-border-strong rounded-2xl p-7 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-[520px] bg-surface-2 border border-border-strong rounded-2xl p-7 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="m-0 mb-2.5 text-lg font-semibold -tracking-[0.01em]">Apply rename to similar transactions?</h3>
         <p className="m-0 mb-5 text-sm text-text-tertiary leading-relaxed">
           You renamed <strong className="text-text-primary">{from}</strong> to <strong className="text-text-primary">{to}</strong>.

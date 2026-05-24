@@ -196,7 +196,7 @@ function HeroCard({ stub, theme }: { stub: ComputedStub; theme: Theme }) {
         </div>
       </div>
       <Donut
-        size={250}
+        size={280}
         slices={slices}
         hovered={hovered}
         onHover={setHovered}
@@ -288,7 +288,7 @@ function TaxesCard({ stub }: { stub: ComputedStub }) {
 function EmployerCard({ stub }: { stub: ComputedStub }) {
   const e = stub.employer;
   return (
-    <section className="card banner-card">
+    <section className="card banner-card employer-card">
       <div className="card-banner purple">
         <span className="ttl">Employer contributions</span>
         <span className="meta">On top of your pay</span>
@@ -366,12 +366,16 @@ function SingleStubView({
       <div className="stub-bar">
         <div className="stub-bar-l">
           <div className="stub-date">{fmtDate(stub.date)}</div>
-          <div className="stub-meta">
-            <b>{stub.period}</b> · Voucher {stub.voucher} · {stub.rate}
+          <div className="stub-meta-inline">
+            <span><b>{stub.period}</b></span>
+            <span className="dot">·</span>
+            <span>Voucher {stub.voucher}</span>
+            <span className="dot">·</span>
+            <span>{stub.rate}</span>
             {stub.bonus > 0 && (
               <>
-                {' '}
-                · <span style={{ color: 'var(--green-text)' }}>+ Bonus stub</span>
+                <span className="dot">·</span>
+                <span style={{ color: 'var(--green-text)', fontWeight: 600 }}>+ Bonus stub</span>
               </>
             )}
           </div>
@@ -393,13 +397,11 @@ function SingleStubView({
         </div>
       </div>
 
-      <div className="stack">
+      <div className="single-stub">
         <HeroCard stub={stub} theme={theme} />
         <EarningsCard stub={stub} />
-        <div className="row-pair">
-          <DeductionsCard stub={stub} />
-          <TaxesCard stub={stub} />
-        </div>
+        <DeductionsCard stub={stub} />
+        <TaxesCard stub={stub} />
         <EmployerCard stub={stub} />
         <ImputedFootnote stub={stub} />
       </div>

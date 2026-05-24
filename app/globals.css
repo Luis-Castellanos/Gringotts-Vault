@@ -9,22 +9,23 @@
 --------------------------------------------------------------------------- */
 
 @theme {
-  /* Surface — dark, layered */
-  --color-surface-base: #0a0a0a;
-  --color-surface-1: #0d0d0f;
-  --color-surface-2: #141416;
-  --color-surface-3: #1c1c1f;
+  /* Surface — warm dark layers (Monarch-style depth: sidebar slightly darker
+     than page bg). Aligned with the artifact's --bg / --surface palette. */
+  --color-surface-base: #14110d;
+  --color-surface-1: #0d0b08;
+  --color-surface-2: #1f1c17;
+  --color-surface-3: #2a2620;
 
   /* Borders */
-  --color-border-subtle: #1f1f22;
-  --color-border-strong: #2a2a2e;
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.12);
 
-  /* Text */
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #d4d4d8;
-  --color-text-tertiary: #a1a1aa;
-  --color-text-muted: #71717a;
-  --color-text-faint: #52525b;
+  /* Text — warm cream/taupe instead of cool gray */
+  --color-text-primary: #faf7f2;
+  --color-text-secondary: #d4cfc4;
+  --color-text-tertiary: #a1998d;
+  --color-text-muted: #6b6358;
+  --color-text-faint: #4f4a42;
 
   /* Accent — Vault orange (used sparingly for primary actions) */
   --color-accent-500: #f97316;
@@ -348,8 +349,51 @@ kbd {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* VendorLogo — used by Transactions list (and reusable elsewhere) */
+.vendor-logo {
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-elev);
+}
+.vendor-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.vendor-logo-initials {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
 [data-theme='light'] {
   color-scheme: light;
+  /* Override Vault @theme tokens for light mode so Tailwind utilities
+     (used by Sidebar / TopBar / Review) adapt alongside the theme-aware
+     tokens used by page-scoped CSS (.accounts-page, .cc-page, etc.). */
+  --color-surface-base: #faf7f2;
+  --color-surface-1: #fdf8ef;
+  --color-surface-2: #f5f0e8;
+  --color-surface-3: #ece4d6;
+  --color-border-subtle: rgba(0, 0, 0, 0.06);
+  --color-border-strong: rgba(0, 0, 0, 0.12);
+  --color-text-primary: #1a1815;
+  --color-text-secondary: #3b3530;
+  --color-text-tertiary: #6b6358;
+  --color-text-muted: #8b8278;
+  --color-text-faint: #a89f93;
+
   --bg: #faf7f2;
   --surface: #fffdf9;
   --surface-hover: #f5f0e8;

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { themeInitScript } from '@/lib/theme';
+import { TopBar } from '@/components/TopBar';
 
 export const metadata: Metadata = {
   title: 'Vault',
@@ -21,7 +22,10 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <TopBar />
+        {children}
+      </body>
     </html>
   );
 }

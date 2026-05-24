@@ -4,10 +4,11 @@
    toggle, privacy-blur deferred). */
 
 .accounts-page {
-  --card-pad: 18px;
-  --row-pad: 11px;
-  --gap: 12px;
-  --line-fz: 15px;
+  /* Density locked to "compact" for tighter vertical rhythm */
+  --card-pad: 14px;
+  --row-pad: 8px;
+  --gap: 10px;
+  --line-fz: 13px;
 
   background: var(--bg);
   color: var(--text-1);
@@ -203,12 +204,12 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding: 18px 22px 0;
+    padding: 14px 18px 0;
   }
   .nw-chart-hd-l {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
   .nw-chart-hd-l .lbl {
     font-size: 11px;
@@ -218,7 +219,7 @@
     color: var(--text-3);
   }
   .nw-chart-hd-l .val {
-    font-size: 36px;
+    font-size: 28px;
     font-weight: 700;
     letter-spacing: -0.025em;
     color: var(--text-1);
@@ -281,8 +282,8 @@
   }
   .nw-chart-body {
     position: relative;
-    padding: 14px 8px 6px;
-    height: 220px;
+    padding: 10px 8px 6px;
+    height: 160px;
   }
   .nw-chart-svg {
     width: 100%;
@@ -372,7 +373,7 @@
     grid-template-columns: 22px 1fr auto auto;
     align-items: center;
     gap: 12px;
-    padding: 14px 18px;
+    padding: 10px 14px;
     cursor: pointer;
     transition: background 120ms ease;
     border-bottom: 1px solid transparent;
@@ -475,7 +476,7 @@
     grid-template-columns: 22px 36px 1fr 100px 100px 90px 130px 36px;
     align-items: center;
     gap: 12px;
-    padding: 11px 18px;
+    padding: 7px 14px;
     border-top: 1px solid var(--line);
     cursor: pointer;
     transition: background 120ms ease, opacity 200ms ease;
