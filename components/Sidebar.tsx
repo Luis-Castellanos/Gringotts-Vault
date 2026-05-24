@@ -18,6 +18,7 @@ import {
   IconAccounts,
   IconBell,
   IconCashflow,
+  IconCategories,
   IconCreditCard,
   IconDashboard,
   IconForecasting,
@@ -47,7 +48,8 @@ type NavHref =
   | '/rentals'
   | '/investments'
   | '/tax'
-  | '/forecasting';
+  | '/forecasting'
+  | '/categories';
 
 type NavItem = {
   href: NavHref;
@@ -84,6 +86,12 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: '/investments', label: 'Investments', Icon: IconInvestments },
       { href: '/tax', label: 'Tax', Icon: IconTax },
       { href: '/forecasting', label: 'Forecasting', Icon: IconForecasting },
+    ],
+  },
+  {
+    label: 'Manage',
+    items: [
+      { href: '/categories', label: 'Categories', Icon: IconCategories },
     ],
   },
 ];

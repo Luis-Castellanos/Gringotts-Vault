@@ -1,0 +1,264 @@
+/* Categories management page — theme-aware tokens, Vault style. */
+
+.categories-page {
+  background: var(--bg);
+  color: var(--text-1);
+}
+
+.cat {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cat-title {
+  margin: 4px 0 0;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+.cat-sub {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.cat-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--red-tint);
+  color: var(--red-text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+.cat-error button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+/* Section per flow type */
+.cat-section {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  padding: 14px 18px 16px;
+}
+.cat-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.cat-collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 4px 2px;
+  margin: -4px 0;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.cat-collapse:hover h2 {
+  color: var(--text-1);
+}
+.cat-section-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.cat-caret {
+  color: var(--text-3);
+  transition: transform 150ms var(--ease-back, ease);
+  flex-shrink: 0;
+}
+.cat-caret.open {
+  transform: rotate(90deg);
+}
+.cat-pcaret {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.cat-pcaret.empty {
+  cursor: default;
+}
+.cat-pcaret:not(.empty):hover {
+  color: var(--text-1);
+}
+.cat-section-count {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.cat-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+.cat-add-btn:hover {
+  color: var(--text-1);
+  background: var(--surface-hover);
+  border-color: var(--text-3);
+}
+
+.cat-empty {
+  color: var(--text-3);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.cat-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cat-children {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+}
+
+.cat-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px;
+  border-radius: 9px;
+  transition: background 120ms ease;
+}
+.cat-row:hover {
+  background: var(--surface-hover);
+}
+.cat-row.parent {
+  grid-template-columns: 16px 11px 1fr auto auto;
+}
+.cat-row.parent .cat-name {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+.cat-row.child {
+  margin-left: 24px;
+  padding: 6px 8px;
+}
+.cat-row.child .cat-name {
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.cat-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.cat-dot.sm {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.cat-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-1);
+}
+.cat-count {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  text-align: right;
+}
+
+/* Row actions — appear on hover */
+.cat-actions {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.cat-row:hover .cat-actions,
+.cat-row:focus-within .cat-actions {
+  opacity: 1;
+}
+.cat-icon-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.cat-icon-btn:hover {
+  background: var(--surface-elev);
+  color: var(--text-1);
+}
+.cat-icon-btn.danger:hover {
+  background: var(--red-tint);
+  color: var(--red-text);
+}
+
+/* Modal extras (reuse cc-modal styles from globals) */
+.cat-modal-note {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.cat-checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 9px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+  color: var(--text-2) !important;
+  cursor: pointer;
+}
+.cat-checkbox input {
+  width: auto !important;
+  accent-color: var(--text-1);
+}
