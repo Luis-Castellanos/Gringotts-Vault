@@ -107,6 +107,9 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
   transaction), Mark-as-closed + Re-open, Add Card via Monarch-style flow.
   Schema added: `accounts.credit_limit`, `accounts.apr` (Phase B start).
   Card name is now DB-backed (dropped LS nickname pattern).
+  **2026-05-24:** made view-only — Add Card, field editing, and close/reopen
+  removed (account management centralized on /accounts); the card-name pencil
+  (nickname rename) stays.
 - [x] **Accounts page** — shipped 2026-05-23. Phase A: list + grid views
   (grid default), NW area chart from cumulative transaction history with
   range toggle including custom date range, composition stacked bar, grouped
@@ -116,8 +119,12 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
   2-step Add Account flow (category picker → form), asset detail modal
   (editable name/institution/last4/opened with same validation), Show/Hide
   closed accounts toggle, Mark-as-closed + Re-open on both views.
-  Type-specific fields (APY for savings, gain% for brokerage, monthly payment
-  for loans) deferred to future schema migrations.
+  **2026-05-24:** restructured — this reporting view moved to /net-worth
+  (read-only) and /accounts became a settings page (collapsible sections,
+  institution logos, click-to-expand per-account detail with inline edit, add,
+  delete, and merge). Per-type fields now real: APY (cash/savings), interest
+  rate / monthly payment / original principal / maturity (loans), subtype
+  (brokerage/retirement). Brokerage gain%/holdings still need a holdings model.
 - [x] **Payroll page** — shipped 2026-05-23 (Phase A). Three tabs: Single stub
   (hero + interactive donut + Earnings / Deductions / Taxes / Employer cards
   + Imputed footnote, prev/next nav), All stubs (table with year filter and
@@ -139,12 +146,12 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
   + re-import loaded all **9,746 transactions** (0 unmatched, 0 needing review),
   fixing the old sign issues. Monthly rhythm = re-run `db:load-master`. Read-only
   audit helpers added: `inspect-master`, `inspect-taxonomy`, `check-mapping`.
-  - [ ] **Account-identity reconciliation** (follow-up) — the re-import created
-    duplicate label-accounts because master labels (e.g. "Chase Prime 5944")
-    don't match preloaded names ("Chase Prime Visa"). Merge the 5 dupes into
-    their preloaded accounts and make `getOrCreateAccount` match by last-4 +
-    disambiguation. Does NOT affect Cashflow.
-  - [ ] Per-type fields (APY, brokerage gain%, loan monthly payment) still deferred.
+  - [x] **Account-identity reconciliation** (2026-05-24) — `getOrCreateAccount`
+    now attaches to a unique last-4 match so imports stop spawning duplicate
+    label-accounts, and the /accounts settings page has a merge tool to fold the
+    existing dupes into their curated accounts (a user action on the page).
+  - [x] Per-type account fields added 2026-05-24 (APY, loan terms, subtype);
+    brokerage gain% / holdings still need a holdings model.
 - [x] **Flow-type taxonomy on categories** — done 2026-05-23. `flow_type` enum
   (inflow/outflow/transfer) added to categories and populated directly from the
   master file's `Type` column on every import. Powers Cashflow.
@@ -160,8 +167,9 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
   fallback), multi-tab Filters modal (Categories hierarchy / Merchants / Accounts
   / Date / Amount / Other), search, sort, and inline expand-to-edit
   (merchant / category / notes / transfer / needs-review) saved via the PATCH +
-  categorize endpoints. Still TODO: pagination beyond 200 rows, bulk actions
-  (re-categorize, mark-as-transfer), saved filter views.
+  categorize endpoints. **2026-05-24:** infinite scroll + total count (GET
+  /api/transactions). Still TODO: bulk actions (re-categorize, mark-as-transfer),
+  saved filter views, server-side filtering.
 - [ ] **Dashboard** — placeholder route live. Real page still to design: net
   worth headline + sparkline, monthly cashflow snapshot, top categories, account
   snapshot. Default landing page when you open Vault.
@@ -172,8 +180,10 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
   Expenses breakdown lists with a Category / Group toggle and proportional bars.
   Adapted from Monarch's Cash Flow design into Vault's palette. Still TODO:
   Merchant breakdown dimension, account/date filters, older-data scroll, YoY.
-- [ ] **Net Worth** — placeholder route live. Assets vs liabilities over time.
-  Account-level detail.
+- [x] **Net Worth** — shipped 2026-05-24. The former Accounts reporting view
+  (NW area chart, composition bar, grouped Cash/Investments/Liabilities balances
+  + sparklines), now read-only at /net-worth. Deeper multi-year / account-level
+  drill-down still to design.
 
 ### Phase 3: Anywhere
 

@@ -2,6 +2,19 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-24 — **Accounts restructure, view-only Credit Cards, Transactions
+  infinite scroll, per-type fields.** Split the old Accounts page: the net-worth
+  reporting view moved to **/net-worth** (read-only); **/accounts** is now a
+  settings page — collapsible sections, institution logos, click-to-expand
+  per-account detail with inline edit, add, delete, and **merge** (fixes the
+  duplicate accounts). **Credit Cards is view-only** (nickname rename kept);
+  account add/remove/edit lives only on /accounts. Added account `DELETE` + merge
+  API and a unique-last-4 loader match so imports stop creating duplicates. New
+  **per-type account fields**: APY (cash/savings), interest rate / monthly payment
+  / original principal / maturity (loans), subtype (brokerage/retirement) — via
+  `migrate-account-fields.ts`. **Transactions infinite-scrolls** with a total
+  count (`GET /api/transactions`). Clean-slate scripts: `db:reset` / `db:reset:all`.
+  Nav: Accounts → Manage; Net Worth → Complete; Cashflow → Under development.
 - 2026-05-24 — **Categories management page + mutation API.** New `/categories`
   page: the full taxonomy grouped by Inflows / Outflows / Transfers, parent→child
   tree with transaction counts, and add / rename / delete (guarded) / merge
