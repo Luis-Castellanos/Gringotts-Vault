@@ -162,14 +162,23 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
 > `UnderDevelopment` component) so the nav is never dead-ended. Transactions
 > shipped a real Phase A directly (below); the rest still need a design pass.
 
-- [x] **Transactions** — shipped 2026-05-23 (Phase A). Server-loaded last 200
-  transactions, date-grouped list with vendor logos (Clearbit + colored-initials
-  fallback), multi-tab Filters modal (Categories hierarchy / Merchants / Accounts
-  / Date / Amount / Other), search, sort, and inline expand-to-edit
-  (merchant / category / notes / transfer / needs-review) saved via the PATCH +
-  categorize endpoints. **2026-05-24:** infinite scroll + total count (GET
-  /api/transactions). Still TODO: bulk actions (re-categorize, mark-as-transfer),
-  saved filter views, server-side filtering.
+- [x] **Transactions** — shipped 2026-05-23 (Phase A), **completed 2026-05-24**.
+  Date-grouped list + multi-tab Filters modal, search, sort, inline expand-to-edit.
+  2026-05-24 buildout (now considered complete): server-side filtering/search/sort
+  with the full matching set preloaded and rendered incrementally (no network
+  "load more"); bulk multi-select actions (categorize / mark reviewed / transfer)
+  via POST /api/transactions/bulk; saved filter views (localStorage); list + table
+  views with a density toggle; sticky toolbar; collapsible day groups with
+  select-whole-day; per-account detail page (/accounts/[id]: balance-over-time
+  chart + summary sidebar + account-scoped list); and a redesigned expand-to-edit
+  (merchant, two-level Category/Sub-category icon pickers, editable date,
+  original-statement + copy, view-all-from-merchant, delete). Vendor logos now use
+  Google's favicon service (Clearbit's free logo API was discontinued) keyed off a
+  curated vendor→domain map (`lib/vendor-domain.ts`); unrecognized merchants show
+  colored initials.
+  - _Future option:_ wire **logo.dev** (publishable `NEXT_PUBLIC_` token) for
+    full-fidelity brand wordmark logos instead of favicons. ~15 min, low effort;
+    gate on the env var with favicon fallback. Deferred 2026-05-24.
 - [ ] **Dashboard** — placeholder route live. Real page still to design: net
   worth headline + sparkline, monthly cashflow snapshot, top categories, account
   snapshot. Default landing page when you open Vault.
