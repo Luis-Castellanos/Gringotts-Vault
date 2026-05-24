@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -762,18 +761,6 @@ export function TransactionsClient({
 
   return (
     <>
-      <header className="page-hd">
-        <div />
-        <div className="page-actions">
-          <Link href="/review" className="pg-btn">
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 7l3 3 5-6" />
-            </svg>
-            Review queue
-          </Link>
-        </div>
-      </header>
-
       <div className="tx-toolbar">
         <input
           type="search"

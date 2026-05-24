@@ -159,9 +159,9 @@
   /* Transaction row */
   .tx-row {
     display: grid;
-    grid-template-columns: 1.4fr 1fr 1.4fr 130px 28px;
+    grid-template-columns: minmax(0, 2.6fr) 1fr 1.15fr 116px 22px;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     padding: 12px 16px;
     cursor: pointer;
     transition: background 120ms ease;
