@@ -333,7 +333,8 @@ type EditableStatProps = {
   display: string;
   isPlaceholder?: boolean;
   initialValue: string;
-  inputType: 'currency' | 'percent' | 'date' | 'text';
+  inputType: 'currency' | 'percent' | 'date' | 'text' | 'select';
+  options?: { value: string; label: string }[];
   sub?: string;
   max?: string;
   placeholder?: string;
@@ -346,6 +347,7 @@ function EditableStat({
   isPlaceholder,
   initialValue,
   inputType,
+  options,
   sub,
   max,
   placeholder,
@@ -393,6 +395,35 @@ function EditableStat({
   }
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
+  if (editing && inputType === 'select' && options) {
+    return (
+      <div className="drawer-stat is-editable" onClick={stop}>
+        <span className="lbl">{label}</span>
+        <select
+          className="edit-input"
+          autoFocus
+          value={draft}
+          disabled={saving}
+          onChange={async (e) => {
+            const v = e.target.value;
+            setDraft(v);
+            setSaving(true);
+            const r = await onSave(v);
+            setSaving(false);
+            if (!r.ok) setError(r.error);
+            else setEditing(false);
+          }}
+          onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') cancel(); }}
+          onBlur={() => setTimeout(() => { if (editing) cancel(); }, 120)}
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        {error && <div className="edit-error">{error}</div>}
+      </div>
+    );
+  }
   if (editing) {
     let inputProps: React.InputHTMLAttributes<HTMLInputElement>;
     if (inputType === 'date') {
@@ -757,6 +788,17 @@ function SignupBonusEditor({ card, onUpdated }: { card: CreditCardData; onUpdate
   );
 }
 
+const ACCOUNT_TYPE_OPTIONS = [
+  { value: 'credit_card', label: 'Credit card' },
+  { value: 'checking', label: 'Checking' },
+  { value: 'savings', label: 'Savings' },
+  { value: 'loan', label: 'Loan' },
+  { value: 'brokerage', label: 'Brokerage' },
+  { value: 'retirement', label: 'Retirement' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'other', label: 'Other' },
+];
+
 function InlineDetails({
   card,
   onUpdated,
@@ -766,18 +808,52 @@ function InlineDetails({
 }) {
   const hasLimit = card.limit != null && card.limit > 0;
   const util = hasLimit ? (card.balance / (card.limit as number)) * 100 : null;
+  const available = card.limit != null ? card.limit - card.balance : null;
+  const mi = monthlyInterest(card);
 
   return (
     <div className="cc-expand-content">
       {(card.state === 'signup_bonus' || card.state === 'fee_due') && <StateCard card={card} />}
 
-      <Link href={`/accounts/${card.id}`} className="cc-view-txns" onClick={(e) => e.stopPropagation()}>
-        View transactions →
-      </Link>
+      <div className="cc-detail-head">
+        <div className="cc-detail-stats">
+          <div className="s">
+            <span className="l">Balance</span>
+            <span className={'v num' + (card.balance > 0 ? ' red' : '')}>{fmtMoney(card.balance)}</span>
+          </div>
+          <div className="s">
+            <span className="l">Utilization</span>
+            <span className="v num" style={util != null ? { color: utilColor(util) } : undefined}>
+              {util != null ? fmtPct(util, util < 1 ? 1 : 0) : '—'}
+            </span>
+          </div>
+          <div className="s">
+            <span className="l">Available</span>
+            <span className="v num">{available != null ? fmtMoney0(available) : '—'}</span>
+          </div>
+          <div className="s">
+            <span className="l">Interest / mo</span>
+            <span className="v num">{mi != null ? fmtMoney(mi) : '—'}</span>
+          </div>
+          <div className="s">
+            <span className="l">Cashback YTD</span>
+            <span className="v num">{card.cashbackYTD != null ? fmtMoney(card.cashbackYTD) : '—'}</span>
+          </div>
+          <div className="s">
+            <span className="l">Annual fee</span>
+            <span className="v num">
+              {card.annualFee != null ? (card.annualFee > 0 ? fmtMoney0(card.annualFee) : '$0') : '—'}
+            </span>
+          </div>
+        </div>
+        <Link href={`/accounts/${card.id}`} className="cc-view-txns" onClick={(e) => e.stopPropagation()}>
+          View transactions →
+        </Link>
+      </div>
 
       <div className="drawer-section">
-        <div className="h">Card info</div>
-        <div className="drawer-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <div className="h">Details</div>
+        <div className="drawer-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
           <EditableStat
             label="Card name"
             display={card.name}
@@ -818,21 +894,31 @@ function InlineDetails({
               return r;
             }}
           />
-        </div>
-      </div>
-
-      <div className="drawer-section">
-        <div className="h">Balance &amp; limit</div>
-        <div className="cc-inline-stats">
-          <div className={'drawer-stat' + (card.balance > 0 ? ' red' : '')}>
-            <span className="lbl">Current balance</span>
-            <span className="val num">{fmtMoney(card.balance)}</span>
-            <span className="sub">
-              {util != null
-                ? `${fmtPct(util, util < 1 ? 1 : 0)} of ${card.isNoPreset ? 'no preset' : fmtMoney0(card.limit)}`
-                : 'Set a limit below'}
-            </span>
-          </div>
+          <EditableStat
+            label="Type"
+            display={ACCOUNT_TYPE_OPTIONS.find((o) => o.value === 'credit_card')!.label}
+            initialValue="credit_card"
+            inputType="select"
+            options={ACCOUNT_TYPE_OPTIONS}
+            sub="Changing this moves it off Credit Cards"
+            onSave={async (v) => {
+              const r = await patchAccount(card.id, { type: v });
+              if (r.ok) onUpdated();
+              return r;
+            }}
+          />
+          <EditableStat
+            label="Status"
+            display={card.isActive ? 'Active' : 'Closed'}
+            initialValue={card.isActive ? 'active' : 'closed'}
+            inputType="select"
+            options={[{ value: 'active', label: 'Active' }, { value: 'closed', label: 'Closed' }]}
+            onSave={async (v) => {
+              const r = await patchAccount(card.id, { isActive: v === 'active' });
+              if (r.ok) onUpdated();
+              return r;
+            }}
+          />
 
           <EditableStat
             label="Credit limit"
@@ -916,53 +1002,9 @@ function InlineDetails({
       </div>
 
       <div className="cc-inline-bottom">
-        {card.benefits && card.benefits.length > 0 ? (
-          <div className="drawer-section">
-            <div className="h">Benefits</div>
-            <div className="benefits-list">
-              {card.benefits.map((b, i) => (
-                <div className="benefit-row" key={i}>
-                  <span className="dot" />
-                  <span>{b}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="drawer-section">
-            <div className="h">Benefits</div>
-            <div className="benefits-list">
-              <div className="benefit-row" style={{ color: 'var(--text-3)' }}>
-                <span className="dot" />
-                <span>Not on file yet</span>
-              </div>
-            </div>
-          </div>
-        )}
         {card.balance > 0 && card.apr != null && (
           <PayoffCalc balance={card.balance} apr={card.apr} />
         )}
-        <div className="drawer-section">
-          <div className="h">Rewards & fees</div>
-          <div className="drawer-grid">
-            <div className="drawer-stat green">
-              <span className="lbl">Cashback YTD</span>
-              <span className="val num">{fmtMoney(card.cashbackYTD)}</span>
-              <span className="sub">Net of fees</span>
-            </div>
-            <div className="drawer-stat">
-              <span className="lbl">Annual fee</span>
-              <span className="val num">
-                {card.annualFee != null ? (card.annualFee > 0 ? fmtMoney(card.annualFee) : '$0') : '—'}
-              </span>
-              <span className="sub">
-                {card.annualFeeDueDate
-                  ? `Next ${fmtDate(card.annualFeeDueDate, { short: true })}`
-                  : card.annualFee === 0 ? 'No fee' : '—'}
-              </span>
-            </div>
-          </div>
-        </div>
 
         <div className="drawer-section">
           <div className="h">Signup bonus &amp; benefits</div>
