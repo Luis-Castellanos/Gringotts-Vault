@@ -1062,27 +1062,20 @@
   .cc-grid.compact .cc-grid-card .grid-util .bar { height: 6px; }
   .cc-grid.compact .cc-grid-card .grid-util .meta { font-size: 10.5px; }
 
-  /* Density toggle button (matches the view toggle) */
-  .cc-density {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
+  /* Large density — the original card size */
+  .cc-grid.large {
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 14px;
+  }
+
+  /* Card-size selector (S/M/L) — reuses the view-toggle pill styling */
+  .cc-size button {
+    min-width: 26px;
     justify-content: center;
-    background: var(--surface-elev);
-    border: 0;
-    border-radius: 8px;
-    padding: 8px 10px;
-    color: var(--text-3);
-    cursor: pointer;
-    transition: color 120ms ease, background 120ms ease;
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
-  .cc-density:hover { color: var(--text-1); }
-  .cc-density.active {
-    background: var(--surface);
-    color: var(--text-1);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 0.5px var(--line);
-  }
-  .cc-density svg { display: block; }
   .cc-grid-card {
     position: relative;
     background: var(--surface);
