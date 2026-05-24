@@ -397,12 +397,17 @@
 .cf-row-fill.green { background: var(--green); }
 .cf-row-fill.red { background: var(--red); }
 .cf-row:hover .cf-row-fill { opacity: 0.26; }
-.cf-row-dot {
+.cf-row-icon {
   position: relative;
   z-index: 1;
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
   flex-shrink: 0;
 }
 .cf-row-name {

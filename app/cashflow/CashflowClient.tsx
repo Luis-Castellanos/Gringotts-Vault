@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { iconBg, iconFor } from '@/lib/categories/icons';
+
 export type SeriesPoint = { ym: string; income: number; expense: number };
 export type CatAgg = {
   ym: string;
@@ -420,7 +422,7 @@ function BreakdownPanel({
                 style={{ ['--w' as string]: `${Math.max(3, (Math.abs(r.amount) / max) * 100)}%` }}
               >
                 <span className={`cf-row-fill ${tone}`} />
-                <span className="cf-row-dot" style={{ background: r.color ?? 'var(--text-3)' }} />
+                <span className="cf-row-icon" style={{ background: iconBg(r.color) }}>{iconFor(r.name)}</span>
                 <span className="cf-row-name" title={r.name}>{r.name}</span>
                 <span className="cf-row-amt numeric">{usd2.format(r.amount)}</span>
                 <span className="cf-row-pct numeric">{pct.toFixed(1)}%</span>
