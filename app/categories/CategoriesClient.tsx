@@ -283,13 +283,12 @@ export function CategoriesClient({ nodes }: { nodes: CatNode[] }) {
                         </span>
                         <span className="cat-count numeric" title="transactions (incl. subcategories)">{rollup(p).toLocaleString()}</span>
                         <span className="cat-actions">
-                          <IconBtn title="Add subcategory" onClick={() => setModal({ mode: 'addChild', parent: p })}><Plus /></IconBtn>
                           <IconBtn title="Rename" onClick={() => setModal({ mode: 'rename', node: p })}><Pencil /></IconBtn>
                           <IconBtn title="Merge into…" onClick={() => setModal({ mode: 'reassign', node: p, preferDelete: false })}><Merge /></IconBtn>
                           <IconBtn title="Delete" danger onClick={() => onDelete(p)}><Trash /></IconBtn>
                         </span>
                       </div>
-                      {kids.length > 0 && !collapsed && (
+                      {!collapsed && (
                         <ul className="cat-children">
                           {kids.map((c) => (
                             <li key={c.id} className="cat-row child">
@@ -303,6 +302,11 @@ export function CategoriesClient({ nodes }: { nodes: CatNode[] }) {
                               </span>
                             </li>
                           ))}
+                          <li className="cat-addsub-li">
+                            <button type="button" className="cat-addsub" onClick={() => setModal({ mode: 'addChild', parent: p })}>
+                              <Plus /> Add subcategory
+                            </button>
+                          </li>
                         </ul>
                       )}
                     </li>

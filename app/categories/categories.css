@@ -119,9 +119,9 @@
   align-items: center;
   gap: 6px;
   appearance: none;
-  border: 1px solid var(--line-strong);
-  background: transparent;
-  color: var(--text-2);
+  border: 1px solid color-mix(in srgb, var(--green) 38%, transparent);
+  background: var(--green-tint);
+  color: var(--green-text);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -131,10 +131,30 @@
   transition: all 140ms ease;
 }
 .cat-add-btn:hover {
-  color: var(--text-1);
-  background: var(--surface-hover);
-  border-color: var(--text-3);
+  background: color-mix(in srgb, var(--green) 22%, transparent);
+  border-color: var(--green-text);
 }
+.cat-addsub-li { list-style: none; }
+.cat-addsub {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 14px;
+  appearance: none;
+  border: 1px dashed color-mix(in srgb, var(--green) 40%, transparent);
+  background: transparent;
+  color: var(--green-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+  margin-top: 2px;
+  transition: all 130ms ease;
+}
+.cat-addsub:hover { background: var(--green-tint); }
+.cat-addsub svg { width: 12px; height: 12px; }
 
 .cat-toolbar {
   display: flex;
