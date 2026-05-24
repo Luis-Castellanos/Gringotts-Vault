@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -51,22 +52,18 @@ export type CreditCardData = {
 const TODAY = new Date().toISOString().slice(0, 10);
 
 const SORT_OPTIONS = [
-  { id: 'manual', label: 'Manual (drag to reorder)' },
-  { id: 'smart', label: 'Recommended' },
+  { id: 'manual', label: 'Manual order' },
   { id: 'balance', label: 'Balance · high → low' },
   { id: 'util', label: 'Utilization · high → low' },
-  { id: 'dueDate', label: 'Due date · soonest' },
-  { id: 'cashback', label: 'Cashback YTD' },
+  { id: 'cashback', label: 'Cashback YTD · high → low' },
   { id: 'opened', label: 'Newest first' },
-  { id: 'name', label: 'Name (A→Z)' },
+  { id: 'name', label: 'Name (A → Z)' },
 ] as const;
 
 const FILTER_OPTIONS = [
   { id: 'all', label: 'All' },
   { id: 'balance', label: 'Has balance' },
-  { id: 'paid', label: 'Paid in full' },
-  { id: 'signup', label: 'Signup bonus' },
-  { id: 'fee', label: 'Fee due' },
+  { id: 'paid', label: 'Paid off' },
 ] as const;
 
 type SortId = (typeof SORT_OPTIONS)[number]['id'];
@@ -634,6 +631,10 @@ function InlineDetails({
   return (
     <div className="cc-expand-content">
       {(card.state === 'signup_bonus' || card.state === 'fee_due') && <StateCard card={card} />}
+
+      <Link href={`/accounts/${card.id}`} className="cc-view-txns" onClick={(e) => e.stopPropagation()}>
+        View transactions →
+      </Link>
 
       <div className="drawer-section">
         <div className="h">Card info</div>
@@ -1328,23 +1329,16 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
   const summary = useMemo(() => ccSummary(cards), [cards]);
 
   const sortedActive = useMemo(() => {
-    const stateRank: Record<CreditCardData['state'], number> = {
-      signup_bonus: 0, fee_due: 1, steady: 2,
-    };
     const filtered = active.filter((c) => {
       switch (filterBy) {
         case 'balance': return c.balance > 0;
         case 'paid': return c.balance === 0;
-        case 'signup': return c.state === 'signup_bonus';
-        case 'fee': return c.state === 'fee_due';
         default: return true;
       }
     });
     const sorted = [...filtered];
     const utilOf = (c: CreditCardData) =>
       c.limit != null && c.limit > 0 ? (c.balance / c.limit) * 100 : 0;
-    const dueOf = (c: CreditCardData) =>
-      c.dueDate ? new Date(c.dueDate).getTime() : Infinity;
     switch (sortBy) {
       case 'manual': {
         if (manualOrder.length > 0) {
@@ -1364,8 +1358,6 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
         sorted.sort((a, b) => b.balance - a.balance); break;
       case 'util':
         sorted.sort((a, b) => utilOf(b) - utilOf(a)); break;
-      case 'dueDate':
-        sorted.sort((a, b) => dueOf(a) - dueOf(b)); break;
       case 'cashback':
         sorted.sort((a, b) => (b.cashbackYTD ?? 0) - (a.cashbackYTD ?? 0)); break;
       case 'opened':
@@ -1375,14 +1367,7 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
         ); break;
       case 'name':
         sorted.sort((a, b) => a.name.localeCompare(b.name)); break;
-      case 'smart':
       default:
-        sorted.sort((a, b) => {
-          const r = (stateRank[a.state] ?? 9) - (stateRank[b.state] ?? 9);
-          if (r !== 0) return r;
-          if (b.balance !== a.balance) return b.balance - a.balance;
-          return (b.limit ?? 0) - (a.limit ?? 0);
-        });
         break;
     }
     return sorted;
@@ -1392,8 +1377,6 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
     all: active.length,
     balance: active.filter((c) => c.balance > 0).length,
     paid: active.filter((c) => c.balance === 0).length,
-    signup: active.filter((c) => c.state === 'signup_bonus').length,
-    fee: active.filter((c) => c.state === 'fee_due').length,
   }), [active]);
 
   // Grid view uses the same sorted+filtered list as list view (sortBy is shared).
@@ -1456,24 +1439,29 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
   return (
     <>
       <div className="cc-toolbar">
-        <div className="cc-filter-chips" role="group" aria-label="Filter cards">
-          <button
-            type="button"
-            className={'cc-chip cc-tab' + (activeTab === 'active' ? ' active' : '')}
-            onClick={() => { setActiveTab('active'); setSelectedId(null); }}
-          >
-            Active <span className="count num">{active.length}</span>
-          </button>
-          <button
-            type="button"
-            className={'cc-chip cc-tab' + (activeTab === 'closed' ? ' active' : '')}
-            onClick={() => { setActiveTab('closed'); setSelectedId(null); }}
-          >
-            Closed <span className="count num">{closed.length}</span>
-          </button>
+        <div className="cc-toolbar-left">
+          <div className="cc-status" role="tablist" aria-label="Active or closed cards">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'active'}
+              className={activeTab === 'active' ? 'active' : ''}
+              onClick={() => { setActiveTab('active'); setSelectedId(null); }}
+            >
+              Active <span className="count num">{active.length}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'closed'}
+              className={activeTab === 'closed' ? 'active' : ''}
+              onClick={() => { setActiveTab('closed'); setSelectedId(null); }}
+            >
+              Closed <span className="count num">{closed.length}</span>
+            </button>
+          </div>
           {activeTab === 'active' && (
-            <>
-              <span className="cc-toolbar-div" aria-hidden />
+            <div className="cc-filter-chips" role="group" aria-label="Filter cards">
               {FILTER_OPTIONS.map((opt) => {
                 const count = filterCounts[opt.id];
                 const disabled = count === 0 && opt.id !== 'all';
@@ -1491,7 +1479,7 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
                   </button>
                 );
               })}
-            </>
+            </div>
           )}
         </div>
         {activeTab === 'active' && (
@@ -1651,7 +1639,16 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
                     )}
                   </div>
                   <div className="cc-bal" style={{ color: 'var(--text-3)' }}>
-                    <span className="b" style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 500 }}>—</span>
+                    {c.lifetimeSpend != null && c.lifetimeSpend > 0 ? (
+                      <>
+                        <span className="b num" style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 600 }}>
+                          {fmtMoney0(c.lifetimeSpend)}
+                        </span>
+                        <span className="of">charged over its life</span>
+                      </>
+                    ) : (
+                      <span className="b" style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 500 }}>—</span>
+                    )}
                   </div>
                   <div className="cc-chev" />
                 </div>
