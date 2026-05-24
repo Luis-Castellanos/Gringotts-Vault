@@ -50,7 +50,7 @@ export default async function AccountsPage() {
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex-1 flex justify-center">
-        <main className="acctset-page w-full max-w-[1080px] px-10 pt-9 pb-24">
+        <main className="acctset-page w-full max-w-[1600px] px-12 pt-8 pb-24">
           <AccountsSettingsClient accounts={rows} />
         </main>
       </div>

@@ -42,7 +42,7 @@ export default async function CategoriesPage() {
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex-1 flex justify-center">
-        <main className="categories-page w-full max-w-[1080px] px-10 pt-9 pb-24">
+        <main className="categories-page w-full max-w-[1600px] px-12 pt-8 pb-24">
           <CategoriesClient nodes={nodes} />
         </main>
       </div>
