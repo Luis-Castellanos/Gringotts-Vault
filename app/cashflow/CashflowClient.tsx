@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { iconBg, iconFor } from '@/lib/categories/icons';
 
@@ -42,6 +43,22 @@ function periodLabel(key: string, g: Gran, short = false): string {
     : d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 }
 
+function lastDay(y: number, m: number): string {
+  const d = new Date(y, m, 0).getDate();
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+// First/last calendar day covered by a period key, for the Transactions drill-down.
+function periodRange(key: string, g: Gran): { from: string; to: string } {
+  if (g === 'year') return { from: `${key}-01-01`, to: `${key}-12-31` };
+  if (g === 'quarter') {
+    const [y, q] = key.split('-Q');
+    const qn = Number(q);
+    return { from: `${y}-${String((qn - 1) * 3 + 1).padStart(2, '0')}-01`, to: lastDay(Number(y), qn * 3) };
+  }
+  const [y, m] = key.split('-');
+  return { from: `${y}-${m}-01`, to: lastDay(Number(y), Number(m)) };
+}
+
 const usd0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function compact(n: number): string {
@@ -70,6 +87,7 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] 
 const DEFAULT_RANGE: Record<Gran, number | 'all'> = { month: 12, quarter: 8, year: 'all' };
 
 export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: CatAgg[] }) {
+  const router = useRouter();
   const [gran, setGran] = useState<Gran>('month');
   const [dim, setDim] = useState<Dim>('group');
   const [sortKey, setSortKey] = useState<'amount' | 'amount-asc' | 'name'>('amount');
@@ -151,6 +169,21 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
   const step = (delta: number) => {
     const next = selIndex + delta;
     if (next >= 0 && next < visible.length) setSelected(visible[next].key);
+  };
+
+  // Drill into the Transactions ledger for a clicked breakdown row, scoped to
+  // that category (or all children of a group) and the selected period.
+  const drill = (rowKey: string) => {
+    if (!selected) return;
+    const ids =
+      dim === 'category'
+        ? [rowKey]
+        : [...new Set(cats.filter((c) => c.groupId === rowKey).map((c) => c.catId))];
+    const cat = ids.map((id) => (id === 'uncategorized' ? '__uncategorized__' : id)).join(',');
+    const { from, to } = periodRange(selected, gran);
+    const qs = new URLSearchParams({ from, to });
+    if (cat) qs.set('cats', cat);
+    router.push(`/transactions?${qs.toString()}`);
   };
 
   return (
@@ -252,7 +285,7 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
           <div className="cf-seg sm" role="tablist" aria-label="Breakdown grouping">
             {(['group', 'category'] as Dim[]).map((d) => (
               <button key={d} role="tab" aria-selected={dim === d} className={dim === d ? 'active' : ''} onClick={() => setDim(d)}>
-                {d === 'category' ? 'Category' : 'Group'}
+                {d === 'category' ? 'Sub category' : 'Category'}
               </button>
             ))}
           </div>
@@ -260,8 +293,8 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
       </div>
 
       <div className="cf-break-stack">
-        <BreakdownPanel title="Inflows" rows={breakdown.income} total={income} tone="green" />
-        <BreakdownPanel title="Outflows" rows={breakdown.expense} total={expense} tone="red" />
+        <BreakdownPanel title="Inflows" rows={breakdown.income} total={income} tone="green" onDrill={drill} />
+        <BreakdownPanel title="Outflows" rows={breakdown.expense} total={expense} tone="red" onDrill={drill} />
       </div>
     </div>
   );
@@ -396,11 +429,13 @@ function BreakdownPanel({
   rows,
   total,
   tone,
+  onDrill,
 }: {
   title: string;
   rows: { key: string; name: string; color: string | null; amount: number }[];
   total: number;
   tone: 'green' | 'red';
+  onDrill: (key: string) => void;
 }) {
   const max = Math.max(1, ...rows.map((r) => Math.abs(r.amount)));
   return (
@@ -420,6 +455,8 @@ function BreakdownPanel({
                 key={r.key}
                 className="cf-row"
                 style={{ ['--w' as string]: `${Math.max(3, (Math.abs(r.amount) / max) * 100)}%` }}
+                onClick={() => onDrill(r.key)}
+                title={`View ${r.name} transactions for this period`}
               >
                 <span className={`cf-row-fill ${tone}`} />
                 <span className="cf-row-icon" style={{ background: iconBg(r.color) }}>{iconFor(r.name)}</span>

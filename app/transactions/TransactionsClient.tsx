@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { VendorLogo } from '@/components/VendorLogo';
@@ -625,7 +625,25 @@ export function TransactionsClient({
   txns: TxnRow[]; total: number; accounts: AcctLite[]; categories: CatLite[]; pageSize: number;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+
+  // Apply incoming filters from the URL once (e.g. drill-down from Cashflow:
+  // ?cats=<ids>&from=YYYY-MM-DD&to=YYYY-MM-DD).
+  useEffect(() => {
+    const cats = searchParams.get('cats');
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    if (!cats && !from && !to) return;
+    setFilters((f) => ({
+      ...f,
+      categoryIds: cats ? cats.split(',').filter(Boolean) : f.categoryIds,
+      dateRange: from || to ? 'custom' : f.dateRange,
+      customFrom: from ?? f.customFrom,
+      customTo: to ?? f.customTo,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [sortBy, setSortBy] = useState<SortId>('date-desc');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
