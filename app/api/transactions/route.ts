@@ -21,7 +21,9 @@ export const dynamic = 'force-dynamic';
 export const GET = handler(async (req: NextRequest) => {
   const sp = new URL(req.url).searchParams;
   const offset = Math.max(0, Number(sp.get('offset') ?? 0) || 0);
-  const limit = Math.min(500, Math.max(1, Number(sp.get('limit') ?? 200) || 200));
+  // No `limit` param → load every matching row (the page preloads the full set).
+  const limitRaw = sp.get('limit');
+  const limit = limitRaw ? Math.min(50000, Math.max(1, Number(limitRaw) || 200)) : null;
   const sort = parseSort(sp.get('sort'));
 
   const aminRaw = sp.get('amin');

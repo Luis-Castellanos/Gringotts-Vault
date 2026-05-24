@@ -99,8 +99,10 @@ function orderFor(sort: TxnSort): SQL[] {
   }
 }
 
+// limit === null loads every matching row (used by the Transactions page, which
+// preloads the whole set and renders it incrementally client-side).
 export async function loadTransactions(
-  limit: number,
+  limit: number | null,
   offset = 0,
   filters?: TxnFilters,
   sort: TxnSort = 'date-desc',
@@ -131,7 +133,7 @@ export async function loadTransactions(
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(and(...conds))
     .orderBy(...orderFor(sort))
-    .limit(limit)
+    .limit(limit ?? 10_000_000)
     .offset(offset);
 
   return rows.map((r) => ({

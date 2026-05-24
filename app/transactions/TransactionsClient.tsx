@@ -165,10 +165,9 @@ function activeFilterCount(f: Filters): number {
 // GET /api/transactions. Date presets are resolved to concrete from/to here so
 // the server stays preset-agnostic. Multi-value fields are repeated params
 // (merchant names can contain commas, so joining isn't safe).
-function buildTxnQuery(f: Filters, sort: SortId, offset: number, limit: number): string {
+function buildTxnQuery(f: Filters, sort: SortId): string {
   const p = new URLSearchParams();
-  p.set('offset', String(offset));
-  p.set('limit', String(limit));
+  // No offset/limit — the page loads every matching row in one request.
   p.set('sort', sort);
   const q = f.search.trim();
   if (q) p.set('q', q);
@@ -940,11 +939,15 @@ function TxnTable({
   );
 }
 
+// How many rows to add to the DOM each time the scroll sentinel appears. The
+// full dataset is already in memory; this only controls incremental rendering.
+const RENDER_CHUNK = 150;
+
 export function TransactionsClient({
-  txns, total: initialTotal, accounts, categories, merchants, pageSize, lockAccountId,
+  txns, accounts, categories, merchants, lockAccountId,
 }: {
   txns: TxnRow[]; total: number; accounts: AcctLite[]; categories: CatLite[];
-  merchants: string[]; pageSize: number;
+  merchants: string[];
   // When set, the list is locked to one account: the account filter is fixed,
   // the Accounts filter tab is hidden, and the per-row account column is dropped
   // (it would be redundant). Used by the per-account detail page.
@@ -1031,55 +1034,51 @@ export function TransactionsClient({
     else setSortBy('merchant');
   };
 
-  // Filtering, search and sort all run server-side. `rows` holds the current
-  // result page(s); `total` is the count matching the active filters. Changing
-  // a filter/sort refetches page 0 (debounced); scrolling appends pages. A
-  // request-id guard discards responses that a newer fetch has superseded.
+  // Filtering, search and sort run server-side, but the whole matching set is
+  // returned in one request and held in `rows` — no network paging. `renderLimit`
+  // controls how many of those rows are actually in the DOM; scrolling grows it
+  // (instant, no fetch). A request-id guard discards superseded responses.
   const [rows, setRows] = useState<TxnRow[]>(txns);
-  const [total, setTotal] = useState<number>(initialTotal);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [renderLimit, setRenderLimit] = useState(RENDER_CHUNK);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const reqIdRef = useRef(0);
   const didMountRef = useRef(false);
 
-  const runFetch = useCallback(
-    async (offset: number) => {
-      const id = ++reqIdRef.current;
-      try {
-        const res = await fetch(`/api/transactions?${buildTxnQuery(filters, sortBy, offset, pageSize)}`);
-        const j = await res.json();
-        if (id !== reqIdRef.current) return; // superseded
-        const data = j?.data;
-        if (!data || !Array.isArray(data.rows)) return;
-        setRows((prev) => (offset === 0 ? data.rows : [...prev, ...data.rows]));
-        if (typeof data.total === 'number') setTotal(data.total);
-      } catch {
-        /* network error — keep current rows */
-      }
-    },
-    [filters, sortBy, pageSize],
-  );
+  const runFetch = useCallback(async () => {
+    const id = ++reqIdRef.current;
+    try {
+      const res = await fetch(`/api/transactions?${buildTxnQuery(filters, sortBy)}`);
+      const j = await res.json();
+      if (id !== reqIdRef.current) return; // superseded
+      const data = j?.data;
+      if (!data || !Array.isArray(data.rows)) return;
+      setRows(data.rows);
+      setRenderLimit(RENDER_CHUNK);
+    } catch {
+      /* network error — keep current rows */
+    }
+  }, [filters, sortBy]);
 
-  // Refetch page 0 whenever filters or sort change (debounced so typing in the
-  // search box doesn't fire a request per keystroke). The first run is the
-  // initial mount, where the server already provided page 0 — skip it.
+  // Refetch the full matching set whenever filters or sort change (debounced so
+  // typing in search doesn't fire a request per keystroke). The first run is the
+  // initial mount, where the server already provided every row — skip it.
   useEffect(() => {
     if (!didMountRef.current) { didMountRef.current = true; return; }
-    const t = setTimeout(() => { void runFetch(0); }, 250);
+    const t = setTimeout(() => { void runFetch(); }, 250);
     return () => clearTimeout(t);
   }, [runFetch]);
 
+  // Scrolling near the bottom reveals more already-loaded rows (no network).
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || rows.length >= total) return;
+    if (!el || renderLimit >= rows.length) return;
     const obs = new IntersectionObserver((entries) => {
-      if (!entries[0]?.isIntersecting || loadingMore) return;
-      setLoadingMore(true);
-      void runFetch(rows.length).finally(() => setLoadingMore(false));
-    }, { rootMargin: '800px' });
+      if (!entries[0]?.isIntersecting) return;
+      setRenderLimit((n) => Math.min(n + RENDER_CHUNK, rows.length));
+    }, { rootMargin: '1000px' });
     obs.observe(el);
     return () => obs.disconnect();
-  }, [rows.length, total, loadingMore, runFetch]);
+  }, [renderLimit, rows.length]);
 
   useEffect(() => {
     if (selectedId) {
@@ -1103,15 +1102,17 @@ export function TransactionsClient({
   // Full distinct merchant list (server-provided) for the filter picker.
   const allMerchants = merchants;
 
-  // The server already returns rows filtered + sorted, so here we only group by
-  // date for the two date sorts (other sorts render as one flat list).
+  // Only the first `renderLimit` rows are put in the DOM (the rest are loaded in
+  // memory and revealed as you scroll). The server already filtered + sorted, so
+  // here we only group by date for the two date sorts.
+  const visibleRows = useMemo(() => rows.slice(0, renderLimit), [rows, renderLimit]);
   const grouped = useMemo(() => {
     if (sortBy !== 'date-desc' && sortBy !== 'date-asc') {
-      return [{ date: '__flat__', rows, total: rows.reduce((s, r) => s + r.amount, 0) }];
+      return [{ date: '__flat__', rows: visibleRows, total: visibleRows.reduce((s, r) => s + r.amount, 0) }];
     }
     const groups: { date: string; rows: TxnRow[]; total: number }[] = [];
     let current: { date: string; rows: TxnRow[]; total: number } | null = null;
-    for (const r of rows) {
+    for (const r of visibleRows) {
       if (!current || current.date !== r.date) {
         current = { date: r.date, rows: [], total: 0 };
         groups.push(current);
@@ -1120,7 +1121,7 @@ export function TransactionsClient({
       current.total += r.amount;
     }
     return groups;
-  }, [rows, sortBy]);
+  }, [visibleRows, sortBy]);
 
   // After an inline edit, patch the row in place (resolving the new category's
   // name/color from the catalog) rather than refetching — keeps scroll position.
@@ -1173,7 +1174,7 @@ export function TransactionsClient({
       }
       setBulkBusy(false);
       setSelected(new Set());
-      void runFetch(0);
+      void runFetch();
     },
     [selected, bulkBusy, runFetch],
   );
@@ -1350,9 +1351,7 @@ export function TransactionsClient({
           ))}
         </select>
         <span className="count">
-          {rows.length < total
-            ? `${rows.length.toLocaleString()} of ${total.toLocaleString()}`
-            : `${total.toLocaleString()} ${total === 1 ? 'transaction' : 'transactions'}`}
+          {`${rows.length.toLocaleString()} ${rows.length === 1 ? 'transaction' : 'transactions'}`}
         </span>
         {hasAnyFilter && (
           <button type="button" className="clear-btn" onClick={clearFilters}>
@@ -1376,7 +1375,7 @@ export function TransactionsClient({
           </div>
         ) : viewMode === 'table' ? (
           <TxnTable
-            rows={rows}
+            rows={visibleRows}
             scoped={scoped}
             sortBy={sortBy}
             onHeaderSort={clickHeaderSort}
@@ -1518,15 +1517,13 @@ export function TransactionsClient({
         )}
       </div>
 
-      {rows.length < total && (
+      {renderLimit < rows.length && (
         <div
           ref={sentinelRef}
           className="tx-sentinel"
           aria-hidden="true"
           style={{ textAlign: 'center', padding: '18px 0 8px', fontSize: 13, color: 'var(--text-3)', minHeight: 1 }}
-        >
-          {loadingMore ? 'Loading more…' : ''}
-        </div>
+        />
       )}
 
       {selectMode && (

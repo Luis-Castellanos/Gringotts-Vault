@@ -11,10 +11,8 @@ import './transactions.css';
 export const metadata = { title: 'Transactions · Vault' };
 export const dynamic = 'force-dynamic';
 
-const PAGE_SIZE = 200;
-
 export default async function TransactionsPage() {
-  const txns = await loadTransactions(PAGE_SIZE, 0);
+  const txns = await loadTransactions(null, 0); // preload all; rendered incrementally
   const total = await countTransactions();
   const merchants = await loadMerchants();
 
@@ -51,7 +49,7 @@ export default async function TransactionsPage() {
       <Sidebar />
       <div className="flex-1 flex justify-center">
         <main className="transactions-page w-full max-w-[1600px] px-6 pt-6 pb-20">
-          <TransactionsClient txns={txns} total={total} accounts={acctLites} categories={catLites} merchants={merchants} pageSize={PAGE_SIZE} />
+          <TransactionsClient txns={txns} total={total} accounts={acctLites} categories={catLites} merchants={merchants} />
         </main>
       </div>
     </div>

@@ -14,8 +14,6 @@ import './account-detail.css';
 
 export const dynamic = 'force-dynamic';
 
-const PAGE_SIZE = 200;
-
 const TYPE_LABELS: Record<string, string> = {
   checking: 'Checking',
   savings: 'Savings',
@@ -44,7 +42,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
 
   const filters = { accountIds: [id] };
   const [txns, total, merchants, series] = await Promise.all([
-    loadTransactions(PAGE_SIZE, 0, filters),
+    loadTransactions(null, 0, filters), // preload all of this account's transactions
     countTransactions(filters),
     loadMerchants(),
     loadAccountBalanceSeries(id),
@@ -114,7 +112,6 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                 accounts={[]}
                 categories={catLites}
                 merchants={merchants}
-                pageSize={PAGE_SIZE}
                 lockAccountId={id}
               />
             </section>
