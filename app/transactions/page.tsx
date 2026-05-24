@@ -5,7 +5,7 @@ import { db } from '@/lib/db/client';
 import { accounts, categories } from '@/lib/db/schema';
 import { Sidebar } from '@/components/Sidebar';
 import { TransactionsClient, type AcctLite, type CatLite } from './TransactionsClient';
-import { countTransactions, loadTransactions } from '@/lib/transactions/load';
+import { countTransactions, loadMerchants, loadTransactions } from '@/lib/transactions/load';
 import './transactions.css';
 
 export const metadata = { title: 'Transactions · Vault' };
@@ -16,6 +16,7 @@ const PAGE_SIZE = 200;
 export default async function TransactionsPage() {
   const txns = await loadTransactions(PAGE_SIZE, 0);
   const total = await countTransactions();
+  const merchants = await loadMerchants();
 
   const acctList = await db
     .select({ id: accounts.id, name: accounts.name, institution: accounts.institution })
@@ -50,7 +51,7 @@ export default async function TransactionsPage() {
       <Sidebar />
       <div className="flex-1 flex justify-center">
         <main className="transactions-page w-full max-w-[1600px] px-12 pt-6 pb-20">
-          <TransactionsClient txns={txns} total={total} accounts={acctLites} categories={catLites} pageSize={PAGE_SIZE} />
+          <TransactionsClient txns={txns} total={total} accounts={acctLites} categories={catLites} merchants={merchants} pageSize={PAGE_SIZE} />
         </main>
       </div>
     </div>

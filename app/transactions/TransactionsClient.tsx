@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { VendorLogo } from '@/components/VendorLogo';
 import { iconBg, iconFor } from '@/lib/categories/icons';
@@ -160,6 +160,39 @@ function activeFilterCount(f: Filters): number {
   return n;
 }
 
+// Serialize filters + sort + paging into the query string consumed by
+// GET /api/transactions. Date presets are resolved to concrete from/to here so
+// the server stays preset-agnostic. Multi-value fields are repeated params
+// (merchant names can contain commas, so joining isn't safe).
+function buildTxnQuery(f: Filters, sort: SortId, offset: number, limit: number): string {
+  const p = new URLSearchParams();
+  p.set('offset', String(offset));
+  p.set('limit', String(limit));
+  p.set('sort', sort);
+  const q = f.search.trim();
+  if (q) p.set('q', q);
+  const startISO = f.dateRange === 'custom' ? f.customFrom || null : rangeStartISO(f.dateRange);
+  const endISO = f.dateRange === 'custom' ? f.customTo || null : null;
+  if (startISO) p.set('from', startISO);
+  if (endISO) p.set('to', endISO);
+  for (const a of f.accountIds) p.append('account', a);
+  for (const c of f.categoryIds) p.append('cat', c);
+  for (const m of f.merchants) p.append('merchant', m);
+  if (f.amountMin) p.set('amin', f.amountMin);
+  if (f.amountMax) p.set('amax', f.amountMax);
+  if (f.hideTransfers) p.set('hideTransfers', '1');
+  if (f.needsReviewOnly) p.set('needsReview', '1');
+  return p.toString();
+}
+
+type TxnPatch = {
+  merchant: string;
+  categoryId: string;
+  notes: string;
+  isTransfer: boolean;
+  needsReview: boolean;
+};
+
 // ─── Save helpers ─────────────────────────────────────────────────────────
 type SaveResult = { ok: true } | { ok: false; error: string };
 
@@ -199,7 +232,7 @@ async function categorizeTxn(
 // ─── Inline expansion: edit a single transaction ─────────────────────────
 function TxnDetail({
   txn, categories, onSaved,
-}: { txn: TxnRow; categories: CatLite[]; onSaved: () => void }) {
+}: { txn: TxnRow; categories: CatLite[]; onSaved: (patch: TxnPatch) => void }) {
   const [merchant, setMerchant] = useState(txn.merchant);
   const [categoryId, setCategoryId] = useState<string>(txn.categoryId ?? '');
   const [notes, setNotes] = useState(txn.notes ?? '');
@@ -232,7 +265,7 @@ function TxnDetail({
       if (!r.ok) { setSaving(false); setError(r.error); return; }
     }
     setSaving(false);
-    onSaved();
+    onSaved({ merchant: merchant.trim(), categoryId, notes, isTransfer, needsReview });
   }
 
   return (
@@ -620,11 +653,10 @@ function FilterPanel({
 
 // ─── Main client ──────────────────────────────────────────────────────────
 export function TransactionsClient({
-  txns, total, accounts, categories, pageSize,
+  txns, total: initialTotal, accounts, categories, merchants, pageSize,
 }: {
-  txns: TxnRow[]; total: number; accounts: AcctLite[]; categories: CatLite[]; pageSize: number;
+  txns: TxnRow[]; total: number; accounts: AcctLite[]; categories: CatLite[]; merchants: string[]; pageSize: number;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
@@ -650,12 +682,43 @@ export function TransactionsClient({
   const [shownId, setShownId] = useState<string | null>(null);
   const shownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Infinite scroll: `rows` starts at the server's first page and grows as the
-  // bottom sentinel comes into view. Resets when the server sends a fresh page.
+  // Filtering, search and sort all run server-side. `rows` holds the current
+  // result page(s); `total` is the count matching the active filters. Changing
+  // a filter/sort refetches page 0 (debounced); scrolling appends pages. A
+  // request-id guard discards responses that a newer fetch has superseded.
   const [rows, setRows] = useState<TxnRow[]>(txns);
+  const [total, setTotal] = useState<number>(initialTotal);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { setRows(txns); }, [txns]);
+  const reqIdRef = useRef(0);
+  const didMountRef = useRef(false);
+
+  const runFetch = useCallback(
+    async (offset: number) => {
+      const id = ++reqIdRef.current;
+      try {
+        const res = await fetch(`/api/transactions?${buildTxnQuery(filters, sortBy, offset, pageSize)}`);
+        const j = await res.json();
+        if (id !== reqIdRef.current) return; // superseded
+        const data = j?.data;
+        if (!data || !Array.isArray(data.rows)) return;
+        setRows((prev) => (offset === 0 ? data.rows : [...prev, ...data.rows]));
+        if (typeof data.total === 'number') setTotal(data.total);
+      } catch {
+        /* network error — keep current rows */
+      }
+    },
+    [filters, sortBy, pageSize],
+  );
+
+  // Refetch page 0 whenever filters or sort change (debounced so typing in the
+  // search box doesn't fire a request per keystroke). The first run is the
+  // initial mount, where the server already provided page 0 — skip it.
+  useEffect(() => {
+    if (!didMountRef.current) { didMountRef.current = true; return; }
+    const t = setTimeout(() => { void runFetch(0); }, 250);
+    return () => clearTimeout(t);
+  }, [runFetch]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -663,15 +726,11 @@ export function TransactionsClient({
     const obs = new IntersectionObserver((entries) => {
       if (!entries[0]?.isIntersecting || loadingMore) return;
       setLoadingMore(true);
-      fetch(`/api/transactions?offset=${rows.length}&limit=${pageSize}`)
-        .then((r) => r.json())
-        .then((j) => { if (Array.isArray(j?.data)) setRows((prev) => [...prev, ...j.data]); })
-        .catch(() => {})
-        .finally(() => setLoadingMore(false));
+      void runFetch(rows.length).finally(() => setLoadingMore(false));
     }, { rootMargin: '800px' });
     obs.observe(el);
     return () => obs.disconnect();
-  }, [rows.length, total, loadingMore, pageSize]);
+  }, [rows.length, total, loadingMore, runFetch]);
 
   useEffect(() => {
     if (selectedId) {
@@ -692,61 +751,18 @@ export function TransactionsClient({
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedId]);
 
-  // Unique merchants from loaded txns (sorted alphabetically)
-  const allMerchants = useMemo(() => {
-    const set = new Set<string>();
-    for (const t of rows) set.add(t.merchant);
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+  // Full distinct merchant list (server-provided) for the filter picker.
+  const allMerchants = merchants;
 
-  const filtered = useMemo(() => {
-    const startISO = filters.dateRange === 'custom'
-      ? (filters.customFrom || null)
-      : rangeStartISO(filters.dateRange);
-    const endISO = filters.dateRange === 'custom' ? (filters.customTo || null) : null;
-    const q = filters.search.trim().toLowerCase();
-    const min = filters.amountMin ? Math.abs(Number(filters.amountMin)) : null;
-    const max = filters.amountMax ? Math.abs(Number(filters.amountMax)) : null;
-
-    return rows.filter((t) => {
-      if (filters.hideTransfers && t.isTransfer) return false;
-      if (filters.needsReviewOnly && !t.needsReview) return false;
-      if (filters.accountIds.length > 0 && (t.accountId == null || !filters.accountIds.includes(t.accountId))) return false;
-      if (filters.categoryIds.length > 0) {
-        const wantUncat = filters.categoryIds.includes('__uncategorized__');
-        const matchesCat = t.categoryId != null && filters.categoryIds.includes(t.categoryId);
-        const isUncat = t.categoryId == null;
-        if (!(matchesCat || (wantUncat && isUncat))) return false;
-      }
-      if (filters.merchants.length > 0 && !filters.merchants.includes(t.merchant)) return false;
-      if (startISO && t.date < startISO) return false;
-      if (endISO && t.date > endISO) return false;
-      if (min != null && !Number.isNaN(min) && Math.abs(t.amount) < min) return false;
-      if (max != null && !Number.isNaN(max) && Math.abs(t.amount) > max) return false;
-      if (q && !t.merchant.toLowerCase().includes(q) && !t.rawDescription.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [rows, filters]);
-
-  const sorted = useMemo(() => {
-    const out = [...filtered];
-    switch (sortBy) {
-      case 'date-desc': out.sort((a, b) => (b.date.localeCompare(a.date) || b.id.localeCompare(a.id))); break;
-      case 'date-asc': out.sort((a, b) => (a.date.localeCompare(b.date) || a.id.localeCompare(b.id))); break;
-      case 'amount-high': out.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)); break;
-      case 'amount-low': out.sort((a, b) => Math.abs(a.amount) - Math.abs(b.amount)); break;
-      case 'merchant': out.sort((a, b) => a.merchant.localeCompare(b.merchant)); break;
-    }
-    return out;
-  }, [filtered, sortBy]);
-
+  // The server already returns rows filtered + sorted, so here we only group by
+  // date for the two date sorts (other sorts render as one flat list).
   const grouped = useMemo(() => {
     if (sortBy !== 'date-desc' && sortBy !== 'date-asc') {
-      return [{ date: '__flat__', rows: sorted, total: sorted.reduce((s, r) => s + r.amount, 0) }];
+      return [{ date: '__flat__', rows, total: rows.reduce((s, r) => s + r.amount, 0) }];
     }
     const groups: { date: string; rows: TxnRow[]; total: number }[] = [];
     let current: { date: string; rows: TxnRow[]; total: number } | null = null;
-    for (const r of sorted) {
+    for (const r of rows) {
       if (!current || current.date !== r.date) {
         current = { date: r.date, rows: [], total: 0 };
         groups.push(current);
@@ -755,7 +771,31 @@ export function TransactionsClient({
       current.total += r.amount;
     }
     return groups;
-  }, [sorted, sortBy]);
+  }, [rows, sortBy]);
+
+  // After an inline edit, patch the row in place (resolving the new category's
+  // name/color from the catalog) rather than refetching — keeps scroll position.
+  const patchLocalRow = useCallback(
+    (id: string, patch: TxnPatch) => {
+      setRows((prev) =>
+        prev.map((r) => {
+          if (r.id !== id) return r;
+          const cat = patch.categoryId ? categories.find((c) => c.id === patch.categoryId) ?? null : null;
+          return {
+            ...r,
+            merchant: patch.merchant || r.merchant,
+            notes: patch.notes,
+            isTransfer: patch.isTransfer,
+            needsReview: patch.needsReview,
+            categoryId: patch.categoryId || null,
+            categoryName: cat ? cat.name : null,
+            categoryColor: cat ? cat.color : null,
+          };
+        }),
+      );
+    },
+    [categories],
+  );
 
   const filterCount = activeFilterCount(filters);
   const hasAnyFilter = filterCount > 0 || filters.search !== '';
@@ -787,8 +827,9 @@ export function TransactionsClient({
           ))}
         </select>
         <span className="count">
-          {sorted.length.toLocaleString()} of {total.toLocaleString()}
-          {rows.length < total ? ` · ${rows.length.toLocaleString()} loaded` : ''}
+          {rows.length < total
+            ? `${rows.length.toLocaleString()} of ${total.toLocaleString()}`
+            : `${total.toLocaleString()} ${total === 1 ? 'transaction' : 'transactions'}`}
         </span>
         {hasAnyFilter && (
           <button type="button" className="clear-btn"
@@ -799,7 +840,7 @@ export function TransactionsClient({
       </div>
 
       <div className="tx-list">
-        {sorted.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="tx-empty">
             No transactions match your filters.
             {hasAnyFilter && (
@@ -887,9 +928,9 @@ export function TransactionsClient({
                           <TxnDetail
                             txn={t}
                             categories={categories}
-                            onSaved={() => {
+                            onSaved={(patch) => {
                               setSelectedId(null);
-                              router.refresh();
+                              patchLocalRow(t.id, patch);
                             }}
                           />
                         )}

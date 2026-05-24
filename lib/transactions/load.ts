@@ -1,16 +1,111 @@
 /**
  * Shared transaction loader — used by the Transactions page (initial page) and
- * the GET /api/transactions endpoint (infinite-scroll pages), so the row shape
- * and ordering can't drift between them.
+ * the GET /api/transactions endpoint (filtered + infinite-scroll pages), so the
+ * row shape, filtering and ordering can't drift between them.
  */
 
-import { desc, eq, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accounts, categories, transactions } from '@/lib/db/schema';
 import type { TxnRow } from '@/app/transactions/TransactionsClient';
 
-export async function loadTransactions(limit: number, offset = 0): Promise<TxnRow[]> {
+export type TxnSort = 'date-desc' | 'date-asc' | 'amount-high' | 'amount-low' | 'merchant';
+
+const SORTS = new Set<TxnSort>(['date-desc', 'date-asc', 'amount-high', 'amount-low', 'merchant']);
+export function parseSort(raw: string | null | undefined): TxnSort {
+  return raw && SORTS.has(raw as TxnSort) ? (raw as TxnSort) : 'date-desc';
+}
+
+export const UNCATEGORIZED = '__uncategorized__';
+
+export type TxnFilters = {
+  search?: string;
+  from?: string | null; // ISO date, inclusive
+  to?: string | null; // ISO date, inclusive
+  accountIds?: string[];
+  categoryIds?: string[]; // may include UNCATEGORIZED sentinel
+  merchants?: string[];
+  amountMin?: number | null; // compared against abs(amount)
+  amountMax?: number | null;
+  hideTransfers?: boolean;
+  needsReviewOnly?: boolean;
+};
+
+// All conditions reference columns on the `transactions` table itself (account
+// and category ids live there too), so the count query needs no joins.
+function buildConditions(f?: TxnFilters): (SQL | undefined)[] {
+  const c: (SQL | undefined)[] = [];
+  if (!f) return c;
+
+  if (f.search?.trim()) {
+    const like = `%${f.search.trim()}%`;
+    c.push(or(ilike(transactions.merchant, like), ilike(transactions.rawDescription, like)));
+  }
+  if (f.from) c.push(gte(transactions.date, f.from));
+  if (f.to) c.push(lte(transactions.date, f.to));
+  if (f.accountIds?.length) c.push(inArray(transactions.accountId, f.accountIds));
+
+  if (f.categoryIds?.length) {
+    const wantUncat = f.categoryIds.includes(UNCATEGORIZED);
+    const ids = f.categoryIds.filter((x) => x !== UNCATEGORIZED);
+    if (wantUncat && ids.length) {
+      c.push(or(inArray(transactions.categoryId, ids), isNull(transactions.categoryId)));
+    } else if (wantUncat) {
+      c.push(isNull(transactions.categoryId));
+    } else if (ids.length) {
+      c.push(inArray(transactions.categoryId, ids));
+    }
+  }
+
+  if (f.merchants?.length) c.push(inArray(transactions.merchant, f.merchants));
+  if (f.amountMin != null && !Number.isNaN(f.amountMin)) {
+    c.push(sql`abs(${transactions.amount}) >= ${f.amountMin}`);
+  }
+  if (f.amountMax != null && !Number.isNaN(f.amountMax)) {
+    c.push(sql`abs(${transactions.amount}) <= ${f.amountMax}`);
+  }
+  if (f.hideTransfers) c.push(eq(transactions.isTransfer, false));
+  if (f.needsReviewOnly) c.push(eq(transactions.needsReview, true));
+  return c;
+}
+
+function orderFor(sort: TxnSort): SQL[] {
+  switch (sort) {
+    case 'date-asc':
+      return [asc(transactions.date), asc(transactions.id)];
+    case 'amount-high':
+      return [desc(sql`abs(${transactions.amount})`), desc(transactions.id)];
+    case 'amount-low':
+      return [asc(sql`abs(${transactions.amount})`), desc(transactions.id)];
+    case 'merchant':
+      return [asc(transactions.merchant), desc(transactions.id)];
+    case 'date-desc':
+    default:
+      return [desc(transactions.date), desc(transactions.id)];
+  }
+}
+
+export async function loadTransactions(
+  limit: number,
+  offset = 0,
+  filters?: TxnFilters,
+  sort: TxnSort = 'date-desc',
+): Promise<TxnRow[]> {
+  const conds = buildConditions(filters);
   const rows = await db
     .select({
       id: transactions.id,
@@ -34,7 +129,8 @@ export async function loadTransactions(limit: number, offset = 0): Promise<TxnRo
     .from(transactions)
     .leftJoin(accounts, eq(transactions.accountId, accounts.id))
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
-    .orderBy(desc(transactions.date), desc(transactions.id))
+    .where(and(...conds))
+    .orderBy(...orderFor(sort))
     .limit(limit)
     .offset(offset);
 
@@ -59,7 +155,20 @@ export async function loadTransactions(limit: number, offset = 0): Promise<TxnRo
   }));
 }
 
-export async function countTransactions(): Promise<number> {
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(transactions);
+export async function countTransactions(filters?: TxnFilters): Promise<number> {
+  const conds = buildConditions(filters);
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(transactions)
+    .where(and(...conds));
   return n;
+}
+
+/** Distinct merchant names across all transactions (for the filter picker). */
+export async function loadMerchants(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ merchant: transactions.merchant })
+    .from(transactions)
+    .orderBy(asc(transactions.merchant));
+  return rows.map((r) => r.merchant).filter((m): m is string => !!m);
 }
