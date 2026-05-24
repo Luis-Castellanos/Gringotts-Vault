@@ -140,8 +140,8 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
 
   return (
     <aside
-      className="relative flex flex-col bg-surface-1 border-r border-border-subtle"
-      style={{ width }}
+      className="sticky self-start flex flex-col bg-surface-1 border-r border-border-subtle"
+      style={{ width, top: 44, height: 'calc(100vh - 44px)' }}
     >
       {/* Top: logo + action icons row (Monarch-style) */}
       <div className="flex items-center gap-1 px-3 pt-3 pb-2">
