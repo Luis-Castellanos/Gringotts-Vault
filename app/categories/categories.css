@@ -166,16 +166,17 @@
   list-style: none;
   margin: 8px 0 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 10px;
-  align-items: start;
+  /* Multi-column flow packs variable-height cards tightly — no ragged grid gaps. */
+  columns: 300px;
+  column-gap: 12px;
 }
 .cat-parent {
+  break-inside: avoid;
   background: var(--surface);
   border-radius: 12px;
   box-shadow: var(--shadow-card);
   padding: 4px 8px 8px;
+  margin: 0 0 12px;
 }
 .cat-children {
   list-style: none;
@@ -222,10 +223,8 @@
 }
 .cat-name {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--text-1);
+  line-height: 1.3;
 }
 .cat-count {
   font-size: 12.5px;
