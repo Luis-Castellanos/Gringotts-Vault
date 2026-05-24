@@ -129,10 +129,12 @@ function cardAge(openedISO: string | null): string {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-function utilTone(pct: number): 'green' | 'amber' | 'red' {
-  if (pct <= 30) return 'green';
-  if (pct <= 50) return 'amber';
-  return 'red';
+// Continuous green → amber → red color for a utilization %, so the bar's color
+// reflects exactly how high the utilization is (capped at 100%).
+function utilColor(pct: number): string {
+  const p = Math.max(0, Math.min(pct, 100)) / 100;
+  const hue = 130 - 130 * p; // 130° (green) at 0% → 0° (red) at 100%
+  return `hsl(${Math.round(hue)}, 72%, 45%)`;
 }
 
 type Summary = {
@@ -452,7 +454,6 @@ function CardRow({
 }) {
   const hasLimit = card.limit != null && card.limit > 0;
   const util = hasLimit ? (card.balance / (card.limit as number)) * 100 : null;
-  const tone = util != null ? utilTone(util) : 'green';
   return (
     <div className="cc-row" onClick={onClick}>
       <CardArt card={card} />
@@ -460,6 +461,7 @@ function CardRow({
         <div className="top">
           <EditableCardName value={displayName} onCommit={onRename} />
           <StateChip card={card} />
+          {card.apr != null && <span className="cc-apr">APR {card.apr}%</span>}
         </div>
         <div className="sub">
           {card.institution && <span className="b">{card.institution}</span>}
@@ -482,10 +484,10 @@ function CardRow({
           <>
             <div className="meta">
               <span>Util</span>
-              <span className={'pct ' + tone}>{fmtPct(util, util < 1 ? 1 : 0)}</span>
+              <span className="pct" style={{ color: utilColor(util) }}>{fmtPct(util, util < 1 ? 1 : 0)}</span>
             </div>
             <div className="bar">
-              <div className={'fill ' + tone} style={{ width: Math.min(100, util) + '%' }} />
+              <div className="fill" style={{ width: Math.min(100, util) + '%', background: utilColor(util) }} />
             </div>
             <div className="meta">
               <span>
@@ -504,7 +506,7 @@ function CardRow({
         <span className="of">
           {card.statementBalance != null && card.statementBalance !== card.balance
             ? <>Stmt {fmtMoney0(card.statementBalance)}</>
-            : card.apr != null ? <>APR {card.apr}%</> : <>—</>}
+            : <>—</>}
         </span>
       </div>
       <div className="cc-chev">
@@ -878,7 +880,6 @@ function MasterUtil({ s }: { s: Summary }) {
       </section>
     );
   }
-  const tone = utilTone(s.util);
   const pct = Math.min(100, s.util);
   const thresholds = [
     { v: 10, label: 'Ideal' },
@@ -895,7 +896,7 @@ function MasterUtil({ s }: { s: Summary }) {
         </span>
       </div>
       <div className="util-bar">
-        <div className={'fill ' + tone} style={{ width: pct + '%' }} />
+        <div className="fill" style={{ width: pct + '%', background: utilColor(s.util) }} />
         {thresholds.map((th) => (
           <div key={th.v} className="marker" style={{ left: th.v + '%' }} />
         ))}
@@ -1102,7 +1103,6 @@ function CardGridItem({
 }) {
   const hasLimit = card.limit != null && card.limit > 0;
   const util = hasLimit ? (card.balance / (card.limit as number)) * 100 : null;
-  const tone = util != null ? utilTone(util) : 'green';
   const cls =
     'cc-grid-card' +
     (isDragging ? ' dragging' : '') +
@@ -1124,26 +1124,22 @@ function CardGridItem({
         {card.institution && <span>{card.institution}</span>}
         {card.last4 && <span className="num">•••• {card.last4}</span>}
         <StateChip card={card} />
+        {card.apr != null && <span className="cc-apr">APR {card.apr}%</span>}
       </div>
       <div className="grid-bal-row">
         <span className={'grid-bal num' + (card.balance > 0 ? ' red' : '')}>
           {card.balance > 0 ? fmtMoney(card.balance) : '$0.00'}
         </span>
-        {card.apr != null && (
-          <span style={{ fontSize: 11, color: 'var(--text-3)' }} className="num">
-            APR {card.apr}%
-          </span>
-        )}
       </div>
       <div className="grid-util">
         {hasLimit && util != null ? (
           <>
             <div className="meta">
               <span>Util</span>
-              <span className={'pct ' + tone}>{fmtPct(util, util < 1 ? 1 : 0)}</span>
+              <span className="pct" style={{ color: utilColor(util) }}>{fmtPct(util, util < 1 ? 1 : 0)}</span>
             </div>
             <div className="bar">
-              <div className={'fill ' + tone} style={{ width: Math.min(100, util) + '%' }} />
+              <div className="fill" style={{ width: Math.min(100, util) + '%', background: utilColor(util) }} />
             </div>
             <div className="meta">
               <span>
