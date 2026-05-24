@@ -372,15 +372,14 @@ function BreakdownPanel({
           {rows.map((r) => {
             const pct = total > 0 ? (r.amount / total) * 100 : 0;
             return (
-              <li key={r.key} className="cf-row">
+              <li
+                key={r.key}
+                className="cf-row"
+                style={{ ['--w' as string]: `${Math.max(3, (Math.abs(r.amount) / max) * 100)}%` }}
+              >
+                <span className={`cf-row-fill ${tone}`} />
                 <span className="cf-row-dot" style={{ background: r.color ?? 'var(--text-3)' }} />
                 <span className="cf-row-name" title={r.name}>{r.name}</span>
-                <span className="cf-row-bar-track">
-                  <span
-                    className={`cf-row-bar ${tone}`}
-                    style={{ width: `${Math.max(2, (Math.abs(r.amount) / max) * 100)}%` }}
-                  />
-                </span>
                 <span className="cf-row-amt numeric">{usd2.format(r.amount)}</span>
                 <span className="cf-row-pct numeric">{pct.toFixed(1)}%</span>
               </li>

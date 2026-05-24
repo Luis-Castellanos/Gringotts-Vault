@@ -337,51 +337,60 @@
   gap: 2px;
 }
 .cf-row {
-  display: grid;
-  grid-template-columns: 10px minmax(110px, 1.1fr) 1.4fr auto auto;
+  position: relative;
+  display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 6px;
+  padding: 10px 12px;
   border-radius: 8px;
-  transition: background 120ms ease;
+  overflow: hidden;
 }
-.cf-row:hover {
-  background: var(--surface-hover);
+.cf-row-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--w, 0%);
+  border-radius: 8px;
+  opacity: 0.16;
+  transition: width 220ms ease, opacity 120ms ease;
 }
+.cf-row-fill.green { background: var(--green); }
+.cf-row-fill.red { background: var(--red); }
+.cf-row:hover .cf-row-fill { opacity: 0.26; }
 .cf-row-dot {
+  position: relative;
+  z-index: 1;
   width: 9px;
   height: 9px;
   border-radius: 3px;
+  flex-shrink: 0;
 }
 .cf-row-name {
+  position: relative;
+  z-index: 1;
+  flex: 1;
   font-size: 13.5px;
   color: var(--text-1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cf-row-bar-track {
-  height: 8px;
-  background: var(--surface-elev);
-  border-radius: 5px;
-  overflow: hidden;
-}
-.cf-row-bar {
-  display: block;
-  height: 100%;
-  border-radius: 5px;
-}
-.cf-row-bar.green { background: var(--green); }
-.cf-row-bar.red { background: var(--red); }
 .cf-row-amt {
+  position: relative;
+  z-index: 1;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-1);
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .cf-row-pct {
+  position: relative;
+  z-index: 1;
   font-size: 12px;
   color: var(--text-3);
   text-align: right;
   min-width: 46px;
+  font-variant-numeric: tabular-nums;
 }
