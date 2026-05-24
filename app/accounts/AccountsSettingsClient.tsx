@@ -101,7 +101,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [showClosed, setShowClosed] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [view, setView] = useState<'grid' | 'list'>('list');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [accountOrders, setAccountOrders] = useState<Record<string, string[]>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
