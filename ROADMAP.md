@@ -40,19 +40,19 @@ A pay clawback is a negative amount in an inflow-flow_type category.
 Every category has a `flow_type` of `inflow`, `outflow`, or `transfer`. This determines
 which bucket the category lives in for reporting purposes:
 
-- `inflow` — income, gifts, refunds you weren't expecting to be recurring
-- `outflow` — spending, cashback adjustments (cashback offsets are outflow rows with positive signs)
+- `inflow` — income, rewards (credit-card cashback/points), gifts, unexpected refunds
+- `outflow` — spending
 - `transfer` — money moving between your own accounts; excluded from spending/income reports
 
-Reports that ask "total spending" sum all amounts where flow_type='outflow' (the positive
-cashback rows reduce the total naturally). Reports that ask "income for taxes" sum amounts
-where flow_type='inflow' only — cashback isn't there because it lives in outflow.
+Reports that ask "total spending" sum all amounts where flow_type='outflow'. Reports that
+ask "total income" sum amounts where flow_type='inflow'. flow_type comes straight from the
+master file's `Type` column (Inflows / Outflows / Transfers) on every import.
 
 ### Cashback treatment
-Cashback is recorded as a single positive-amount transaction in the `Credit Card Cashback`
-category, with the card's subcategory (e.g. "Apple Card 7999"). Because flow_type=outflow,
-it nets against spending in reports. IRS-correct because cashback is treated as a price
-reduction, not income.
+Credit-card cashback and points live under **Inflows → Rewards & Bonuses → Credit Card
+Cashback/Points** and count as income in net cashflow. (This supersedes the earlier
+price-reduction-outflow treatment; changed 2026-05-23 alongside the master-file taxonomy
+overhaul, in favor of a simpler net-cashflow view.)
 
 ## External dependencies
 
@@ -131,30 +131,49 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
 
 #### Data layer (prerequisites for the reporting pages)
 
-- [ ] **Parser-to-Vault data pipeline.** Vault-side work to consume master.xlsx
-  cleanly:
-  - Audit `scripts/load-master.ts` against the current xlsx schema
-  - Support every account type the extractor emits (checking, savings, credit
-    card, investment, retirement, loans, mortgages, HSA, 401k, paystubs)
-  - Re-import Chase Checking, Chase Card (Prime/Sapphire/Freedom), and Discover —
-    pre-2026-05-16 data from old text-based parsers had wrong signs / dropped rows
-  - Run one big catchup import after re-import audit
-  - Establish monthly import rhythm (manual `load-master.ts` run is fine for now)
-- [ ] **Flow-type taxonomy on categories.** Add `flow_type` enum column to
-  categories (inflow/outflow/transfer). Classify all existing categories. Update
-  loader to populate flow_type from category. Prerequisite for accurate Cashflow
-  and Payroll reporting.
+- [x] **Parser-to-Vault data pipeline** — overhauled 2026-05-23 for the new
+  master.xlsx schema. `load-master.ts` now (1) syncs the full taxonomy from the
+  `Categories` sheet (Type → flow_type, Category → parent, Sub-category → child,
+  with Type-prefixed slugs so repeats like Zelle/Check/Other stay unique), and
+  (2) reads the per-row `Type` column for flow_type / isTransfer. One clean reset
+  + re-import loaded all **9,746 transactions** (0 unmatched, 0 needing review),
+  fixing the old sign issues. Monthly rhythm = re-run `db:load-master`. Read-only
+  audit helpers added: `inspect-master`, `inspect-taxonomy`, `check-mapping`.
+  - [ ] **Account-identity reconciliation** (follow-up) — the re-import created
+    duplicate label-accounts because master labels (e.g. "Chase Prime 5944")
+    don't match preloaded names ("Chase Prime Visa"). Merge the 5 dupes into
+    their preloaded accounts and make `getOrCreateAccount` match by last-4 +
+    disambiguation. Does NOT affect Cashflow.
+  - [ ] Per-type fields (APY, brokerage gain%, loan monthly payment) still deferred.
+- [x] **Flow-type taxonomy on categories** — done 2026-05-23. `flow_type` enum
+  (inflow/outflow/transfer) added to categories and populated directly from the
+  master file's `Type` column on every import. Powers Cashflow.
 
 #### Pages still to design (Claude.ai artifacts first, then code)
 
-- [ ] **Dashboard** — net worth, monthly cashflow, top categories, account
+> All of these now have live **under-development placeholder routes** (shared
+> `UnderDevelopment` component) so the nav is never dead-ended. Transactions
+> shipped a real Phase A directly (below); the rest still need a design pass.
+
+- [x] **Transactions** — shipped 2026-05-23 (Phase A). Server-loaded last 200
+  transactions, date-grouped list with vendor logos (Clearbit + colored-initials
+  fallback), multi-tab Filters modal (Categories hierarchy / Merchants / Accounts
+  / Date / Amount / Other), search, sort, and inline expand-to-edit
+  (merchant / category / notes / transfer / needs-review) saved via the PATCH +
+  categorize endpoints. Still TODO: pagination beyond 200 rows, bulk actions
+  (re-categorize, mark-as-transfer), saved filter views.
+- [ ] **Dashboard** — placeholder route live. Real page still to design: net
+  worth headline + sparkline, monthly cashflow snapshot, top categories, account
   snapshot. Default landing page when you open Vault.
-- [ ] **Transactions** — searchable, filterable full ledger. Filters: date range,
-  account, category, amount, merchant. Bulk actions (re-categorize, mark as
-  transfer).
-- [ ] **Cashflow** — income vs spending over time, by category. Drill-down.
-  Year-over-year comparisons. Visual emphasis. Depends on flow-type taxonomy.
-- [ ] **Net Worth** — assets vs liabilities over time. Account-level detail.
+- [x] **Cashflow** — shipped 2026-05-23 (Phase A). Income-vs-spending chart
+  (income/expense bars + net-line overlay) with Monthly / Quarterly / Yearly
+  toggle, click/prev-next period selection + hover tooltip, selected-period
+  summary tiles (Income / Expenses / Net Savings / Savings Rate), and Income +
+  Expenses breakdown lists with a Category / Group toggle and proportional bars.
+  Adapted from Monarch's Cash Flow design into Vault's palette. Still TODO:
+  Merchant breakdown dimension, account/date filters, older-data scroll, YoY.
+- [ ] **Net Worth** — placeholder route live. Assets vs liabilities over time.
+  Account-level detail.
 
 ### Phase 3: Anywhere
 
@@ -195,6 +214,18 @@ Reconciliation tools compare live vs statement data and surface gaps.
 ### Phase 5+: Speculative
 
 Ideas for later, in no particular order. May or may not get built.
+
+> Several of these have live **under-development placeholder routes** already
+> (Reports, Rental Properties, Investments, Tax, Forecasting) — the nav surfaces
+> them under "Not started" so the shape of the eventual product is visible.
+
+- [ ] **Rental Properties** — treat each property as its own small business:
+  per-property income (rent) and expenses (mortgage, taxes, insurance, repairs,
+  management fees), monthly/annual cash flow, equity built + mortgage payoff
+  progress, depreciation schedule tracking, return metrics (cap rate,
+  cash-on-cash, total ROI), tenant/lease info (lease dates, deposit held, rent
+  escalations), and a portfolio roll-up across all properties. Placeholder route +
+  nav item are live; no data source yet.
 
 - [ ] Tags as a cross-cutting label system (separate from categories)
 - [ ] **Forecasting** — Projection Labs-style scenario modeling (portfolio growth,

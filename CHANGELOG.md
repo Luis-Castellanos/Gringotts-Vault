@@ -2,6 +2,37 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-23 — **Data-pipeline overhaul + Cashflow page shipped (Phase A).**
+  Master.xlsx grew a 3-tier taxonomy (Type → Category → Sub-category, 102 rows)
+  and a per-row `Type` column. Added a `flow_type` enum (inflow/outflow/transfer)
+  to categories and rewrote `load-master.ts` to sync the full taxonomy from the
+  Categories sheet (Type-prefixed slugs) and read `Type` per row. One clean reset
+  + re-import replaced the 212-row test seed with all **9,746 transactions**
+  (0 unmatched, 0 review). Cashback moved Inflows → counts as income (net-cashflow
+  view; supersedes the price-reduction treatment). New Cashflow page: income vs
+  spending chart with net-line overlay, Monthly/Quarterly/Yearly toggle, period
+  selection + hover tooltip, summary tiles, and Income/Expenses breakdowns with a
+  Category/Group toggle — adapted from Monarch's design into Vault's palette.
+  Known follow-up: the re-import created 5 duplicate label-accounts (master labels
+  ≠ preloaded names); account-matching fix tracked for next. Read-only audit
+  helpers added (`inspect-master`, `inspect-taxonomy`, `check-mapping`,
+  `cashflow-sanity`).
+- 2026-05-23 — **Transactions page shipped (Phase A) + nav/sidebar overhaul.**
+  Transactions: server-loaded last 200 rows, date-grouped list with vendor logos
+  (Clearbit + colored-initials fallback), multi-tab Filters modal (Categories
+  hierarchy / Merchants / Accounts / Date / Amount / Other), search, sort, and
+  inline expand-to-edit (merchant / category / notes / transfer / needs-review)
+  saved via PATCH + categorize endpoints. A shared `UnderDevelopment` placeholder
+  component now backs every not-yet-built route — Dashboard, Cashflow, Net Worth,
+  Reports, Rental Properties, Investments, Tax, Forecasting — so the nav is never
+  dead-ended. Sidebar rebuilt Monarch-style: hideable via a new sticky TopBar
+  hamburger + in-sidebar collapse, drag-to-resize handle (200–420px, persisted to
+  localStorage), top action row (logo + Search/Bell/Settings), real SVG nav icons,
+  status groups (Complete / Under development / Not started). Dark-mode tokens
+  warmed to the cream-on-taupe artifact palette; shared modal styles lifted to
+  globals.css. Payroll Single Stub relaid out to a 3-column grid that fits one
+  viewport. Note: sidebar still buckets Payroll + Transactions as "Under
+  development" even though both shipped Phase A — a UX label, not a status error.
 - 2026-05-23 — **Payroll page shipped (Phase A).** Three tabs: Single stub with
   hero + 3-slice interactive donut + breakdown cards, All stubs table with year
   filter, YTD summary with year picker + 4 metric cards + monthly stacked bar
