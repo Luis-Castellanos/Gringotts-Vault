@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { IconUpload } from '@/components/nav-icons';
+import { IconSearch, IconUpload } from '@/components/nav-icons';
 import { faviconUrl, instDomain, instInitials } from '@/lib/institution-logo';
 
 export type FileRow = {
@@ -44,6 +44,34 @@ const MIN_W = 70;
 const DEFAULT_W = { type: 130, account: 150, period: 140, txns: 110, status: 100, uploaded: 150 };
 type ColKey = keyof typeof DEFAULT_W;
 const COL_STORAGE_KEY = 'vault-files-col-widths';
+
+// ── Sorting ──────────────────────────────────────────────────────────────────
+type SortKey = 'fileName' | ColKey;
+type SortDir = 'asc' | 'desc';
+
+// Statement period like "11/25/2019 - 12/09/2019" → sortable YYYYMMDD of its start.
+function periodStart(p: string): string {
+  const m = p.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  return m ? `${m[3]}${m[1]}${m[2]}` : p;
+}
+function sortVal(r: FileRow, key: SortKey): string | number {
+  switch (key) {
+    case 'fileName': return r.fileName.toLowerCase();
+    case 'type': return (TYPE_LABEL[r.detectedType] ?? r.detectedType).toLowerCase();
+    case 'account': return `${r.institution ?? ''}${r.last4 ?? ''}`.toLowerCase();
+    case 'period': return r.statementPeriod ? periodStart(r.statementPeriod) : '';
+    case 'txns': return r.transactionCount ?? 0;
+    case 'status': return r.status;
+    case 'uploaded': return r.uploadedAt;
+  }
+}
+// Numeric/recency columns feel right defaulting to descending.
+const DESC_FIRST: SortKey[] = ['txns', 'uploaded'];
+
+function matches(r: FileRow, q: string): boolean {
+  return [r.fileName, r.institution, r.last4, TYPE_LABEL[r.detectedType] ?? r.detectedType, r.detectedIssuer, r.statementPeriod, r.status]
+    .some((f) => f != null && String(f).toLowerCase().includes(q));
+}
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -91,6 +119,30 @@ export function FilesClient({ rows: initialRows }: { rows: FileRow[] }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [w, setW] = useState(DEFAULT_W);
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'uploaded', dir: 'desc' });
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q ? rows.filter((r) => matches(r, q)) : rows;
+    const sorted = [...filtered].sort((a, b) => {
+      const av = sortVal(a, sort.key);
+      const bv = sortVal(b, sort.key);
+      const c = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv));
+      return sort.dir === 'asc' ? c : -c;
+    });
+    return sorted;
+  }, [rows, query, sort]);
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: DESC_FIRST.includes(key) ? 'desc' : 'asc' },
+    );
+  }
+  const caret = (key: SortKey) =>
+    sort.key === key ? <span className="text-[8px] leading-none">{sort.dir === 'asc' ? '▲' : '▼'}</span> : null;
 
   useEffect(() => {
     try {
@@ -172,10 +224,12 @@ export function FilesClient({ rows: initialRows }: { rows: FileRow[] }) {
           Upload statements
         </Link>
       </div>
-      <p className="text-[13px] text-text-tertiary mb-6">
+      <p className="text-[13px] text-text-tertiary mb-5">
         {rows.length === 0
           ? 'Every statement you upload is parsed and stored here.'
-          : `${rows.length} ${rows.length === 1 ? 'document' : 'documents'} · the original PDF of each is stored and downloadable.`}
+          : query.trim()
+            ? `${visible.length} of ${rows.length} ${rows.length === 1 ? 'document' : 'documents'} match.`
+            : `${rows.length} ${rows.length === 1 ? 'document' : 'documents'} · the original PDF of each is stored and downloadable.`}
       </p>
 
       {error && (
@@ -200,22 +254,36 @@ export function FilesClient({ rows: initialRows }: { rows: FileRow[] }) {
           </Link>
         </div>
       ) : (
-        <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden">
+        <>
+          <div className="mb-4 flex items-center gap-3">
+            <div className="relative w-full max-w-[340px]">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
+                <IconSearch size={15} />
+              </span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search file name, account, type, period…"
+                className="w-full rounded-lg border border-border-subtle bg-surface-1 pl-9 pr-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-strong"
+              />
+            </div>
+          </div>
+          <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden">
           <div
             style={gridStyle}
             className="grid gap-3 px-4 py-2.5 border-b border-border-subtle text-[10.5px] font-semibold uppercase tracking-[0.07em] text-text-muted text-center"
           >
-            <div className="text-left">File Name</div>
-            <div className="relative">Type{handle('type')}</div>
-            <div className="relative">Account{handle('account')}</div>
-            <div className="relative">Period{handle('period')}</div>
-            <div className="relative">Transactions{handle('txns')}</div>
-            <div className="relative">Status{handle('status')}</div>
-            <div className="relative">Uploaded{handle('uploaded')}</div>
+            <button type="button" onClick={() => toggleSort('fileName')} className="inline-flex items-center gap-1 text-left uppercase hover:text-text-secondary transition-colors">File Name {caret('fileName')}</button>
+            <div className="relative"><button type="button" onClick={() => toggleSort('type')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Type {caret('type')}</button>{handle('type')}</div>
+            <div className="relative"><button type="button" onClick={() => toggleSort('account')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Account {caret('account')}</button>{handle('account')}</div>
+            <div className="relative"><button type="button" onClick={() => toggleSort('period')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Period {caret('period')}</button>{handle('period')}</div>
+            <div className="relative"><button type="button" onClick={() => toggleSort('txns')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Transactions {caret('txns')}</button>{handle('txns')}</div>
+            <div className="relative"><button type="button" onClick={() => toggleSort('status')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Status {caret('status')}</button>{handle('status')}</div>
+            <div className="relative"><button type="button" onClick={() => toggleSort('uploaded')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Uploaded {caret('uploaded')}</button>{handle('uploaded')}</div>
             <div />
           </div>
           <div className="flex flex-col">
-            {rows.map((r) => (
+            {visible.map((r) => (
               <div
                 key={r.id}
                 style={gridStyle}
@@ -277,7 +345,13 @@ export function FilesClient({ rows: initialRows }: { rows: FileRow[] }) {
               </div>
             ))}
           </div>
-        </div>
+          {visible.length === 0 && (
+            <div className="px-4 py-12 text-center text-[13px] text-text-tertiary border-t border-border-subtle">
+              No files match “{query.trim()}”.
+            </div>
+          )}
+          </div>
+        </>
       )}
 
       {/* Remove confirmation */}
