@@ -201,8 +201,17 @@
   grid-template-columns: 16px 22px 1fr auto auto;
 }
 .cat-row.parent .cat-name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   font-weight: 600;
   font-size: 14.5px;
+}
+.cat-desc {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-3);
+  line-height: 1.3;
 }
 .cat-row.child {
   grid-template-columns: 22px 1fr auto auto;

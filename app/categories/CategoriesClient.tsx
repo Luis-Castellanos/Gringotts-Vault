@@ -109,6 +109,32 @@ function iconFor(name: string): string {
   return '•';
 }
 
+// Brief "what falls under this" blurbs for the top-level categories.
+const PARENT_DESC: Record<string, string> = {
+  Wages: 'Paychecks, 401(k) & HSA contributions, employer matches',
+  'Investment Income': 'Dividends and interest from investments',
+  'Rewards & Bonuses': 'Credit-card cashback & points, sign-up and bank bonuses',
+  'Other Inflows': 'Tax refunds, reimbursements, gifts, deposits, resale income',
+  Housing: 'Mortgage, rent, insurance, repairs, improvements',
+  'Auto & Transport': 'Car payment, insurance, gas, maintenance, parking, transit, rideshare',
+  'Food & Dining': 'Groceries, restaurants, fast food, delivery, coffee, bars, snacks',
+  'Bills & Utilities': 'Phone, internet, utilities, streaming, subscriptions',
+  Shopping: 'Online & general shopping, clothing, electronics, home goods',
+  Entertainment: 'Games, movies, music, books, events, attractions, news',
+  'Health & Wellness': 'Insurance, doctor, dental, pharmacy, gym, personal care',
+  Travel: 'Flights, hotels, rental cars, vacations',
+  Education: 'Tuition, books, courses, tutoring, student-loan interest',
+  Pets: 'Pet food, supplies, and vet care',
+  'Gifts & Donations': 'Charitable giving and gifts',
+  Financial: 'Taxes, fees, life insurance, financial & legal services, cash & ATM',
+  Other: 'Reimbursements, miscellaneous, and uncategorized',
+  Transfers: 'Money moving between your own accounts — card/loan payments, investments (excluded from spending & income)',
+};
+function descFor(name: string, flow: Flow): string {
+  if (name === 'Zelle') return flow === 'inflow' ? 'Money received via Zelle' : 'Money sent via Zelle';
+  return PARENT_DESC[name] ?? '';
+}
+
 type Modal =
   | { mode: 'addParent'; flow: Flow }
   | { mode: 'addChild'; parent: CatNode }
@@ -234,6 +260,7 @@ export function CategoriesClient({ nodes }: { nodes: CatNode[] }) {
                 {flowParents.map((p) => {
                   const kids = childrenOf.get(p.id) ?? [];
                   const collapsed = collapsedParents.has(p.id);
+                  const desc = descFor(p.name, flow);
                   return (
                     <li key={p.id} className="cat-parent">
                       <div className="cat-row parent">
@@ -250,7 +277,10 @@ export function CategoriesClient({ nodes }: { nodes: CatNode[] }) {
                           <span className="cat-pcaret empty" />
                         )}
                         <span className="cat-icon" style={{ background: iconBg(p.color) }}>{iconFor(p.name)}</span>
-                        <span className="cat-name">{p.name}</span>
+                        <span className="cat-name">
+                          <span className="cat-nm">{p.name}</span>
+                          {desc && <span className="cat-desc">{desc}</span>}
+                        </span>
                         <span className="cat-count numeric" title="transactions (incl. subcategories)">{rollup(p).toLocaleString()}</span>
                         <span className="cat-actions">
                           <IconBtn title="Add subcategory" onClick={() => setModal({ mode: 'addChild', parent: p })}><Plus /></IconBtn>
