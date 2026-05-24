@@ -1831,9 +1831,7 @@ export function NetWorthClient({
   return (
     <>
       <header className="page-hd">
-        <div>
-          <h1 className="page-title">Accounts</h1>
-        </div>
+        <div />
         <div className="page-actions">
           <label
             style={{

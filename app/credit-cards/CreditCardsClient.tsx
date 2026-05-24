@@ -1420,9 +1420,7 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
   return (
     <>
       <header className="page-hd">
-        <div>
-          <h1 className="page-title">Credit cards</h1>
-        </div>
+        <div />
         <div className="page-actions">
           <div className="view-toggle" role="tablist" aria-label="View">
             <button

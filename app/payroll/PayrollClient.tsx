@@ -782,12 +782,6 @@ export function PayrollClient() {
 
   return (
     <>
-      <header className="page-hd">
-        <div>
-          <h1 className="page-title">Income · Payroll</h1>
-        </div>
-      </header>
-
       <nav className="tabs" role="tablist">
         {[
           { id: 'single' as const, label: 'Single stub', count: STUBS.length },

@@ -745,7 +745,7 @@ export function TransactionsClient({
   return (
     <>
       <header className="page-hd">
-        <h1 className="page-title">Transactions</h1>
+        <div />
         <div className="page-actions">
           <Link href="/review" className="pg-btn">
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

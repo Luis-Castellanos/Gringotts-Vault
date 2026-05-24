@@ -102,17 +102,6 @@ export function CategoriesClient({ nodes }: { nodes: CatNode[] }) {
 
   return (
     <div className="cat">
-      <header className="cat-head">
-        <div>
-          <div className="eyebrow">Manage</div>
-          <h1 className="cat-title">Categories</h1>
-          <p className="cat-sub">
-            Your full taxonomy — {parents.length} categories, {nodes.length - parents.length} subcategories. Add,
-            rename, remove, or merge.
-          </p>
-        </div>
-      </header>
-
       {error && (
         <div className="cat-error" role="alert">
           <span>{error}</span>
