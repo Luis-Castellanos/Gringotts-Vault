@@ -978,6 +978,7 @@
     flex-direction: column;
     gap: 6px;
     margin-bottom: 14px;
+    min-width: 0; /* allow the field to shrink inside the grid track */
     font-size: 11px;
     font-weight: 600;
     color: var(--text-3);
@@ -988,12 +989,15 @@
   .filter-section input[type='number'],
   .filter-section input[type='date'] {
     appearance: none;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     background: var(--surface);
     border: 1px solid var(--line-strong);
     color: var(--text-1);
     padding: 8px 11px;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     font-family: inherit;
     font-variant-numeric: tabular-nums;

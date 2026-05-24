@@ -624,7 +624,7 @@ function FiltersBar({
         )}
       </FilterChip>
 
-      <FilterChip label="Date" count={filters.dateRange !== 'all' ? 1 : 0} width={260}>
+      <FilterChip label="Date" count={filters.dateRange !== 'all' ? 1 : 0} width={300}>
         {() => (
           <div className="filter-section">
             <div className="preset-row">
@@ -652,7 +652,7 @@ function FiltersBar({
         )}
       </FilterChip>
 
-      <FilterChip label="Amount" count={filters.amountMin || filters.amountMax ? 1 : 0} width={240}>
+      <FilterChip label="Amount" count={filters.amountMin || filters.amountMax ? 1 : 0} width={280}>
         {() => (
           <div className="filter-section">
             <div className="row-2">
