@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ThemeToggle } from './ThemeToggle';
 
 type NavItem = {
-  href: '/' | '/accounts' | '/transactions' | '/review' | '/cashflow' | '/net-worth' | '/reports';
+  href: '/' | '/accounts' | '/credit-cards' | '/transactions' | '/review' | '/cashflow' | '/net-worth' | '/reports';
   label: string;
   icon: string;
   showBadge?: boolean;
@@ -13,6 +14,7 @@ type NavItem = {
 const NAV_ITEMS: readonly NavItem[] = [
   { href: '/', label: 'Dashboard', icon: '⌂' },
   { href: '/accounts', label: 'Accounts', icon: '▭' },
+  { href: '/credit-cards', label: 'Credit Cards', icon: '▤' },
   { href: '/transactions', label: 'Transactions', icon: '≡' },
   { href: '/review', label: 'Review', icon: '✓', showBadge: true },
   { href: '/cashflow', label: 'Cashflow', icon: '↗' },
@@ -62,17 +64,18 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
         })}
       </nav>
 
-      {/* User chip — bigger avatar, bigger name */}
+      {/* User chip + theme toggle */}
       <div className="mt-auto flex items-center gap-3 px-3 py-2.5">
         <div className="size-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-sm font-semibold">
           AM
         </div>
-        <div>
+        <div className="flex-1">
           <div className="text-sm font-medium">Alex Morgan</div>
           <div className="text-xs text-text-muted flex items-center gap-1.5 mt-0.5">
             <span className="size-1.5 rounded-full bg-positive" /> Synced
           </div>
         </div>
+        <ThemeToggle className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors" />
       </div>
     </aside>
   );

@@ -70,6 +70,10 @@ export const accounts = pgTable(
     openedAt: date('opened_at'),
     closedAt: date('closed_at'),
     notes: text('notes'),
+    // Credit-card lifecycle fields. Nullable on all account types — only
+    // populated for credit_card rows for now. Edited from the Credit Cards page.
+    creditLimit: numeric('credit_limit', { precision: 14, scale: 2 }),
+    apr: numeric('apr', { precision: 5, scale: 2 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
