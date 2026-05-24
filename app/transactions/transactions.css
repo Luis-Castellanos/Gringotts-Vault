@@ -124,10 +124,10 @@
     overflow: hidden;
   }
 
-  /* Date subheader */
+  /* Date subheader (click to collapse the day) */
   .tx-date-hd {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     padding: 6px 12px;
     background: var(--surface-elev);
@@ -136,9 +136,26 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--text-3);
+    cursor: pointer;
+    user-select: none;
   }
+  .tx-date-hd:hover { background: var(--surface-hover); }
   .tx-date-hd:first-child {
     border-top: 0;
+  }
+  .tx-date-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .tx-day-chev {
+    color: var(--text-3);
+    flex-shrink: 0;
+    transition: transform 150ms ease;
+  }
+  .tx-day-chev.collapsed {
+    transform: rotate(-90deg);
   }
   .tx-date-hd .date {
     color: var(--text-2);
@@ -505,7 +522,7 @@
   .tx-merchant {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 13px;
     min-width: 0;
   }
   /* Bulk-select checkbox (visual; the row click toggles selection) */
@@ -532,6 +549,22 @@
     border: solid #fff;
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
+  }
+  /* Indeterminate (some of the day's rows selected) */
+  .tx-check.some {
+    background: var(--green);
+    border-color: var(--green);
+  }
+  .tx-check.some::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    top: 50%;
+    height: 2px;
+    transform: translateY(-50%);
+    background: #fff;
+    border-radius: 1px;
   }
   .tx-row.selected {
     background: var(--green-tint);

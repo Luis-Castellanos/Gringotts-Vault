@@ -1323,6 +1323,27 @@ export function TransactionsClient({
       return n;
     });
   }, []);
+
+  // Collapse/expand a day group, and select/deselect a whole day at once.
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set());
+  const toggleDay = useCallback((date: string) => {
+    setCollapsedDays((prev) => {
+      const n = new Set(prev);
+      if (n.has(date)) n.delete(date);
+      else n.add(date);
+      return n;
+    });
+  }, []);
+  const toggleDaySelection = useCallback((dayRows: TxnRow[]) => {
+    const ids = dayRows.map((r) => r.id);
+    setSelected((prev) => {
+      const allSel = ids.length > 0 && ids.every((id) => prev.has(id));
+      const n = new Set(prev);
+      if (allSel) ids.forEach((id) => n.delete(id));
+      else ids.forEach((id) => n.add(id));
+      return n;
+    });
+  }, []);
   const enterSelect = () => { setSelectMode(true); setSelectedId(null); setEditCell(null); };
   const exitSelect = () => { setSelectMode(false); setSelected(new Set()); };
 
@@ -1565,17 +1586,37 @@ export function TransactionsClient({
             }}
           />
         ) : (
-          grouped.map((group) => (
+          grouped.map((group) => {
+            const collapsed = collapsedDays.has(group.date);
+            const dayAllSel = group.rows.length > 0 && group.rows.every((r) => selected.has(r.id));
+            const daySomeSel = !dayAllSel && group.rows.some((r) => selected.has(r.id));
+            return (
             <div key={group.date}>
               {group.date !== '__flat__' && (
-                <div className="tx-date-hd">
-                  <span className="date">{fmtDateLong(group.date)}</span>
+                <div className="tx-date-hd" onClick={() => toggleDay(group.date)}>
+                  <span className="tx-date-left">
+                    {selectMode && (
+                      <span
+                        className={'tx-check' + (dayAllSel ? ' on' : daySomeSel ? ' some' : '')}
+                        onClick={(e) => { e.stopPropagation(); toggleDaySelection(group.rows); }}
+                        aria-hidden
+                      />
+                    )}
+                    <svg
+                      className={'tx-day-chev' + (collapsed ? ' collapsed' : '')}
+                      width="11" height="11" viewBox="0 0 14 14" fill="none"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    >
+                      <path d="M4 5.5l3 3 3-3" />
+                    </svg>
+                    <span className="date">{fmtDateLong(group.date)}</span>
+                  </span>
                   <span className={'total ' + (group.total > 0 ? 'pos' : 'neg')}>
                     {fmtMoney(group.total, { sign: true })}
                   </span>
                 </div>
               )}
-              {group.rows.map((t) => {
+              {!collapsed && group.rows.map((t) => {
                 const isPositive = t.amount > 0;
                 const isOpen = selectedId === t.id;
                 const showContent = isOpen || shownId === t.id;
@@ -1682,7 +1723,8 @@ export function TransactionsClient({
                 );
               })}
             </div>
-          ))
+            );
+          })
         )}
       </div>
 
