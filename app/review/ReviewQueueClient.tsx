@@ -252,7 +252,7 @@ export function ReviewQueueClient() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_360px] gap-6 items-stretch">
+      <div className="grid grid-cols-[1fr_360px] gap-6 items-start">
         <div className="flex flex-col gap-4">
           <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6 flex flex-col">
             <TransactionHead
@@ -569,9 +569,9 @@ function RightRail({
   const similarLabel = similar.length === 1 ? '1 similar transaction' : `${similar.length} similar transactions`;
 
   return (
-    <div className="flex flex-col gap-4 h-full min-h-0">
-      {/* Similar transactions — list scrolls; grows to fill the column */}
-      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-5 flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col gap-4">
+      {/* Similar transactions — sized to content, scrolls past the cap */}
+      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-5 flex flex-col max-h-[300px]">
         <div className="eyebrow text-xs mb-2">{similarLabel}</div>
         <div className="text-sm text-text-secondary leading-relaxed mb-3">
           {uncategorized > 0
@@ -621,8 +621,8 @@ function RightRail({
         )}
       </div>
 
-      {/* Recently reviewed — list scrolls; grows to fill the column */}
-      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-5 flex flex-col flex-1 min-h-0">
+      {/* Recently reviewed — sized to content, scrolls past the cap */}
+      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-5 flex flex-col max-h-[300px]">
         <div className="flex items-center justify-between mb-3.5">
           <div className="eyebrow text-xs">Recently reviewed</div>
           <div className="text-xs text-text-muted">click to undo</div>
