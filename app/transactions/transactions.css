@@ -169,7 +169,6 @@
   .tx-row:hover {
     background: var(--surface-hover);
   }
-  .tx-row.transfer { opacity: 0.6; }
   .tx-row.needs-review { background: color-mix(in srgb, var(--amber-tint) 35%, transparent); }
   .tx-row.needs-review:hover { background: color-mix(in srgb, var(--amber-tint) 55%, transparent); }
   .tx-row .tx-chev svg {
@@ -1201,7 +1200,6 @@
   .tx-trow:hover { background: var(--surface-hover); }
   .tx-trow.selected { background: var(--green-tint); }
   .tx-trow.open { background: var(--surface-hover); }
-  .tx-trow.transfer { opacity: 0.82; }
   .tx-table td {
     padding: 9px 12px;
     vertical-align: middle;
