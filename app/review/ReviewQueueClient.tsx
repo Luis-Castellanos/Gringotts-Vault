@@ -65,15 +65,6 @@ type RecentlyReviewed = {
   reviewedAt: number;
 };
 
-type MerchantHistory = {
-  totalCount: number;
-  totalAmount: number;
-  avgAmount: number;
-  cadence: 'monthly' | 'weekly' | 'yearly' | 'irregular';
-  categories: { name: string; count: number }[];
-  lastFive: { id: string; date: string; amount: string; category: string | null }[];
-};
-
 // ---- Component -----------------------------------------------------------
 
 export function ReviewQueueClient() {
@@ -262,9 +253,9 @@ export function ReviewQueueClient() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_420px] gap-8 flex-1 items-start">
-        <div className="flex flex-col gap-5">
-          <div className="bg-surface-2 border border-border-subtle rounded-2xl p-9 flex flex-col">
+      <div className="grid grid-cols-[1fr_360px] gap-6 flex-1 items-start">
+        <div className="flex flex-col gap-4">
+          <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6 flex flex-col">
             <TransactionHead
               txn={txn}
               initial={initial}
@@ -278,7 +269,7 @@ export function ReviewQueueClient() {
 
             <RawStatement raw={txn.rawDescription} />
 
-            <div className="flex items-center justify-between mt-9 mb-4">
+            <div className="flex items-center justify-between mt-6 mb-3">
               <span className="eyebrow text-xs">Category</span>
               <input
                 type="text"
@@ -310,10 +301,6 @@ export function ReviewQueueClient() {
               canMarkReviewed={canMarkReviewed}
             />
           </div>
-
-          {queue?.merchantPrefix && (
-            <RecentActivity merchantPrefix={queue.merchantPrefix} excludeId={txn.id} />
-          )}
         </div>
 
         <RightRail
@@ -357,10 +344,10 @@ function TransactionHead({
   const negative = amount < 0;
 
   return (
-    <div className="flex items-start justify-between gap-6">
-      <div className="flex items-center gap-5 flex-1 min-w-0">
+    <div className="flex items-start justify-between gap-5">
+      <div className="flex items-center gap-4 flex-1 min-w-0">
         <div
-          className="size-16 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0"
+          className="size-12 rounded-xl flex items-center justify-center text-lg font-bold flex-shrink-0"
           style={{
             background: txn.account.color
               ? `linear-gradient(135deg, ${txn.account.color}, ${txn.account.color}cc)`
@@ -380,13 +367,13 @@ function TransactionHead({
                   if (e.key === 'Enter') onCommitEdit();
                   if (e.key === 'Escape') onCancelEdit();
                 }}
-                className="bg-surface-base border-2 border-accent-500 rounded-lg px-3.5 py-2 text-2xl font-semibold text-text-primary outline-none flex-1"
+                className="bg-surface-base border-2 border-accent-500 rounded-lg px-3 py-1.5 text-lg font-semibold text-text-primary outline-none flex-1"
               />
               <button onClick={onCommitEdit} className="bg-accent-500 text-white border-none rounded-lg px-4 py-2 text-sm font-semibold cursor-pointer">Save</button>
               <button onClick={onCancelEdit} className="bg-surface-3 text-text-secondary border border-border-strong rounded-lg px-4 py-2 text-sm cursor-pointer">Cancel</button>
             </div>
           ) : (
-            <div className="text-[26px] font-semibold -tracking-[0.01em] flex items-center gap-3 flex-wrap">
+            <div className="text-[18px] font-semibold -tracking-[0.01em] flex items-center gap-3 flex-wrap">
               <span>{txn.merchant ?? txn.rawDescription.slice(0, 50)}</span>
               <button
                 onClick={onStartEdit}
@@ -396,17 +383,17 @@ function TransactionHead({
               </button>
             </div>
           )}
-          <div className="text-sm text-text-muted mt-2">
+          <div className="text-[13px] text-text-muted mt-1.5">
             {new Date(txn.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · {txn.account.displayName}
           </div>
         </div>
       </div>
       <div className="text-right flex-shrink-0">
-        <div className={`text-[38px] font-semibold -tracking-[0.01em] numeric ${negative ? 'text-negative' : 'text-positive'}`}>
+        <div className={`text-[24px] font-semibold -tracking-[0.01em] numeric ${negative ? 'text-negative' : 'text-positive'}`}>
           {negative ? '-' : '+'}${Math.abs(amount).toFixed(2)}
         </div>
         {txn.statementPeriod && (
-          <div className="text-xs text-text-muted mt-1.5">Stmt: {txn.statementPeriod}</div>
+          <div className="text-xs text-text-muted mt-1">Stmt: {txn.statementPeriod}</div>
         )}
       </div>
     </div>
@@ -415,9 +402,9 @@ function TransactionHead({
 
 function RawStatement({ raw }: { raw: string }) {
   return (
-    <div className="mt-9 px-5 py-4 bg-surface-base border border-border-subtle rounded-xl">
-      <div className="eyebrow text-xs mb-2.5">Original statement</div>
-      <div className="text-sm text-text-secondary font-mono leading-relaxed break-words">
+    <div className="mt-5 px-4 py-3 bg-surface-base border border-border-subtle rounded-lg">
+      <div className="eyebrow text-xs mb-2">Original statement</div>
+      <div className="text-[13px] text-text-secondary font-mono leading-relaxed break-words">
         {raw}
       </div>
     </div>
@@ -432,15 +419,15 @@ function SuggestionBanner({
   onApply: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3.5 px-5 py-4 rounded-xl mb-4 border border-accent-border bg-gradient-to-br from-accent-soft to-transparent">
-      <span className="text-xl">✨</span>
-      <div className="flex-1 text-sm text-accent-300">
-        Suggested: <strong className="text-accent-200 text-base">{suggested.name}</strong>
+    <div className="flex items-center gap-3 px-4 py-3 rounded-lg mb-3 border border-accent-border bg-gradient-to-br from-accent-soft to-transparent">
+      <span className="text-base">✨</span>
+      <div className="flex-1 text-[13px] text-accent-300">
+        Suggested: <strong className="text-accent-200 text-sm">{suggested.name}</strong>
         {' '}— based on {suggested.basedOn} prior {merchantPrefix ?? 'similar'} transactions.
       </div>
       <button
         onClick={onApply}
-        className="bg-accent-500 text-white border-none rounded-lg px-4 py-2 text-sm font-semibold cursor-pointer hover:brightness-110 flex items-center gap-2"
+        className="bg-accent-500 text-white border-none rounded-lg px-3.5 py-1.5 text-[13px] font-semibold cursor-pointer hover:brightness-110 flex items-center gap-2"
       >
         Apply <kbd>↵</kbd>
       </button>
@@ -457,7 +444,7 @@ function CategoryPills({
   onPick: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2.5 mb-5">
+    <div className="flex flex-wrap gap-2 mb-4">
       {categories.map((c, i) => {
         const isPending = pendingId === c.id;
         const isSuggested = !pendingId && suggestedId === c.id;
@@ -471,7 +458,7 @@ function CategoryPills({
           <button
             key={c.id}
             onClick={() => onPick(c.id)}
-            className={`inline-flex items-center gap-2.5 px-4 py-2.5 rounded-full text-[15px] cursor-pointer transition-colors ${ringClass}`}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-[13px] cursor-pointer transition-colors ${ringClass}`}
           >
             <kbd>{i + 1}</kbd>
             <span style={{ color: c.color ?? undefined }}>●</span>
@@ -479,7 +466,7 @@ function CategoryPills({
           </button>
         );
       })}
-      <button className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface-base border border-border-strong rounded-full text-[15px] text-text-tertiary cursor-pointer hover:border-text-muted">
+      <button className="inline-flex items-center gap-2 px-3 py-2 bg-surface-base border border-border-strong rounded-full text-[13px] text-text-tertiary cursor-pointer hover:border-text-muted">
         + More…
       </button>
     </div>
@@ -490,11 +477,11 @@ function TransferToggle({ isTransfer, onToggle }: { isTransfer: boolean; onToggl
   return (
     <button
       onClick={onToggle}
-      className="flex items-center gap-3.5 px-5 py-4 bg-surface-base border border-border-subtle rounded-xl mb-6 w-full text-left cursor-pointer hover:bg-surface-3 transition-colors"
+      className="flex items-center gap-3 px-4 py-3 bg-surface-base border border-border-subtle rounded-lg mb-4 w-full text-left cursor-pointer hover:bg-surface-3 transition-colors"
     >
-      <div className="text-2xl">⇄</div>
+      <div className="text-lg">⇄</div>
       <div className="flex-1">
-        <div className="text-base font-medium">Mark as transfer</div>
+        <div className="text-sm font-medium">Mark as transfer</div>
         <div className="text-xs text-text-muted mt-1">
           Excludes from spending & income totals. Shortcut: <kbd>T</kbd>
         </div>
@@ -508,20 +495,20 @@ function TransferToggle({ isTransfer, onToggle }: { isTransfer: boolean; onToggl
 
 function ActionBar({ onSkip, onMarkReviewed, canMarkReviewed }: { onSkip: () => void; onMarkReviewed: () => void; canMarkReviewed: boolean }) {
   return (
-    <div className="flex items-center justify-between mt-auto pt-5 border-t border-border-subtle">
-      <div className="flex gap-5 text-sm text-text-muted">
+    <div className="flex items-center justify-between mt-auto pt-4 border-t border-border-subtle">
+      <div className="flex gap-5 text-[13px] text-text-muted">
         <span><kbd>S</kbd> Skip</span>
         <span><kbd>↵</kbd> Mark reviewed</span>
         <span><kbd>1-7</kbd> Quick category</span>
       </div>
       <div className="flex gap-3">
-        <button onClick={onSkip} className="bg-surface-3 text-text-secondary border border-border-strong rounded-lg px-6 py-3 text-[15px] font-medium cursor-pointer hover:brightness-125">
+        <button onClick={onSkip} className="bg-surface-3 text-text-secondary border border-border-strong rounded-lg px-5 py-2.5 text-sm font-medium cursor-pointer hover:brightness-125">
           Skip for now
         </button>
         <button
           onClick={onMarkReviewed}
           disabled={!canMarkReviewed}
-          className="bg-accent-500 text-white border-none rounded-lg px-7 py-3 text-[15px] font-semibold cursor-pointer hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-accent-500 text-white border-none rounded-lg px-5 py-2.5 text-sm font-semibold cursor-pointer hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Mark as reviewed
         </button>
@@ -543,9 +530,9 @@ function RightRail({
   const similarLabel = similar.length === 1 ? '1 similar transaction' : `${similar.length} similar transactions`;
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Similar transactions — locked at 320px, list scrolls */}
-      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6 flex flex-col h-[320px]">
+    <div className="flex flex-col gap-4">
+      {/* Similar transactions — list scrolls */}
+      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-5 flex flex-col h-[300px]">
         <div className="eyebrow text-xs mb-2">{similarLabel}</div>
         <div className="text-sm text-text-secondary leading-relaxed mb-3">
           {uncategorized > 0
@@ -596,7 +583,7 @@ function RightRail({
       </div>
 
       {/* Recently reviewed — locked at 320px, list scrolls, always rendered */}
-      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6 flex flex-col h-[320px]">
+      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-5 flex flex-col h-[300px]">
         <div className="flex items-center justify-between mb-3.5">
           <div className="eyebrow text-xs">Recently reviewed</div>
           <div className="text-xs text-text-muted">click to undo</div>
@@ -687,116 +674,12 @@ function LoadingState() {
   );
 }
 
-function RecentActivity({ merchantPrefix, excludeId }: { merchantPrefix: string; excludeId: string }) {
-  const [hist, setHist] = useState<MerchantHistory | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    setHist(null);
-    api<MerchantHistory>(
-      `/api/review/merchant-history/${encodeURIComponent(merchantPrefix)}?exclude=${excludeId}`,
-    ).then((r) => {
-      if (r.data) setHist(r.data);
-      setLoading(false);
-    });
-  }, [merchantPrefix, excludeId]);
-
-  if (loading || !hist) {
-    return (
-      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6">
-        <div className="eyebrow text-xs mb-3.5">Recent activity</div>
-        <div className="text-sm text-text-muted">Loading…</div>
-      </div>
-    );
-  }
-
-  if (hist.totalCount === 0) {
-    return (
-      <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6">
-        <div className="eyebrow text-xs mb-3.5">Recent activity</div>
-        <div className="text-sm text-text-secondary">First transaction with this merchant.</div>
-      </div>
-    );
-  }
-
-  const cadenceLabel = {
-    monthly: 'Roughly monthly',
-    weekly: 'Roughly weekly',
-    yearly: 'Roughly yearly',
-    irregular: 'Irregular',
-  }[hist.cadence];
-
-  const distinct = hist.categories.length;
-  const topCat = hist.categories[0]?.name ?? 'Uncategorized';
-
-  return (
-    <div className="bg-surface-2 border border-border-subtle rounded-2xl p-6">
-      <div className="eyebrow text-xs mb-3.5">Recent activity</div>
-
-      <div className="grid grid-cols-4 gap-4 mb-5">
-        <Stat label="Charges" value={String(hist.totalCount)} />
-        <Stat label="Total" value={`$${Math.abs(hist.totalAmount).toFixed(2)}`} />
-        <Stat label="Avg" value={`$${Math.abs(hist.avgAmount).toFixed(2)}`} />
-        <Stat label="Cadence" value={cadenceLabel} small />
-      </div>
-
-      <div className="text-sm text-text-tertiary mb-4">
-        {distinct > 1 ? (
-          <>
-            Categorized as:{' '}
-            {hist.categories.map((c, i) => (
-              <span key={c.name}>
-                {i > 0 && ', '}
-                <strong className="text-text-primary">{c.name}</strong> ({c.count})
-              </span>
-            ))}
-          </>
-        ) : (
-          <>Always categorized as <strong className="text-text-primary">{topCat}</strong>.</>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        {hist.lastFive.map((t) => {
-          const negative = Number(t.amount) < 0;
-          return (
-            <div
-              key={t.id}
-              className="grid grid-cols-[1fr_auto_auto] gap-3 items-center text-sm px-3.5 py-2.5 bg-surface-base rounded-lg"
-            >
-              <span className="text-text-tertiary">
-                {new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-              <span className="text-xs px-2.5 py-1 rounded-full text-text-muted bg-surface-3">
-                {t.category ?? 'Uncategorized'}
-              </span>
-              <span className={`numeric font-medium ${negative ? 'text-negative' : 'text-positive'}`}>
-                {negative ? '-' : '+'}${Math.abs(Number(t.amount)).toFixed(2)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value, small }: { label: string; value: string; small?: boolean }) {
-  return (
-    <div>
-      <div className="eyebrow text-[10px] mb-1">{label}</div>
-      <div className={`numeric font-medium ${small ? 'text-sm' : 'text-base'} text-text-primary`}>{value}</div>
-    </div>
-  );
-}
-
 function EmptyState({ onReload }: { onReload: () => void }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center">
-      <div className="text-7xl mb-6">✓</div>
-      <h2 className="text-4xl font-semibold mb-3">All caught up.</h2>
-      <p className="text-text-tertiary text-base max-w-md mb-7">
+      <div className="text-6xl mb-4">✓</div>
+      <h2 className="text-2xl font-semibold mb-3">All caught up.</h2>
+      <p className="text-text-tertiary text-sm max-w-md mb-7">
         Nothing left to review right now. New imports will show up here automatically.
       </p>
       <button

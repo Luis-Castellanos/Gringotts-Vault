@@ -13,7 +13,7 @@ export default function ReviewPage() {
           and centers. Generous horizontal padding so content never kisses the
           rail edges on narrow viewports. */}
       <div className="flex-1 flex justify-center">
-        <main className="w-full max-w-[1600px] px-12 py-10 flex flex-col">
+        <main className="w-full max-w-[1500px] px-6 pt-6 pb-16 flex flex-col">
           <ReviewQueueClient />
         </main>
       </div>
