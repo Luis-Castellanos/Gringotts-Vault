@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function ReviewPage() {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-[calc(100vh_-_44px)]">
       <Sidebar />
       {/* Outer wrapper takes the remaining width; inner container caps at 1600
           and centers. Generous horizontal padding so content never kisses the

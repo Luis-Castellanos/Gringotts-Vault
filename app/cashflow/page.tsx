@@ -106,7 +106,7 @@ export default async function CashflowPage() {
   const cats: CatAgg[] = [...catMap.values()].map((c) => ({ ...c, signed: round2(c.signed) }));
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-[calc(100vh_-_44px)]">
       <Sidebar />
       <div className="flex-1 flex justify-center">
         <main className="cashflow-page w-full max-w-[1400px] px-10 pt-9 pb-20">

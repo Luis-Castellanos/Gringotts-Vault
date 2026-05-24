@@ -5,7 +5,7 @@ export const metadata = { title: 'Forecasting · Vault' };
 
 export default function ForecastingPage() {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-[calc(100vh_-_44px)]">
       <Sidebar />
       <div className="flex-1 flex justify-center">
         <main className="w-full max-w-[1600px] px-12 pt-10 pb-20">
