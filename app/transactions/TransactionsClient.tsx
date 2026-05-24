@@ -620,9 +620,9 @@ function FilterPanel({
 
 // ─── Main client ──────────────────────────────────────────────────────────
 export function TransactionsClient({
-  txns, accounts, categories, pageSize,
+  txns, total, accounts, categories, pageSize,
 }: {
-  txns: TxnRow[]; accounts: AcctLite[]; categories: CatLite[]; pageSize: number;
+  txns: TxnRow[]; total: number; accounts: AcctLite[]; categories: CatLite[]; pageSize: number;
 }) {
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -631,6 +631,29 @@ export function TransactionsClient({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shownId, setShownId] = useState<string | null>(null);
   const shownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Infinite scroll: `rows` starts at the server's first page and grows as the
+  // bottom sentinel comes into view. Resets when the server sends a fresh page.
+  const [rows, setRows] = useState<TxnRow[]>(txns);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setRows(txns); }, [txns]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || rows.length >= total) return;
+    const obs = new IntersectionObserver((entries) => {
+      if (!entries[0]?.isIntersecting || loadingMore) return;
+      setLoadingMore(true);
+      fetch(`/api/transactions?offset=${rows.length}&limit=${pageSize}`)
+        .then((r) => r.json())
+        .then((j) => { if (Array.isArray(j?.data)) setRows((prev) => [...prev, ...j.data]); })
+        .catch(() => {})
+        .finally(() => setLoadingMore(false));
+    }, { rootMargin: '800px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [rows.length, total, loadingMore, pageSize]);
 
   useEffect(() => {
     if (selectedId) {
@@ -654,9 +677,9 @@ export function TransactionsClient({
   // Unique merchants from loaded txns (sorted alphabetically)
   const allMerchants = useMemo(() => {
     const set = new Set<string>();
-    for (const t of txns) set.add(t.merchant);
+    for (const t of rows) set.add(t.merchant);
     return [...set].sort((a, b) => a.localeCompare(b));
-  }, [txns]);
+  }, [rows]);
 
   const filtered = useMemo(() => {
     const startISO = filters.dateRange === 'custom'
@@ -667,7 +690,7 @@ export function TransactionsClient({
     const min = filters.amountMin ? Math.abs(Number(filters.amountMin)) : null;
     const max = filters.amountMax ? Math.abs(Number(filters.amountMax)) : null;
 
-    return txns.filter((t) => {
+    return rows.filter((t) => {
       if (filters.hideTransfers && t.isTransfer) return false;
       if (filters.needsReviewOnly && !t.needsReview) return false;
       if (filters.accountIds.length > 0 && (t.accountId == null || !filters.accountIds.includes(t.accountId))) return false;
@@ -685,7 +708,7 @@ export function TransactionsClient({
       if (q && !t.merchant.toLowerCase().includes(q) && !t.rawDescription.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [txns, filters]);
+  }, [rows, filters]);
 
   const sorted = useMemo(() => {
     const out = [...filtered];
@@ -758,7 +781,8 @@ export function TransactionsClient({
           ))}
         </select>
         <span className="count">
-          {sorted.length} of {txns.length} (last {pageSize} loaded)
+          {sorted.length.toLocaleString()} of {total.toLocaleString()}
+          {rows.length < total ? ` · ${rows.length.toLocaleString()} loaded` : ''}
         </span>
         {hasAnyFilter && (
           <button type="button" className="clear-btn"
@@ -869,6 +893,17 @@ export function TransactionsClient({
           ))
         )}
       </div>
+
+      {rows.length < total && (
+        <div
+          ref={sentinelRef}
+          className="tx-sentinel"
+          aria-hidden="true"
+          style={{ textAlign: 'center', padding: '18px 0 8px', fontSize: 13, color: 'var(--text-3)', minHeight: 1 }}
+        >
+          {loadingMore ? 'Loading more…' : ''}
+        </div>
+      )}
 
       <FilterPanel
         open={showFilters}
