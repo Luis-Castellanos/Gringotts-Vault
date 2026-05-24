@@ -270,8 +270,6 @@ function TxnDetail({
   });
   const [date, setDate] = useState(txn.date);
   const [notes, setNotes] = useState(txn.notes ?? '');
-  const [isTransfer, setIsTransfer] = useState(txn.isTransfer);
-  const [needsReview, setNeedsReview] = useState(txn.needsReview);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ field: 'parent' | 'child'; x: number; y: number } | null>(null);
@@ -284,15 +282,12 @@ function TxnDetail({
   const subs = categories.filter((c) => c.parentId === parentId);
   const parentCat = categories.find((c) => c.id === parentId) ?? null;
   const childCat = categories.find((c) => c.id === childId) ?? null;
-  const isPositive = txn.amount > 0;
 
   const dirty =
     merchant !== txn.merchant ||
     categoryId !== (txn.categoryId ?? '') ||
     date !== txn.date ||
-    notes !== (txn.notes ?? '') ||
-    isTransfer !== txn.isTransfer ||
-    needsReview !== txn.needsReview;
+    notes !== (txn.notes ?? '');
 
   function openPicker(e: React.MouseEvent, field: 'parent' | 'child') {
     const r = e.currentTarget.getBoundingClientRect();
@@ -307,14 +302,12 @@ function TxnDetail({
     if (merchant !== txn.merchant) patchBody.merchant = merchant.trim();
     if (dateChanged) patchBody.date = date;
     if (notes !== (txn.notes ?? '')) patchBody.notes = notes;
-    if (isTransfer !== txn.isTransfer) patchBody.isTransfer = isTransfer;
-    if (needsReview !== txn.needsReview) patchBody.needsReview = needsReview;
     if (Object.keys(patchBody).length > 0) {
       const r = await patchTxn(txn.id, patchBody);
       if (!r.ok) { setSaving(false); setError(r.error); return; }
     }
     if (categoryId && categoryId !== (txn.categoryId ?? '')) {
-      const r = await categorizeTxn(txn.id, { categoryId, isTransfer, notes });
+      const r = await categorizeTxn(txn.id, { categoryId, notes });
       if (!r.ok) { setSaving(false); setError(r.error); return; }
     }
     setSaving(false);
@@ -322,8 +315,8 @@ function TxnDetail({
       merchant: merchant.trim(),
       categoryId,
       notes,
-      isTransfer,
-      needsReview,
+      isTransfer: txn.isTransfer,
+      needsReview: txn.needsReview,
       ...(dateChanged ? { date } : {}),
     });
   }
@@ -347,7 +340,7 @@ function TxnDetail({
 
   return (
     <div className="tx-expand-content" onClick={(e) => e.stopPropagation()}>
-      {/* Header: vendor + amount/account/date */}
+      {/* Header: vendor + link (amount/account/date live on the collapsed row above) */}
       <div className="txd-head">
         <VendorLogo merchant={merchant || txn.merchant} size={40} />
         <div className="txd-id">
@@ -355,16 +348,6 @@ function TxnDetail({
           <button type="button" className="txd-viewall" onClick={() => onViewMerchant(txn.merchant)}>
             View all transactions from this merchant →
           </button>
-        </div>
-        <div className="txd-meta">
-          <div className={'txd-amount' + (isPositive && !isTransfer ? ' pos' : '')}>
-            {fmtMoney(txn.amount, { sign: isPositive })}
-          </div>
-          <div className="txd-acct">
-            <AccountLogo institution={txn.accountInstitution} size={16} />
-            {txn.accountName}{txn.accountLast4 ? ` ····${txn.accountLast4}` : ''}
-          </div>
-          <div className="txd-date">{fmtDateShort(txn.date)}</div>
         </div>
       </div>
 
@@ -434,14 +417,6 @@ function TxnDetail({
           Notes
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
             placeholder="Anything to remember about this transaction…" maxLength={1000} />
-        </label>
-        <label className="check-row">
-          <input type="checkbox" checked={isTransfer} onChange={(e) => setIsTransfer(e.target.checked)} />
-          Mark as transfer (excluded from spending / income)
-        </label>
-        <label className="check-row">
-          <input type="checkbox" checked={needsReview} onChange={(e) => setNeedsReview(e.target.checked)} />
-          {needsReview ? 'In review queue' : 'Send back to review queue'}
         </label>
       </div>
 
