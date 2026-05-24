@@ -549,6 +549,24 @@ function FiltersBar({
   const parents = useMemo(() => categories.filter((c) => c.parentId === null), [categories]);
   const childrenOf = (pid: string) => categories.filter((c) => c.parentId === pid);
 
+  // A parent reflects its children: checking it selects/deselects them all, and
+  // it shows checked / indeterminate / empty based on how many children are on
+  // (a leaf top-level with no children just toggles itself).
+  const parentSel = (pid: string): 'all' | 'some' | 'none' => {
+    const kids = childrenOf(pid).map((c) => c.id);
+    if (kids.length === 0) return filters.categoryIds.includes(pid) ? 'all' : 'none';
+    const n = kids.filter((id) => filters.categoryIds.includes(id)).length;
+    return n === 0 ? 'none' : n === kids.length ? 'all' : 'some';
+  };
+  const toggleParent = (pid: string) => {
+    const kids = childrenOf(pid).map((c) => c.id);
+    const ids = kids.length ? kids : [pid];
+    const set = new Set(filters.categoryIds);
+    if (parentSel(pid) === 'all') ids.forEach((id) => set.delete(id));
+    else ids.forEach((id) => set.add(id));
+    setFilters({ ...filters, categoryIds: [...set] });
+  };
+
   const catQ = catSearch.trim().toLowerCase();
   const filteredCats = catQ
     ? categories.filter((c) => c.name.toLowerCase().includes(catQ) || (c.parentName ?? '').toLowerCase().includes(catQ))
@@ -588,8 +606,12 @@ function FiltersBar({
                 : parents.map((parent) => (
                     <div key={parent.id}>
                       <label className="filter-option">
-                        <input type="checkbox" checked={filters.categoryIds.includes(parent.id)}
-                          onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, parent.id) })} />
+                        <input
+                          type="checkbox"
+                          ref={(el) => { if (el) el.indeterminate = parentSel(parent.id) === 'some'; }}
+                          checked={parentSel(parent.id) === 'all'}
+                          onChange={() => toggleParent(parent.id)}
+                        />
                         <span className="swatch" style={parent.color ? { background: parent.color } : undefined} />
                         <span className="lbl"><strong>{parent.name}</strong></span>
                       </label>
