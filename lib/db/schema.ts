@@ -49,6 +49,13 @@ export const accountTypeEnum = pgEnum('account_type', [
 
 export const assetClassEnum = pgEnum('asset_class', ['asset', 'liability']);
 
+// Reporting bucket for a category. Independent of a transaction's sign:
+//   inflow   — income, gifts, unexpected refunds
+//   outflow  — spending; cashback nets here as a positive-amount outflow row
+//   transfer — money between your own accounts; excluded from spend/income
+// This is the source of truth for Cashflow / income-vs-spending reports.
+export const flowTypeEnum = pgEnum('flow_type', ['inflow', 'outflow', 'transfer']);
+
 // ---------------------------------------------------------------------------
 // accounts
 // ---------------------------------------------------------------------------
@@ -104,6 +111,9 @@ export const categories = pgTable(
     icon: text('icon'),
     sortOrder: integer('sort_order').notNull().default(0),
     isIncome: boolean('is_income').notNull().default(false),
+    // Reporting bucket — see flowTypeEnum. Default 'outflow' so any unclassified
+    // category is treated as spending until reclassified.
+    flowType: flowTypeEnum('flow_type').notNull().default('outflow'),
     isArchived: boolean('is_archived').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

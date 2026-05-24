@@ -1,7 +1,18 @@
 /**
- * Loads master.xlsx into the database. Idempotent: re-running on the same
- * file is a no-op. Re-running after appending new rows inserts only the new
- * ones.
+ * Loads master.xlsx into the database. Two phases, both idempotent:
+ *
+ *   1. Sync taxonomy — reads the `Categories` sheet (Type / Category / Sub
+ *      Category) and upserts a parent category per (Type, Category) and a child
+ *      per Sub-category. flow_type comes straight from Type. Slugs are
+ *      deterministic and Type-prefixed so repeated names (Zelle, Check, Other)
+ *      don't collide across flow types.
+ *   2. Import transactions — reads the `Transactions` sheet, resolves each row's
+ *      category by its (Type, Category, Sub-category) names, sets isTransfer from
+ *      Type, and inserts with ON CONFLICT DO NOTHING on content_hash. Unmatched
+ *      category names fall back to Uncategorized + needs_review and are logged.
+ *
+ * Re-running on the same file is a no-op for transactions; the taxonomy is
+ * re-synced (cheap upsert) every run.
  *
  * Usage:
  *   npm run db:load-master "C:\path\to\master.xlsx"
@@ -16,29 +27,18 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { accounts, categories, imports, transactions } from '@/lib/db/schema';
 import { cleanMerchant } from '@/lib/transactions/merchant';
+import {
+  CATEGORY_PALETTE,
+  UNCATEGORIZED_SLUG,
+  childSlug,
+  parentSlug,
+  typeToFlow,
+  type Flow,
+} from '@/lib/transactions/taxonomy';
 
-const CATEGORY_MAP: Record<string, string> = {
-  'Subscriptions & Software|Software & SaaS': 'software_saas',
-  'Subscriptions & Software|News & Media': 'news_media',
-  'Subscriptions & Software|Streaming': 'streaming',
-  'Food & Dining|Restaurants': 'restaurants',
-  'Food & Dining|Fast Food': 'fast_food',
-  'Food & Dining|Coffee & Tea': 'coffee_tea',
-  'Food & Dining|Groceries': 'groceries',
-  'Food & Dining|Delivery': 'delivery',
-  'Shopping|General Merchandise': 'general_merch',
-  'Shopping|Clothing': 'clothing',
-  'Shopping|Online Shopping': 'online_shopping',
-  'Shopping|Electronics': 'electronics',
-  'Transportation|Fuel': 'fuel',
-  'Transportation|Rideshare': 'rideshare',
-  'Financial|Credit Card Payment': 'credit_card_payment',
-  'Financial|Transfer': 'transfer',
-  'Financial|Fees': 'fees',
-  'Uncategorized|Review': 'review',
-};
-
-const TRANSFER_SLUGS = new Set(['credit_card_payment', 'transfer']);
+// ---------------------------------------------------------------------------
+// Account helpers (unchanged from prior loader)
+// ---------------------------------------------------------------------------
 
 function inferAccountType(name: string): { type: typeof accounts.$inferInsert['type']; assetClass: 'asset' | 'liability' } {
   const n = name.toLowerCase();
@@ -85,7 +85,6 @@ function excelDateToISO(value: unknown): string | null {
   if (value == null || value === '') return null;
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (typeof value === 'number') {
-    // Excel epoch is 1899-12-30. Add days.
     const ms = (value - 25569) * 86400 * 1000;
     return new Date(ms).toISOString().slice(0, 10);
   }
@@ -119,10 +118,74 @@ async function getOrCreateAccount(
   return row.id;
 }
 
-async function loadCategoryLookup(): Promise<Map<string, string>> {
-  const rows = await db.select({ slug: categories.slug, id: categories.id }).from(categories);
-  return new Map(rows.map((r) => [r.slug, r.id]));
+// ---------------------------------------------------------------------------
+// Phase 1 — taxonomy sync
+// ---------------------------------------------------------------------------
+
+async function syncTaxonomy(wb: XLSX.WorkBook): Promise<Map<string, string>> {
+  const sheet = wb.Sheets['Categories'];
+  if (!sheet) throw new Error("No 'Categories' sheet found in workbook.");
+  const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+  type Node = { slug: string; name: string; flow: Flow; color: string; sortOrder: number; parentSlug?: string };
+  const parents = new Map<string, Node>();
+  const children = new Map<string, Node>();
+  let parentOrder = 0;
+  const childOrder = new Map<string, number>();
+
+  for (const r of rows) {
+    const type = String(r['Type'] ?? '').trim();
+    const cat = String(r['Category'] ?? '').trim();
+    const sub = String(r['Sub Category'] ?? '').trim();
+    if (!type || !cat) continue;
+    const flow = typeToFlow(type);
+
+    const pSlug = parentSlug(flow, cat);
+    if (!parents.has(pSlug)) {
+      parents.set(pSlug, { slug: pSlug, name: cat, flow, color: CATEGORY_PALETTE[parents.size % CATEGORY_PALETTE.length], sortOrder: parentOrder++ });
+    }
+    if (sub) {
+      const cSlug = childSlug(flow, cat, sub);
+      if (!children.has(cSlug)) {
+        const order = childOrder.get(pSlug) ?? 0;
+        childOrder.set(pSlug, order + 1);
+        children.set(cSlug, { slug: cSlug, name: sub, flow, color: parents.get(pSlug)!.color, sortOrder: order, parentSlug: pSlug });
+      }
+    }
+  }
+
+  for (const p of parents.values()) {
+    await db
+      .insert(categories)
+      .values({ slug: p.slug, name: p.name, color: p.color, flowType: p.flow, sortOrder: p.sortOrder, isIncome: p.flow === 'inflow' })
+      .onConflictDoUpdate({
+        target: categories.slug,
+        set: { name: p.name, color: p.color, flowType: p.flow, sortOrder: p.sortOrder, isIncome: p.flow === 'inflow' },
+      });
+  }
+
+  const afterParents = await db.select({ slug: categories.slug, id: categories.id }).from(categories);
+  const idBySlug = new Map(afterParents.map((c) => [c.slug, c.id]));
+
+  for (const c of children.values()) {
+    const parentId = idBySlug.get(c.parentSlug!);
+    await db
+      .insert(categories)
+      .values({ slug: c.slug, name: c.name, color: c.color, flowType: c.flow, sortOrder: c.sortOrder, isIncome: c.flow === 'inflow', parentId })
+      .onConflictDoUpdate({
+        target: categories.slug,
+        set: { name: c.name, color: c.color, flowType: c.flow, sortOrder: c.sortOrder, isIncome: c.flow === 'inflow', parentId },
+      });
+  }
+
+  const refreshed = await db.select({ slug: categories.slug, id: categories.id }).from(categories);
+  console.log(`  Taxonomy synced: ${parents.size} parents, ${children.size} children.`);
+  return new Map(refreshed.map((c) => [c.slug, c.id]));
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2 — transaction import
+// ---------------------------------------------------------------------------
 
 async function main() {
   const xlsxPath = process.argv[2];
@@ -133,18 +196,21 @@ async function main() {
 
   const fullPath = resolve(xlsxPath);
   console.log(`Reading ${fullPath}...`);
-
   const wb = XLSX.readFile(fullPath, { cellDates: true });
+
+  console.log('Phase 1: syncing taxonomy...');
+  const catMap = await syncTaxonomy(wb);
+  const uncategorizedId = catMap.get(UNCATEGORIZED_SLUG);
+  if (!uncategorizedId) {
+    console.error(`  ! Fallback category '${UNCATEGORIZED_SLUG}' missing from taxonomy. Aborting.`);
+    process.exit(1);
+  }
+
+  console.log('Phase 2: importing transactions...');
   const sheetName = wb.SheetNames.includes('Transactions') ? 'Transactions' : wb.SheetNames[0];
   const sheet = wb.Sheets[sheetName];
   const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: null });
   console.log(`  ${rows.length} rows in sheet '${sheetName}'`);
-
-  const catLookup = await loadCategoryLookup();
-  if (catLookup.size === 0) {
-    console.error('Categories table is empty. Run npm run db:seed first.');
-    process.exit(1);
-  }
 
   type Row = {
     accountLabel: string;
@@ -152,13 +218,14 @@ async function main() {
     date: string;
     raw: string;
     amount: string;
-    catSlug: string;
+    categoryId: string;
     needsReview: boolean;
     isTransfer: boolean;
     stmtPeriod: string | null;
     sourceFile: string | null;
   };
   const groups = new Map<string, Row[]>();
+  const unmatched = new Map<string, number>();
 
   for (const r of rows) {
     const date = excelDateToISO(r['Date']);
@@ -168,19 +235,29 @@ async function main() {
     const accountNumberFromCol = normalizeAccountNumber(r['Account #']);
     const raw = String(r['Source'] ?? '').trim();
     const amount = Number(r['Amount'] ?? 0).toFixed(2);
+
+    const type = String(r['Type'] ?? '').trim();
     const cat = String(r['Category'] ?? '').trim();
     const sub = String(r['Sub-category'] ?? '').trim();
     const stmtPeriod = r['Stmt period'] ? String(r['Stmt period']).trim() : null;
     const sourceFile = r['Source file'] ? String(r['Source file']).trim() : null;
 
-    const slug = CATEGORY_MAP[`${cat}|${sub}`] ?? 'review';
-    const needsReview = slug === 'review';
-    const isTransfer = TRANSFER_SLUGS.has(slug);
+    const flow = typeToFlow(type);
+    const slug = sub ? childSlug(flow, cat, sub) : parentSlug(flow, cat);
+    let categoryId = catMap.get(slug);
+    let needsReview = false;
+    if (!categoryId) {
+      categoryId = uncategorizedId;
+      needsReview = true;
+      const key = `${type || '∅'} / ${cat || '∅'} / ${sub || '∅'}`;
+      unmatched.set(key, (unmatched.get(key) ?? 0) + 1);
+    }
+    const isTransfer = flow === 'transfer';
 
-    const key = `${accountLabel}${accountNumberFromCol ?? ''}${sourceFile ?? 'unknown'}`;
-    const arr = groups.get(key) ?? [];
-    arr.push({ accountLabel, accountNumberFromCol, date, raw, amount, catSlug: slug, needsReview, isTransfer, stmtPeriod, sourceFile });
-    groups.set(key, arr);
+    const groupKey = `${accountLabel}${accountNumberFromCol ?? ''}${sourceFile ?? 'unknown'}`;
+    const arr = groups.get(groupKey) ?? [];
+    arr.push({ accountLabel, accountNumberFromCol, date, raw, amount, categoryId, needsReview, isTransfer, stmtPeriod, sourceFile });
+    groups.set(groupKey, arr);
   }
 
   let inserted = 0;
@@ -189,17 +266,12 @@ async function main() {
   for (const groupRows of groups.values()) {
     const first = groupRows[0];
     const accountId = await getOrCreateAccount(first.accountLabel, first.accountNumberFromCol);
-    const stmtPeriod = first.stmtPeriod ?? null;
-    const sourceFile = first.sourceFile;
 
     const [imp] = await db
       .insert(imports)
-      .values({ sourceFile: sourceFile ?? 'unknown', statementPeriod: stmtPeriod, accountId })
+      .values({ sourceFile: first.sourceFile ?? 'unknown', statementPeriod: first.stmtPeriod ?? null, accountId })
       .returning({ id: imports.id });
 
-    // Build the batch up-front, de-duping within the group by content hash so
-    // a single INSERT can't violate the unique constraint twice on the same key
-    // (Postgres rejects that as a cardinality violation even with ON CONFLICT).
     const seenInBatch = new Set<string>();
     const values: typeof transactions.$inferInsert[] = [];
     for (const r of groupRows) {
@@ -208,7 +280,7 @@ async function main() {
       seenInBatch.add(hash);
       values.push({
         accountId,
-        categoryId: catLookup.get(r.catSlug) ?? catLookup.get('review')!,
+        categoryId: r.categoryId,
         date: r.date,
         amount: r.amount,
         rawDescription: r.raw,
@@ -231,7 +303,6 @@ async function main() {
       inserted += insertedRows.length;
       skipped += values.length - insertedRows.length;
     }
-    // Rows dropped by intra-batch dedup are also counted as skipped.
     skipped += groupRows.length - values.length;
 
     await db
@@ -242,11 +313,19 @@ async function main() {
 
   console.log(`\nDone. Inserted ${inserted}, skipped ${skipped} duplicates.`);
 
+  if (unmatched.size > 0) {
+    const total = [...unmatched.values()].reduce((a, b) => a + b, 0);
+    console.warn(`\n  ! ${total} rows across ${unmatched.size} unmatched category names → Uncategorized:`);
+    for (const [key, n] of [...unmatched].sort((a, b) => b[1] - a[1]).slice(0, 30)) {
+      console.warn(`      ${n.toString().padStart(5)}  ${key}`);
+    }
+  }
+
   const reviewCount = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(transactions)
     .where(eq(transactions.needsReview, true));
-  console.log(`  Review queue: ${reviewCount[0].n} transactions need categorization.`);
+  console.log(`\n  Review queue: ${reviewCount[0].n} transactions need categorization.`);
   process.exit(0);
 }
 
