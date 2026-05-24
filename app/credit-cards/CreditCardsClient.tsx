@@ -618,6 +618,52 @@ function StateCard({ card }: { card: CreditCardData }) {
   return null;
 }
 
+function PayoffCalc({ balance, apr }: { balance: number; apr: number }) {
+  const [payment, setPayment] = useState(() => Math.max(25, Math.round((balance * 0.03) / 5) * 5));
+  const r = apr / 100 / 12;
+  const monthInterest = balance * r;
+  const covers = payment > monthInterest;
+  let months: number | null = null;
+  let totalInterest: number | null = null;
+  if (covers) {
+    const n = -Math.log(1 - (balance * r) / payment) / Math.log(1 + r);
+    months = Math.ceil(n);
+    totalInterest = payment * months - balance;
+  }
+  return (
+    <div className="drawer-section">
+      <div className="h">Payoff calculator</div>
+      <div className="cc-payoff" onClick={(e) => e.stopPropagation()}>
+        <label className="cc-payoff-input">
+          <span>Monthly payment</span>
+          <div className="cc-payoff-field">
+            <span className="pre">$</span>
+            <input
+              type="number"
+              min={0}
+              step={10}
+              value={payment}
+              onChange={(e) => setPayment(Math.max(0, Number(e.target.value) || 0))}
+            />
+          </div>
+        </label>
+        <div className="cc-payoff-result">
+          {covers ? (
+            <>
+              <div className="big"><strong className="num">{months}</strong> month{months === 1 ? '' : 's'} to pay off</div>
+              <div className="sub">≈ <span className="num">{fmtMoney(totalInterest)}</span> total interest at {apr}% APR</div>
+            </>
+          ) : (
+            <div className="warn">
+              At {fmtMoney0(payment)}/mo you won&rsquo;t cover the ~{fmtMoney(monthInterest)}/mo interest — the balance won&rsquo;t go down.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InlineDetails({
   card,
   onUpdated,
@@ -817,6 +863,9 @@ function InlineDetails({
               </div>
             </div>
           </div>
+        )}
+        {card.balance > 0 && card.apr != null && (
+          <PayoffCalc balance={card.balance} apr={card.apr} />
         )}
         <div className="drawer-section">
           <div className="h">Rewards & fees</div>

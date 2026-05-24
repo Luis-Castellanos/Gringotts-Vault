@@ -347,6 +347,56 @@
     text-decoration: none;
   }
   .cc-view-txns:hover { text-decoration: underline; }
+
+  /* Payoff calculator */
+  .cc-payoff {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: inset 0 0 0 0.5px var(--line);
+  }
+  .cc-payoff-input {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+  .cc-payoff-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--surface-elev);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    padding: 6px 10px;
+  }
+  .cc-payoff-field .pre { color: var(--text-3); font-size: 14px; }
+  .cc-payoff-field input {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    outline: none;
+    color: var(--text-1);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    width: 90px;
+  }
+  .cc-payoff-result { min-width: 0; }
+  .cc-payoff-result .big { font-size: 15px; color: var(--text-1); }
+  .cc-payoff-result .big strong { font-size: 18px; font-weight: 700; }
+  .cc-payoff-result .sub { font-size: 12.5px; color: var(--text-3); margin-top: 2px; }
+  .cc-payoff-result .warn { font-size: 12.5px; color: var(--red-text); max-width: 360px; }
   .cc-row-wrap.open .cc-expand-content {
     opacity: 1;
     transform: translateY(0);
