@@ -140,7 +140,7 @@
   /* ─── Metric tiles row ─────────────────────────────── */
   .cc-tiles {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 10px;
     margin-bottom: var(--gap);
   }
@@ -1153,6 +1153,12 @@
   }
   .cc-grid-card .grid-bal.red {
     color: var(--red-text);
+  }
+  .cc-grid-card .grid-interest {
+    font-size: 11px;
+    color: var(--amber-text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   .cc-grid-card .grid-util {
     display: flex;

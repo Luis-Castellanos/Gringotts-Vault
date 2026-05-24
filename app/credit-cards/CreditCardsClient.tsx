@@ -44,6 +44,7 @@ export type CreditCardData = {
   isNoPreset: boolean;
   network: string | null;
   state: 'steady' | 'signup_bonus' | 'fee_due';
+  lifetimeSpend: number | null; // total charged over the card's life (for closed cards)
 };
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -146,7 +147,18 @@ type Summary = {
   annualFees: number | null;
   netCashback: number | null;
   available: number | null;
+  interestMonthly: number | null; // est. monthly interest across cards with balance + APR
+  overThirty: number; // count of active cards over 30% utilization
 };
+
+// Estimated monthly interest on a revolving balance: balance × (APR/12).
+function monthlyInterest(card: CreditCardData): number | null {
+  if (card.apr == null || card.balance <= 0) return null;
+  return (card.balance * (card.apr / 100)) / 12;
+}
+function cardUtil(card: CreditCardData): number | null {
+  return card.limit != null && card.limit > 0 ? (card.balance / card.limit) * 100 : null;
+}
 
 function ccSummary(cards: CreditCardData[]): Summary {
   const active = cards.filter((c) => c.isActive);
@@ -162,9 +174,13 @@ function ccSummary(cards: CreditCardData[]): Summary {
   const annualFees = fees.length > 0 ? fees.reduce((s, n) => s + n, 0) : null;
   const netCashback = cashbackYTD != null && annualFees != null ? cashbackYTD - annualFees : null;
   const available = totalLimit != null ? totalLimit - totalBalance : null;
+  const interests = active.map(monthlyInterest).filter((x): x is number => x != null);
+  const interestMonthly = interests.length > 0 ? interests.reduce((s, n) => s + n, 0) : null;
+  const overThirty = active.filter((c) => { const u = cardUtil(c); return u != null && u > 30; }).length;
   return {
     cardCount: active.length,
     totalLimit, totalBalance, util, cashbackYTD, annualFees, netCashback, available,
+    interestMonthly, overThirty,
   };
 }
 
@@ -506,7 +522,9 @@ function CardRow({
         <span className="of">
           {card.statementBalance != null && card.statementBalance !== card.balance
             ? <>Stmt {fmtMoney0(card.statementBalance)}</>
-            : <>—</>}
+            : monthlyInterest(card) != null
+              ? <>~{fmtMoney(monthlyInterest(card))}/mo interest</>
+              : <>—</>}
         </span>
       </div>
       <div className="cc-chev">
@@ -843,12 +861,20 @@ function HeroTiles({ s }: { s: Summary }) {
           {s.totalLimit != null
             ? <>of <span className="num">{fmtMoney0(s.totalLimit)}</span> limit</>
             : 'Set limits per card below'}
+          {s.overThirty > 0 && <> · <span className="neg">{s.overThirty} over 30%</span></>}
         </span>
       </section>
       <section className="card cc-tile">
         <span className="lbl">Available</span>
         <span className="val num">{fmtMoney0(s.available)}</span>
         <span className="sub">Headroom to spend</span>
+      </section>
+      <section className="card cc-tile">
+        <span className="lbl">Interest / mo</span>
+        <span className="val num">{s.interestMonthly != null ? fmtMoney(s.interestMonthly) : '—'}</span>
+        <span className="sub">
+          {s.interestMonthly != null ? 'Est. at current balances & APR' : 'Add balances + APR'}
+        </span>
       </section>
       <section className="card cc-tile">
         <span className="lbl">Cashback YTD</span>
@@ -1130,6 +1156,9 @@ function CardGridItem({
         <span className={'grid-bal num' + (card.balance > 0 ? ' red' : '')}>
           {card.balance > 0 ? fmtMoney(card.balance) : '$0.00'}
         </span>
+        {monthlyInterest(card) != null && (
+          <span className="grid-interest num">~{fmtMoney(monthlyInterest(card))}/mo</span>
+        )}
       </div>
       <div className="grid-util">
         {hasLimit && util != null ? (

@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { accounts, transactions } from '@/lib/db/schema';
+import { accounts, categories, transactions } from '@/lib/db/schema';
 import { Sidebar } from '@/components/Sidebar';
 import { CreditCardsClient, type CreditCardData } from './CreditCardsClient';
 import './credit-cards.css';
@@ -46,6 +46,56 @@ export default async function CreditCardsPage() {
     .groupBy(accounts.id)
     .orderBy(accounts.name);
 
+  // Cashback YTD per card — sum of this-year transactions categorized as
+  // cashback / rewards (statement credits on the card are positive amounts).
+  const yearStart = `${new Date().getFullYear()}-01-01`;
+  const cashbackRows = await db
+    .select({
+      accountId: transactions.accountId,
+      total: sql<string>`SUM(${transactions.amount})::text`,
+    })
+    .from(transactions)
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(
+      and(
+        gte(transactions.date, yearStart),
+        sql`(${categories.slug} ILIKE '%cashback%' OR ${categories.name} ILIKE '%cashback%' OR ${categories.name} ILIKE '%cash back%' OR ${categories.name} ILIKE '%reward%')`,
+      ),
+    )
+    .groupBy(transactions.accountId);
+  const cashbackByAccount = new Map(cashbackRows.map((r) => [r.accountId, Number(r.total)]));
+
+  // Most recent annual-fee charge per card → fee amount + estimated next due (+1yr).
+  const feeRows = await db
+    .select({
+      accountId: transactions.accountId,
+      lastDate: sql<string>`MAX(${transactions.date})::text`,
+      lastAmount: sql<string>`(ARRAY_AGG(${transactions.amount} ORDER BY ${transactions.date} DESC))[1]::text`,
+    })
+    .from(transactions)
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(sql`(${categories.name} ILIKE '%annual fee%' OR ${categories.slug} ILIKE '%annual%fee%')`)
+    .groupBy(transactions.accountId);
+  const feeByAccount = new Map(
+    feeRows.map((r) => [r.accountId, { amount: Math.abs(Number(r.lastAmount)), lastDate: r.lastDate }]),
+  );
+
+  // Lifetime charges per card (sum of spend = abs of negative amounts) — for closed cards.
+  const spendRows = await db
+    .select({
+      accountId: transactions.accountId,
+      spend: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.amount} < 0 THEN -${transactions.amount} ELSE 0 END), 0)::text`,
+    })
+    .from(transactions)
+    .groupBy(transactions.accountId);
+  const spendByAccount = new Map(spendRows.map((r) => [r.accountId, Number(r.spend)]));
+
+  function addYear(iso: string): string {
+    const d = new Date(iso + 'T00:00:00');
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+
   const publicDir = path.join(process.cwd(), 'public', 'card-art');
   const cards: CreditCardData[] = rows.map((r) => {
     const slug = slugify(r.name);
@@ -68,14 +118,16 @@ export default async function CreditCardsPage() {
       limit: r.creditLimit != null ? Number(r.creditLimit) : null,
       apr: r.apr != null ? Number(r.apr) : null,
       earliestTxnDate: r.earliestTxnDate ?? null,
-      // Phase B continues: still nullable until further migrations land.
-      annualFee: null,
-      annualFeeDueDate: null,
+      // Derived from transactions:
+      cashbackYTD: cashbackByAccount.get(r.id) ?? null,
+      annualFee: feeByAccount.get(r.id)?.amount ?? null,
+      annualFeeDueDate: feeByAccount.has(r.id) ? addYear(feeByAccount.get(r.id)!.lastDate) : null,
+      lifetimeSpend: spendByAccount.get(r.id) ?? null,
+      // Statement-level fields need parser metadata we don't have yet.
       statementBalance: null,
       statementClosingDate: null,
       dueDate: null,
       minPayment: null,
-      cashbackYTD: null,
       signupBonus: null,
       benefits: null,
       isNoPreset: false,
