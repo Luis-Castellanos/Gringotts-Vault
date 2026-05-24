@@ -16,8 +16,11 @@ import { db } from '@/lib/db/client';
 import { accounts, transactions } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 
+const TYPES = ['checking', 'savings', 'credit_card', 'brokerage', 'retirement', 'loan', 'cash', 'other'] as const;
+
 const bodySchema = z.object({
   name: z.string().min(1).max(120).optional(),
+  type: z.enum(TYPES).optional(),
   institution: z.string().max(120).nullable().optional(),
   accountNumber: z.string().max(32).nullable().optional(),
   isActive: z.boolean().optional(),
@@ -78,6 +81,10 @@ export const PATCH = handler(
     if (body.originalPrincipal !== undefined) patch.originalPrincipal = body.originalPrincipal != null ? body.originalPrincipal.toFixed(2) : null;
     if (body.maturityDate !== undefined) patch.maturityDate = body.maturityDate;
     if (body.accountSubtype !== undefined) patch.accountSubtype = body.accountSubtype;
+    if (body.type !== undefined) {
+      patch.type = body.type;
+      patch.assetClass = body.type === 'credit_card' || body.type === 'loan' ? 'liability' : 'asset';
+    }
 
     // Close/reopen handling: closing sets closedAt automatically if absent;
     // re-opening clears closedAt unless caller passed one explicitly.

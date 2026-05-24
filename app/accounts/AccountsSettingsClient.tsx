@@ -146,11 +146,6 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
   return (
     <div className="acctset">
       <header className="acctset-head">
-        <div>
-          <div className="eyebrow">Manage</div>
-          <h1 className="acctset-title">Accounts</h1>
-          <p className="acctset-sub">{accounts.length} accounts. Click any account to view details and edit. Merge duplicates, add, or remove.</p>
-        </div>
         <button className="acctset-add" onClick={() => setModal({ mode: 'add' })}>
           <Plus /> Add account
         </button>
@@ -255,10 +250,11 @@ function AccountDetail({
   onMerge: () => void;
   onDelete: () => void;
 }) {
-  const isCard = acct.type === 'credit_card';
-  const isCashLike = acct.type === 'checking' || acct.type === 'savings' || acct.type === 'cash';
-  const isLoan = acct.type === 'loan';
-  const isInvest = acct.type === 'brokerage' || acct.type === 'retirement';
+  const [type, setType] = useState<AcctType>(acct.type);
+  const isCard = type === 'credit_card';
+  const isCashLike = type === 'checking' || type === 'savings' || type === 'cash';
+  const isLoan = type === 'loan';
+  const isInvest = type === 'brokerage' || type === 'retirement';
 
   const [name, setName] = useState(acct.name);
   const [institution, setInstitution] = useState(acct.institution);
@@ -286,6 +282,7 @@ function AccountDetail({
     setErr(null);
     const payload: Record<string, unknown> = {
       name: name.trim(),
+      type,
       institution: institution.trim() || null,
       accountNumber: last4.trim() || null,
       openedAt: openedAt || null,
@@ -324,12 +321,16 @@ function AccountDetail({
         {isLoan && paidOff != null && <Stat label="Paid off" value={`${paidOff.toFixed(1)}%`} />}
         {isLoan && acct.monthlyPayment != null && <Stat label="Monthly" value={usd2.format(acct.monthlyPayment)} />}
         {isInvest && acct.accountSubtype && <Stat label="Subtype" value={acct.accountSubtype} />}
-        <Stat label="Type" value={TYPE_LABEL[acct.type]} />
         <Stat label="Status" value={acct.isActive ? 'Active' : 'Closed'} />
       </div>
 
       <div className="acctset-form">
         <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <Field label="Type">
+          <select value={type} onChange={(e) => setType(e.target.value as AcctType)}>
+            {TYPE_OPTIONS.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+          </select>
+        </Field>
         <Field label="Institution"><input value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="—" /></Field>
         <Field label="Last 4"><input value={last4} onChange={(e) => setLast4(e.target.value)} maxLength={4} placeholder="—" /></Field>
         <Field label="Opened"><input type="date" value={openedAt} onChange={(e) => setOpenedAt(e.target.value)} /></Field>
