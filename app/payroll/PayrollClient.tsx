@@ -168,35 +168,11 @@ function HeroCard({ stub, theme }: { stub: ComputedStub; theme: Theme }) {
     ? `${((hot.value / stub.gross) * 100).toFixed(1)}% of gross`
     : stub.rate;
   const centerTone = hot ? hot.tone : null;
-  const p = fmtMoneyParts(stub.net);
 
   return (
     <section className="card hero">
-      <div className="hero-l">
-        <div className="hero-top">
-          <span className="eyebrow">Net pay deposited</span>
-          <span className="hero-sub">
-            Settled <b>{fmtDate(stub.date)}</b> · {stub.deposits.length}{' '}
-            {stub.deposits.length === 1 ? 'destination' : 'destinations'}
-          </span>
-        </div>
-        <div className="hero-display num-display">
-          ${p.whole}<span className="cents">.{p.cents}</span>
-        </div>
-        <div className="deposit-list">
-          {stub.deposits.map((d, i) => (
-            <div className="deposit-row" key={i}>
-              <div className="bank">
-                <span className="bank-dot" />
-                {d.bank} <span className="last4">····{d.last4}</span>
-              </div>
-              <div className="amt num">{fmtMoney(d.amount)}</div>
-            </div>
-          ))}
-        </div>
-      </div>
       <Donut
-        size={196}
+        size={208}
         slices={slices}
         hovered={hovered}
         onHover={setHovered}
@@ -225,6 +201,14 @@ function EarningsCard({ stub }: { stub: ComputedStub }) {
             <LineRow label="Annual bonus" meta="Supplemental" amount={stub.earnings.bonus} />
           )}
           <LineRow label="Gross earnings" amount={stub.gross} subtotal />
+          <SectionHd
+            title="Net pay deposited"
+            meta={`${stub.deposits.length} ${stub.deposits.length === 1 ? 'destination' : 'destinations'}`}
+          />
+          {stub.deposits.map((d, i) => (
+            <LineRow key={i} label={d.bank} meta={`····${d.last4}`} amount={d.amount} />
+          ))}
+          <LineRow label="Net pay" amount={stub.net} subtotal />
         </div>
       </div>
     </section>

@@ -193,50 +193,11 @@
 
   /* ─── Hero card ────────────────────────────────────── */
   .hero {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 16px;
+    display: flex;
+    justify-content: center;
     align-items: center;
-    padding: 10px 16px;
+    padding: 18px 16px;
   }
-  @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; }
-    .donut-wrap { justify-self: center; }
-  }
-  .hero-l { display: flex; flex-direction: column; gap: 8px; }
-  .hero-top {
-    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
-  }
-  .hero-top .eyebrow { line-height: 1; }
-  .hero-top .hero-sub { margin-left: auto; }
-  .hero-display {
-    font-size: 38px; font-weight: 700; letter-spacing: -0.03em;
-    line-height: 1; color: var(--text-1);
-  }
-  .hero-display .cents { font-size: 0.52em; color: var(--text-2); font-weight: 600; }
-  .hero-sub { color: var(--text-3); font-size: 12.5px; }
-  .hero-sub b { color: var(--text-2); font-weight: 500; }
-
-  .deposit-list {
-    display: flex; flex-direction: column; gap: 0;
-    margin-top: 8px;
-    background: var(--surface-elev);
-    border-radius: 11px;
-    overflow: hidden;
-  }
-  .deposit-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 11px 15px;
-    font-size: 15px;
-  }
-  .deposit-row + .deposit-row { border-top: 1px solid var(--line); }
-  .deposit-row .bank {
-    display: flex; align-items: center; gap: 8px;
-    color: var(--text-1); font-weight: 500;
-  }
-  .deposit-row .last4 { color: var(--text-3); font-weight: 400; font-size: 12px; }
-  .deposit-row .amt { color: var(--text-1); font-weight: 600; }
-  .bank-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
 
   /* ─── Donut ────────────────────────────────────────── */
   .donut-wrap {
