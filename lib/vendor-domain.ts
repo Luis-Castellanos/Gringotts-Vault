@@ -56,6 +56,36 @@ const VENDOR_MAP: [RegExp, string][] = [
   [/\betsy\b/, 'etsy.com'],
   [/\bebay\b/, 'ebay.com'],
   [/\bnike\b/, 'nike.com'],
+  // ── Department stores / apparel ───────────────────────────────────────
+  [/macy'?s/, 'macys.com'],
+  [/nordstrom/, 'nordstrom.com'],
+  [/\bkohl'?s/, 'kohls.com'],
+  [/\bross\b/, 'rossstores.com'],
+  [/t\.?j\.? ?maxx|tjmaxx/, 'tjmaxx.com'],
+  [/marshalls/, 'marshalls.com'],
+  [/old ?navy/, 'oldnavy.com'],
+  [/\bgap\b/, 'gap.com'],
+  [/\bh&m\b|h ?and ?m/, 'hm.com'],
+  [/\bzara\b/, 'zara.com'],
+  [/sephora/, 'sephora.com'],
+  [/\bulta\b/, 'ulta.com'],
+  [/lululemon/, 'lululemon.com'],
+  [/foot ?locker/, 'footlocker.com'],
+  [/dick'?s ?sporting/, 'dickssportinggoods.com'],
+  // ── Pets / home / office ──────────────────────────────────────────────
+  [/petco/, 'petco.com'],
+  [/petsmart/, 'petsmart.com'],
+  [/michaels/, 'michaels.com'],
+  [/\bstaples\b/, 'staples.com'],
+  [/office ?depot/, 'officedepot.com'],
+  [/autozone/, 'autozone.com'],
+  [/o'?reilly/, 'oreillyauto.com'],
+  [/gamestop/, 'gamestop.com'],
+  // ── Fitness ───────────────────────────────────────────────────────────
+  [/planet ?fitness/, 'planetfitness.com'],
+  [/24 ?hour ?fitness/, '24hourfitness.com'],
+  [/\bla ?fitness/, 'lafitness.com'],
+  [/equinox/, 'equinox.com'],
   // ── Food / restaurants ────────────────────────────────────────────────
   [/starbucks/, 'starbucks.com'],
   [/mcdonald/, 'mcdonalds.com'],
@@ -129,21 +159,15 @@ const VENDOR_MAP: [RegExp, string][] = [
   [/\busps\b|postal ?service/, 'usps.com'],
 ];
 
-export function vendorSlug(merchant: string): string {
-  return merchant
-    .toLowerCase()
-    .replace(/['']/g, '')
-    .replace(/&/g, 'and')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-/** Full domain (incl. TLD) to try for a merchant's logo. May 404 → initials. */
-export function vendorDomain(merchant: string): string {
+/**
+ * Domain for a merchant's brand logo, or null if we don't recognize it.
+ * We deliberately only return curated, high-confidence domains: the favicon
+ * service returns a generic globe (not a 404) for unknown domains, so guessing
+ * from the raw name would litter messy merchants with globe icons instead of
+ * clean initials.
+ */
+export function vendorDomain(merchant: string): string | null {
   const n = merchant.toLowerCase();
   for (const [re, domain] of VENDOR_MAP) if (re.test(n)) return domain;
-  const slug = vendorSlug(merchant);
-  return slug ? `${slug}.com` : '';
+  return null;
 }

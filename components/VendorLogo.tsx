@@ -5,13 +5,13 @@ import { useEffect, useState } from 'react';
 import { vendorDomain } from '@/lib/vendor-domain';
 
 /**
- * VendorLogo — resolves a merchant to a brand domain (curated keyword map, then
- * a name-based slug) and pulls its logo from Clearbit. Falls back to a colored
- * letter circle when no logo is found. Used in the Transactions list and
- * anywhere we surface a merchant name.
+ * VendorLogo — resolves a recognized merchant to a brand domain (curated
+ * keyword map) and shows its favicon via Google's favicon service. Falls back
+ * to a colored letter circle for unrecognized merchants (or if the icon fails
+ * to load). Used in the Transactions list and anywhere we surface a merchant.
  *
- * Optional `domainHint` lets callers override the auto-derived domain (full
- * domain incl. TLD, e.g. "apple.com") for merchants that don't map cleanly.
+ * Optional `domainHint` lets callers force a domain (incl. TLD, e.g.
+ * "apple.com") for merchants that don't map cleanly.
  */
 
 function initials(name: string): string {
@@ -50,8 +50,9 @@ export function VendorLogo({
     setFailed(false);
   }, [domain]);
 
-  const showLogo = !failed && domain.length > 0;
+  const showLogo = !failed && !!domain;
   const bgColor = colorFor(merchant);
+  const iconPx = Math.round(size * 0.66);
 
   return (
     <span
@@ -61,10 +62,11 @@ export function VendorLogo({
     >
       {showLogo ? (
         <img
-          src={`https://logo.clearbit.com/${domain}`}
+          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
           alt=""
-          width={size}
-          height={size}
+          width={iconPx}
+          height={iconPx}
+          style={{ width: iconPx, height: iconPx }}
           loading="lazy"
           onError={() => setFailed(true)}
         />
