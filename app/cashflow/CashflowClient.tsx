@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { iconBg, iconFor } from '@/lib/categories/icons';
 
-export type SeriesPoint = { ym: string; income: number; expense: number };
+export type SeriesPoint = { ym: string; income: number; expense: number; debtPaydown: number };
 export type CatAgg = {
   ym: string;
   flow: 'inflow' | 'outflow';
@@ -100,12 +100,13 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
 
   // Bucket the monthly series into the chosen granularity.
   const buckets = useMemo(() => {
-    const m = new Map<string, { key: string; income: number; expense: number }>();
+    const m = new Map<string, { key: string; income: number; expense: number; debtPaydown: number }>();
     for (const p of series) {
       const k = periodKey(p.ym, gran);
-      const b = m.get(k) ?? { key: k, income: 0, expense: 0 };
+      const b = m.get(k) ?? { key: k, income: 0, expense: 0, debtPaydown: 0 };
       b.income += p.income;
       b.expense += p.expense;
+      b.debtPaydown += p.debtPaydown;
       m.set(k, b);
     }
     return [...m.values()].sort((a, b) => a.key.localeCompare(b.key));
@@ -132,8 +133,11 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
   const sel = buckets.find((b) => b.key === selected);
   const income = sel?.income ?? 0;
   const expense = sel?.expense ?? 0;
-  const savings = income - expense;
-  const rate = income > 0 ? (savings / income) * 100 : 0;
+  const savings = income - expense; // cash surplus
+  const debtPaydown = sel?.debtPaydown ?? 0;
+  const savingsRate = income > 0 ? ((savings - debtPaydown) / income) * 100 : 0;
+  const debtRate = income > 0 ? (debtPaydown / income) * 100 : 0;
+  const combinedRate = income > 0 ? (savings / income) * 100 : 0;
 
   // Breakdown for the selected period, grouped by category or parent group.
   const breakdown = useMemo(() => {
@@ -257,7 +261,9 @@ export function CashflowClient({ series, cats }: { series: SeriesPoint[]; cats: 
         <Tile label="Income" value={usd0.format(income)} tone="green" />
         <Tile label="Expenses" value={usd0.format(expense)} tone="red" />
         <Tile label="Net Savings" value={usd0.format(savings)} tone={savings >= 0 ? 'green' : 'red'} />
-        <Tile label="Savings Rate" value={`${rate.toFixed(1)}%`} tone="neutral" />
+        <Tile label="Savings Rate" value={`${savingsRate.toFixed(1)}%`} tone="neutral" />
+        <Tile label="Debt Paydown Rate" value={`${debtRate.toFixed(1)}%`} tone={debtRate >= 0 ? 'green' : 'red'} />
+        <Tile label="Combined Rate" value={`${combinedRate.toFixed(1)}%`} tone="neutral" />
       </div>
 
       {/* Breakdown */}

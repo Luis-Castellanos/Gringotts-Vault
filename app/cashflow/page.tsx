@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db/client';
-import { categories, transactions } from '@/lib/db/schema';
+import { accounts, categories, transactions } from '@/lib/db/schema';
 import { Sidebar } from '@/components/Sidebar';
 import {
   CashflowClient,
@@ -79,8 +79,28 @@ export default async function CashflowPage() {
     }
   }
 
-  const series: SeriesPoint[] = [...seriesMap.entries()]
-    .map(([ym, v]) => ({ ym, income: round2(v.income), expense: round2(v.expense) }))
+  // Debt paydown = net change in liability-account balances per month (sum of
+  // signed transactions on credit cards + loans, transfers included). Positive =
+  // debt reduced.
+  const liabRows = await db
+    .select({ date: transactions.date, amount: transactions.amount })
+    .from(transactions)
+    .leftJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(eq(accounts.assetClass, 'liability'));
+  const debtByYm = new Map<string, number>();
+  for (const r of liabRows) {
+    const ym = r.date.slice(0, 7);
+    debtByYm.set(ym, (debtByYm.get(ym) ?? 0) + Number(r.amount));
+  }
+
+  const allYms = new Set<string>([...seriesMap.keys(), ...debtByYm.keys()]);
+  const series: SeriesPoint[] = [...allYms]
+    .map((ym) => ({
+      ym,
+      income: round2(seriesMap.get(ym)?.income ?? 0),
+      expense: round2(seriesMap.get(ym)?.expense ?? 0),
+      debtPaydown: round2(debtByYm.get(ym) ?? 0),
+    }))
     .sort((a, b) => a.ym.localeCompare(b.ym));
 
   const cats: CatAgg[] = [...catMap.values()].map((c) => ({ ...c, signed: round2(c.signed) }));
