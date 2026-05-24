@@ -143,22 +143,25 @@
   @media (max-width: 820px) { .row-pair { grid-template-columns: 1fr; } }
 
   /* Single-stub layout — 3-column grid so the whole view fits in one
-     viewport without scrolling. Hero / Employer / Footnote span full width. */
+     viewport without scrolling. Row 1: donut · Earnings · Deductions.
+     Row 2: Taxes · Employer (spans 2). Footnote spans full width. */
   .single-stub {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--gap);
+    align-items: start;
   }
-  .single-stub > .hero,
-  .single-stub > .employer-card,
-  .single-stub > .footnote {
-    grid-column: 1 / -1;
-  }
+  .single-stub > .employer-card { grid-column: 2 / -1; }
+  .single-stub > .footnote { grid-column: 1 / -1; }
+  /* Taxes shares row 2 with the (taller) Employer card — stretch it to match. */
+  .single-stub > .taxes-card { align-self: stretch; }
   @media (max-width: 1200px) {
     .single-stub { grid-template-columns: 1fr 1fr; }
+    .single-stub > .employer-card { grid-column: 1 / -1; }
   }
   @media (max-width: 700px) {
     .single-stub { grid-template-columns: 1fr; }
+    .single-stub > .employer-card { grid-column: 1 / -1; }
   }
 
   .eyebrow {

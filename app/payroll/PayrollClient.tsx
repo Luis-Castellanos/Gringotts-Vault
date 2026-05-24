@@ -172,7 +172,7 @@ function HeroCard({ stub, theme }: { stub: ComputedStub; theme: Theme }) {
   return (
     <section className="card hero">
       <Donut
-        size={208}
+        size={240}
         slices={slices}
         hovered={hovered}
         onHover={setHovered}
@@ -247,7 +247,7 @@ function DeductionsCard({ stub }: { stub: ComputedStub }) {
 function TaxesCard({ stub }: { stub: ComputedStub }) {
   const t = stub.taxes;
   return (
-    <section className="card banner-card">
+    <section className="card banner-card taxes-card">
       <div className="card-banner red">
         <span className="ttl">Taxes</span>
         <span className="meta">Withheld at source</span>
