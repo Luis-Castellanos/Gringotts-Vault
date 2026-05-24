@@ -4,16 +4,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { ACCOUNT_TYPES, accountTypeLabel, assetClassForType } from '@/lib/account-types';
+
 // ─── Types ────────────────────────────────────────────────────────────────
-export type AccountType =
-  | 'checking'
-  | 'savings'
-  | 'credit_card'
-  | 'brokerage'
-  | 'retirement'
-  | 'loan'
-  | 'cash'
-  | 'other';
+// Open taxonomy slug (see lib/account-types.ts), no longer a fixed union.
+export type AccountType = string;
 
 export type AccountRow = {
   id: string;
@@ -51,16 +46,20 @@ type TypeMeta = {
   asset: boolean;
 };
 
-const TYPE_META: Record<AccountType, TypeMeta> = {
-  checking:    { label: 'Checking',    group: 'Cash',        asset: true },
-  savings:     { label: 'Savings',     group: 'Cash',        asset: true },
-  cash:        { label: 'Cash',        group: 'Cash',        asset: true },
-  brokerage:   { label: 'Brokerage',   group: 'Investments', subgroup: 'Taxable brokerage', asset: true },
-  retirement:  { label: 'Retirement',  group: 'Investments', subgroup: 'Retirement',        asset: true },
-  credit_card: { label: 'Credit',      group: 'Liabilities', subgroup: 'Credit cards',      asset: false },
-  loan:        { label: 'Loan',        group: 'Liabilities', subgroup: 'Loans',             asset: false },
-  other:       { label: 'Other',       group: 'Other',       asset: true },
-};
+// Derived from the account taxonomy so every type (incl. user-added) maps to a
+// Cash / Investments / Liabilities / Other group with a sensible subgroup.
+function typeMeta(slug: string): TypeMeta {
+  const def = ACCOUNT_TYPES.find((t) => t.slug === slug);
+  const asset = (def?.assetClass ?? assetClassForType(slug)) === 'asset';
+  const g = def?.group ?? 'other';
+  if (!asset) {
+    return { label: accountTypeLabel(slug), group: 'Liabilities', subgroup: slug === 'credit_card' ? 'Credit cards' : 'Loans', asset: false };
+  }
+  if (g === 'banking') return { label: accountTypeLabel(slug), group: 'Cash', asset: true };
+  if (g === 'retirement') return { label: accountTypeLabel(slug), group: 'Investments', subgroup: 'Retirement', asset: true };
+  if (g === 'investments') return { label: accountTypeLabel(slug), group: 'Investments', subgroup: 'Taxable brokerage', asset: true };
+  return { label: accountTypeLabel(slug), group: 'Other', asset: true };
+}
 
 const GROUP_ORDER: GroupName[] = ['Cash', 'Investments', 'Liabilities', 'Other'];
 const SUBGROUP_ORDER: Partial<Record<GroupName, string[]>> = {
@@ -68,15 +67,17 @@ const SUBGROUP_ORDER: Partial<Record<GroupName, string[]>> = {
   Liabilities: ['Credit cards', 'Loans'],
 };
 
+const slugsIn = (...groups: string[]) => ACCOUNT_TYPES.filter((t) => groups.includes(t.group)).map((t) => t.slug);
 const ASSET_SEGMENTS: { key: string; name: string; color: string; types: AccountType[] }[] = [
-  { key: 'checking',   name: 'Checking',          color: '#2563eb', types: ['checking', 'cash'] },
-  { key: 'savings',    name: 'Savings',           color: '#16a34a', types: ['savings'] },
-  { key: 'retirement', name: 'Retirement',        color: '#0891b2', types: ['retirement'] },
-  { key: 'taxable',    name: 'Taxable brokerage', color: '#7c3aed', types: ['brokerage'] },
+  { key: 'cash',        name: 'Cash & banking',    color: '#2563eb', types: slugsIn('banking') },
+  { key: 'retirement',  name: 'Retirement',        color: '#0891b2', types: ACCOUNT_TYPES.filter((t) => t.group === 'retirement').map((t) => t.slug) },
+  { key: 'investments', name: 'Investments',       color: '#7c3aed', types: slugsIn('investments') },
+  { key: 'property',    name: 'Property',          color: '#16a34a', types: slugsIn('property') },
+  { key: 'other',       name: 'Other',             color: '#64748b', types: ['other'] },
 ];
 const LIAB_SEGMENTS: { key: string; name: string; color: string; types: AccountType[] }[] = [
   { key: 'credit', name: 'Credit cards', color: '#dc2626', types: ['credit_card'] },
-  { key: 'loans',  name: 'Loans',        color: '#9a3412', types: ['loan'] },
+  { key: 'loans',  name: 'Loans',        color: '#9a3412', types: ACCOUNT_TYPES.filter((t) => t.group === 'credit_loans' && t.slug !== 'credit_card').map((t) => t.slug) },
 ];
 
 const INSTITUTION_DOMAINS: Record<string, string> = {
@@ -645,7 +646,7 @@ function AccountRowEl({
   onReopen?: (id: string) => void;
   busy?: boolean;
 }) {
-  const meta = TYPE_META[a.type];
+  const meta = typeMeta(a.type);
   const m = metaPrimaryFor(a);
   const isLiab = !meta.asset;
   return (
@@ -882,21 +883,21 @@ const ACCOUNT_CATEGORIES: {
     label: 'Banks & credit cards',
     description: 'Checking, savings, cash, credit cards',
     iconClass: 'blue',
-    types: ['checking', 'savings', 'cash', 'credit_card'],
+    types: [...slugsIn('banking'), 'credit_card'],
   },
   {
     id: 'investments-loans',
     label: 'Investments & loans',
     description: 'Brokerage, retirement, loans',
     iconClass: 'purple',
-    types: ['brokerage', 'retirement', 'loan'],
+    types: [...slugsIn('investments', 'retirement'), ...ACCOUNT_TYPES.filter((t) => t.group === 'credit_loans' && t.slug !== 'credit_card').map((t) => t.slug)],
   },
   {
     id: 'other',
     label: 'Other',
-    description: 'Anything else — real estate, crypto, custom',
+    description: 'Real estate, vehicles, crypto, and more',
     iconClass: 'slate',
-    types: ['other'],
+    types: [...slugsIn('property'), 'other'],
   },
 ];
 
@@ -1073,12 +1074,6 @@ function AddAccountForm({
     }
   }
 
-  const typeLabel: Record<AccountType, string> = {
-    checking: 'Checking', savings: 'Savings', cash: 'Cash',
-    credit_card: 'Credit card', brokerage: 'Brokerage',
-    retirement: 'Retirement', loan: 'Loan', other: 'Other',
-  };
-
   return (
     <div className="cc-modal-root">
       <div className="cc-modal-backdrop" onClick={onClose}>
@@ -1111,7 +1106,7 @@ function AddAccountForm({
               Type
               <select value={type} onChange={(e) => setType(e.target.value as AccountType)}>
                 {category.types.map((t) => (
-                  <option key={t} value={t}>{typeLabel[t]}</option>
+                  <option key={t} value={t}>{accountTypeLabel(t)}</option>
                 ))}
               </select>
             </label>
@@ -1396,7 +1391,7 @@ function AccountDetailModal({
   onUpdated: () => void;
 }) {
   const [closing, setClosing] = useState(false);
-  const isLiab = !TYPE_META[account.type].asset;
+  const isLiab = !typeMeta(account.type).asset;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1437,7 +1432,7 @@ function AccountDetailModal({
             <div className="cc-detail-modal-title">
               <h2>{account.name}</h2>
               <p>
-                {TYPE_META[account.type].label}
+                {typeMeta(account.type).label}
                 {account.institution ? ` · ${account.institution}` : ''}
                 {account.last4 ? ` · •••• ${account.last4}` : ''}
               </p>
@@ -1679,7 +1674,7 @@ export function NetWorthClient({
     };
     for (const a of visible) {
       if (a.type === 'credit_card') continue;
-      const g = TYPE_META[a.type].group;
+      const g = typeMeta(a.type).group;
       result[g].push(a);
     }
     return result;
@@ -1780,7 +1775,7 @@ export function NetWorthClient({
     }
     const buckets: Record<string, AccountRow[]> = {};
     for (const r of rows) {
-      const sg = TYPE_META[r.type].subgroup;
+      const sg = typeMeta(r.type).subgroup;
       if (!sg) continue;
       (buckets[sg] ??= []).push(r);
     }

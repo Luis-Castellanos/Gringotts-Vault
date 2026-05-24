@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { ACCOUNT_TYPES } from '@/lib/account-types';
+
 // ─── Data shape ────────────────────────────────────────────────────────────
 // Phase B (in progress): credit_limit + apr are now in the schema and
 // editable. Lifecycle fields below the divider remain stubs until further
@@ -788,16 +790,7 @@ function SignupBonusEditor({ card, onUpdated }: { card: CreditCardData; onUpdate
   );
 }
 
-const ACCOUNT_TYPE_OPTIONS = [
-  { value: 'credit_card', label: 'Credit card' },
-  { value: 'checking', label: 'Checking' },
-  { value: 'savings', label: 'Savings' },
-  { value: 'loan', label: 'Loan' },
-  { value: 'brokerage', label: 'Brokerage' },
-  { value: 'retirement', label: 'Retirement' },
-  { value: 'cash', label: 'Cash' },
-  { value: 'other', label: 'Other' },
-];
+const ACCOUNT_TYPE_OPTIONS = ACCOUNT_TYPES.map((t) => ({ value: t.slug, label: t.label }));
 
 function InlineDetails({
   card,

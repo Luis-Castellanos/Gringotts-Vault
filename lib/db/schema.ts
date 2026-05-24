@@ -91,7 +91,7 @@ export const accounts = pgTable(
     displayName: text('display_name').notNull(),
     institution: text('institution'),
     accountNumber: text('account_number'),
-    type: accountTypeEnum('type').notNull(),
+    type: text('type').notNull().references(() => accountTypes.slug),
     assetClass: assetClassEnum('asset_class').notNull(),
     currency: text('currency').notNull().default('USD'),
     color: text('color'),

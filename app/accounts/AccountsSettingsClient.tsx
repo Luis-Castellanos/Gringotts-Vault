@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export type AcctType =
-  | 'checking' | 'savings' | 'credit_card' | 'brokerage'
-  | 'retirement' | 'loan' | 'cash' | 'other';
+import { ACCOUNT_TYPES, ACCOUNT_TYPE_GROUPS, accountTypeLabel, assetClassForType } from '@/lib/account-types';
+
+// Account type is now an open taxonomy slug (see lib/account-types.ts), not a
+// fixed union, so the list can be edited in Settings.
+export type AcctType = string;
 
 export type AcctRow = {
   id: string;
@@ -30,20 +32,16 @@ export type AcctRow = {
 
 type Group = 'Cash' | 'Investments' | 'Liabilities' | 'Other';
 const GROUPS: Group[] = ['Cash', 'Investments', 'Liabilities', 'Other'];
-const KIND: Record<AcctType, Group> = {
-  checking: 'Cash', savings: 'Cash', cash: 'Cash',
-  brokerage: 'Investments', retirement: 'Investments',
-  credit_card: 'Liabilities', loan: 'Liabilities',
-  other: 'Other',
-};
-const TYPE_LABEL: Record<AcctType, string> = {
-  checking: 'Checking', savings: 'Savings', credit_card: 'Credit card',
-  brokerage: 'Brokerage', retirement: 'Retirement', loan: 'Loan',
-  cash: 'Cash', other: 'Other',
-};
-const TYPE_OPTIONS = Object.keys(TYPE_LABEL) as AcctType[];
-// Order types appear within the Assets / Liabilities sub-groups.
-const TYPE_ORDER: AcctType[] = ['checking', 'savings', 'cash', 'brokerage', 'retirement', 'credit_card', 'loan', 'other'];
+// Top-level bucket for an account type, derived from the taxonomy.
+function kindFor(slug: string): Group {
+  if (assetClassForType(slug) === 'liability') return 'Liabilities';
+  const g = ACCOUNT_TYPES.find((t) => t.slug === slug)?.group;
+  if (g === 'banking') return 'Cash';
+  if (g === 'investments' || g === 'retirement') return 'Investments';
+  return 'Other';
+}
+// Order types appear within the Assets / Liabilities sub-groups (taxonomy order).
+const TYPE_ORDER: string[] = ACCOUNT_TYPES.map((t) => t.slug);
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -140,7 +138,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
             {a.name}
             {!a.isActive && <span className="acctset-badge">Closed</span>}
             <span className="acctset-rowsub">
-              {a.institution || '—'}{a.last4 ? ` · ····${a.last4}` : ''} · {TYPE_LABEL[a.type]}
+              {a.institution || '—'}{a.last4 ? ` · ····${a.last4}` : ''} · {accountTypeLabel(a.type)}
             </span>
           </span>
           <span className="acctset-bal numeric">{usd.format(a.balance)}</span>
@@ -195,7 +193,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
           </div>
         </div>
         <div className="acctset-card-bal numeric">{usd.format(a.balance)}</div>
-        <div className="acctset-card-foot">{TYPE_LABEL[a.type]} · {a.count.toLocaleString()} txns</div>
+        <div className="acctset-card-foot">{accountTypeLabel(a.type)} · {a.count.toLocaleString()} txns</div>
       </div>
     );
   }
@@ -324,7 +322,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
                 return (
                   <div key={t} className="acctset-subgroup">
                     <div className="acctset-subgroup-head">
-                      <span className="acctset-subgroup-name">{TYPE_LABEL[t]}</span>
+                      <span className="acctset-subgroup-name">{accountTypeLabel(t)}</span>
                       <span className="acctset-subgroup-count">{typeRows.length}</span>
                       <span className="acctset-subgroup-total numeric">{usd.format(typeTotal)}</span>
                     </div>
@@ -355,7 +353,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
                   <InstLogo institution={a.institution} />
                   <div className="cc-detail-modal-title">
                     <h2>{a.name}</h2>
-                    <p>{a.institution || '—'}{a.last4 ? ` ····${a.last4}` : ''} · {TYPE_LABEL[a.type]}</p>
+                    <p>{a.institution || '—'}{a.last4 ? ` ····${a.last4}` : ''} · {accountTypeLabel(a.type)}</p>
                   </div>
                   <button className="cc-detail-modal-close" onClick={() => setExpandedId(null)} aria-label="Close">×</button>
                 </div>
@@ -483,7 +481,13 @@ function AccountDetail({
         <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Type">
           <select value={type} onChange={(e) => setType(e.target.value as AcctType)}>
-            {TYPE_OPTIONS.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+            {ACCOUNT_TYPE_GROUPS.map((grp) => (
+              <optgroup key={grp.key} label={grp.label}>
+                {ACCOUNT_TYPES.filter((t) => t.group === grp.key).map((t) => (
+                  <option key={t.slug} value={t.slug}>{t.label}</option>
+                ))}
+              </optgroup>
+            ))}
           </select>
         </Field>
         <Field label="Institution"><input value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="—" /></Field>
@@ -572,7 +576,13 @@ function AddModal({
           <div className="row-2">
             <label>Type
               <select value={type} onChange={(e) => setType(e.target.value as AcctType)}>
-                {TYPE_OPTIONS.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+                {ACCOUNT_TYPE_GROUPS.map((grp) => (
+              <optgroup key={grp.key} label={grp.label}>
+                {ACCOUNT_TYPES.filter((t) => t.group === grp.key).map((t) => (
+                  <option key={t.slug} value={t.slug}>{t.label}</option>
+                ))}
+              </optgroup>
+            ))}
               </select>
             </label>
             <label>Last 4<input value={last4} onChange={(e) => setLast4(e.target.value)} maxLength={4} placeholder="1234" /></label>
@@ -621,7 +631,7 @@ function MergeModal({
             <select autoFocus value={targetId} onChange={(e) => setTargetId(e.target.value)}>
               <option value="">Select an account…</option>
               {GROUPS.map((g) => {
-                const opts = accounts.filter((x) => KIND[x.type] === g && x.id !== acct.id);
+                const opts = accounts.filter((x) => kindFor(x.type) === g && x.id !== acct.id);
                 if (opts.length === 0) return null;
                 return (
                   <optgroup key={g} label={g}>

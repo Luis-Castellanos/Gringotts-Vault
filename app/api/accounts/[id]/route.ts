@@ -15,12 +15,12 @@ import { z } from 'zod';
 import { db } from '@/lib/db/client';
 import { accounts, transactions } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
-
-const TYPES = ['checking', 'savings', 'credit_card', 'brokerage', 'retirement', 'loan', 'cash', 'other'] as const;
+import { assetClassForType } from '@/lib/account-types';
 
 const bodySchema = z.object({
   name: z.string().min(1).max(120).optional(),
-  type: z.enum(TYPES).optional(),
+  // Taxonomy slug; integrity enforced by the accounts.type → account_types FK.
+  type: z.string().min(1).max(60).optional(),
   institution: z.string().max(120).nullable().optional(),
   accountNumber: z.string().max(32).nullable().optional(),
   isActive: z.boolean().optional(),
@@ -98,7 +98,7 @@ export const PATCH = handler(
     }
     if (body.type !== undefined) {
       patch.type = body.type;
-      patch.assetClass = body.type === 'credit_card' || body.type === 'loan' ? 'liability' : 'asset';
+      patch.assetClass = assetClassForType(body.type);
     }
 
     // Close/reopen handling: closing sets closedAt automatically if absent;

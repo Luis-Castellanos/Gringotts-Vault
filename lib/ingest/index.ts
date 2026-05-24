@@ -14,24 +14,32 @@ import { db } from '@/lib/db/client';
 import { accounts, categories, imports, transactions } from '@/lib/db/schema';
 import { cleanMerchant } from '@/lib/transactions/merchant';
 import { UNCATEGORIZED_SLUG } from '@/lib/transactions/taxonomy';
+import { assetClassForType } from '@/lib/account-types';
 
 // ---------------------------------------------------------------------------
 // Account identity
 // ---------------------------------------------------------------------------
 
-export function inferAccountType(name: string): {
-  type: (typeof accounts.$inferInsert)['type'];
-  assetClass: 'asset' | 'liability';
-} {
+// Best-effort account type from a name. Returns a taxonomy slug (see
+// lib/account-types.ts); the asset class is derived from the slug.
+export function inferAccountType(name: string): string {
   const n = name.toLowerCase();
-  if (n.includes('card') || n.includes('visa') || n.includes('amex') || n.includes('mastercard'))
-    return { type: 'credit_card', assetClass: 'liability' };
-  if (n.includes('savings')) return { type: 'savings', assetClass: 'asset' };
-  if (n.includes('checking')) return { type: 'checking', assetClass: 'asset' };
-  if (n.includes('401') || n.includes('ira') || n.includes('roth')) return { type: 'retirement', assetClass: 'asset' };
-  if (n.includes('brokerage') || n.includes('vanguard') || n.includes('fidelity')) return { type: 'brokerage', assetClass: 'asset' };
-  if (n.includes('loan') || n.includes('mortgage') || n.includes('student')) return { type: 'loan', assetClass: 'liability' };
-  return { type: 'other', assetClass: 'asset' };
+  if (n.includes('card') || n.includes('visa') || n.includes('amex') || n.includes('mastercard')) return 'credit_card';
+  if (n.includes('savings')) return 'savings';
+  if (n.includes('checking')) return 'checking';
+  if (n.includes('roth') && n.includes('401')) return 'roth_401k';
+  if (n.includes('401')) return '401k';
+  if (n.includes('roth')) return 'roth_ira';
+  if (n.includes('ira')) return 'traditional_ira';
+  if (n.includes('hsa')) return 'hsa';
+  if (n.includes('brokerage') || n.includes('vanguard') || n.includes('fidelity') || n.includes('schwab')) return 'brokerage';
+  if (n.includes('mortgage')) return 'mortgage';
+  if (n.includes('auto') || n.includes('car loan')) return 'auto_loan';
+  if (n.includes('student')) return 'student_loan';
+  if (n.includes('heloc') || n.includes('line of credit')) return 'heloc';
+  if (n.includes('loan')) return 'personal_loan';
+  if (n.includes('crypto') || n.includes('coinbase')) return 'crypto';
+  return 'other';
 }
 
 function parseAccountLabel(label: string): { name: string; accountNumber: string | null } {
@@ -84,7 +92,8 @@ export async function getOrCreateAccount(
     if (byNumber.length === 1) return byNumber[0]!.id;
   }
 
-  const { type, assetClass } = inferAccountType(name);
+  const type = inferAccountType(name);
+  const assetClass = assetClassForType(type);
   const display = accountNumber ? `${name} ••${accountNumber}` : name;
   const [row] = await db
     .insert(accounts)

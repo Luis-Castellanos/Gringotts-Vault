@@ -8,22 +8,12 @@ import { Sidebar } from '@/components/Sidebar';
 import { TransactionsClient, type CatLite } from '@/app/transactions/TransactionsClient';
 import { countTransactions, loadMerchants, loadTransactions } from '@/lib/transactions/load';
 import { loadAccountBalanceSeries, loadAccountDetail } from '@/lib/accounts/detail';
+import { accountTypeLabel } from '@/lib/account-types';
 import { AccountDetailHeader } from './AccountDetailHeader';
 import '@/app/transactions/transactions.css';
 import './account-detail.css';
 
 export const dynamic = 'force-dynamic';
-
-const TYPE_LABELS: Record<string, string> = {
-  checking: 'Checking',
-  savings: 'Savings',
-  credit_card: 'Credit Card',
-  loan: 'Loan',
-  brokerage: 'Brokerage',
-  retirement: 'Retirement',
-  cash: 'Cash',
-  other: 'Other',
-};
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -78,7 +68,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   // Summary rows (label/value pairs) tailored to the account type.
   const rows: { label: string; value: string }[] = [
     { label: 'Institution', value: account.institution || '—' },
-    { label: 'Account type', value: TYPE_LABELS[account.type] ?? account.type },
+    { label: 'Account type', value: accountTypeLabel(account.type) },
   ];
   if (isCard && account.creditLimit != null) {
     rows.push({ label: 'Credit limit', value: fmtMoney(account.creditLimit) });
