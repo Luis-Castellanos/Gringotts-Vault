@@ -153,8 +153,35 @@
   }
   .single-stub > .employer-card { grid-column: 2 / -1; }
   .single-stub > .footnote { grid-column: 1 / -1; }
-  /* Taxes shares row 2 with the (taller) Employer card — stretch it to match. */
-  .single-stub > .taxes-card { align-self: stretch; }
+  /* Donut card stretches to its row height too (Earnings can be taller);
+     it already centers the donut, so it just sits vertically centered. */
+  .single-stub > .hero { align-self: stretch; }
+
+  /* Paired content cards stretch to their row height, and each card's final
+     total row is pinned to the bottom so the bottom lines line up across the
+     gap (Earnings↔Deductions in row 1, Taxes↔Employer in row 2). */
+  .single-stub > .banner-card {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+  .single-stub > .banner-card > .card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .single-stub > .banner-card > .card-body > .lines { flex: 1 1 auto; }
+  .single-stub > .banner-card > .card-body > .lines > .line-row.subtotal:last-child {
+    margin-top: auto;
+  }
+  /* Earnings: keep the deposit block intact — push the whole "Net pay
+     deposited" section to the bottom rather than just the final total. */
+  .single-stub > .earnings-card > .card-body > .lines > .line-row.subtotal:last-child {
+    margin-top: 0;
+  }
+  .single-stub > .earnings-card > .card-body > .lines > .line-section-hd {
+    margin-top: auto;
+  }
   @media (max-width: 1200px) {
     .single-stub { grid-template-columns: 1fr 1fr; }
     .single-stub > .employer-card { grid-column: 1 / -1; }

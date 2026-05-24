@@ -189,7 +189,7 @@ function HeroCard({ stub, theme }: { stub: ComputedStub; theme: Theme }) {
 // ─── Section cards ────────────────────────────────────────────────────────
 function EarningsCard({ stub }: { stub: ComputedStub }) {
   return (
-    <section className="card banner-card">
+    <section className="card banner-card earnings-card">
       <div className="card-banner green">
         <span className="ttl">Earnings</span>
         <span className="meta">{stub.rate}</span>
