@@ -1,0 +1,351 @@
+/* Cashflow page — uses the theme-aware tokens (light + dark) like the other
+   newer pages. Scoped under .cashflow-page / .cf. */
+
+.cashflow-page {
+  background: var(--bg);
+  color: var(--text-1);
+}
+
+.cf {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.cf-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.cf-title {
+  margin: 4px 0 0;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--text-1);
+}
+
+/* Segmented control */
+.cf-seg {
+  display: inline-flex;
+  background: var(--surface-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.cf-seg button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+.cf-seg button:hover {
+  color: var(--text-1);
+}
+.cf-seg button.active {
+  background: var(--surface);
+  color: var(--text-1);
+  box-shadow: var(--shadow-card);
+}
+.cf-seg.sm button {
+  font-size: 12px;
+  padding: 5px 11px;
+}
+
+/* ── Chart ──────────────────────────────────────────────────────────────── */
+.cf-chart {
+  position: relative;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px 6px;
+}
+.cf-chart svg {
+  display: block;
+}
+.cf-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.cf-axis-zero {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+.cf-grid-label {
+  fill: var(--text-3);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.cf-bucket {
+  cursor: pointer;
+}
+.cf-bar-income {
+  fill: var(--green);
+  opacity: 0.5;
+  transition: opacity 140ms ease;
+}
+.cf-bar-expense {
+  fill: var(--red);
+  opacity: 0.5;
+  transition: opacity 140ms ease;
+}
+.cf-bucket:hover .cf-bar-income,
+.cf-bucket:hover .cf-bar-expense {
+  opacity: 0.78;
+}
+.cf-bucket.sel .cf-bar-income,
+.cf-bucket.sel .cf-bar-expense {
+  opacity: 1;
+}
+.cf-sel-bg {
+  fill: color-mix(in srgb, var(--text-1) 6%, transparent);
+}
+.cf-x-label {
+  fill: var(--text-3);
+  font-size: 11px;
+}
+.cf-x-label.sel {
+  fill: var(--text-1);
+  font-weight: 600;
+}
+.cf-net-line {
+  stroke: var(--text-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+.cf-net-dot {
+  fill: var(--text-1);
+}
+
+/* Tooltip */
+.cf-tip {
+  position: absolute;
+  top: 10px;
+  transform: translateX(-50%);
+  background: var(--surface-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+  padding: 9px 11px;
+  font-size: 12px;
+  color: var(--text-2);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
+}
+.cf-tip-title {
+  color: var(--text-1);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.cf-tip div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cf-tip b {
+  color: var(--text-1);
+  margin-left: auto;
+  padding-left: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.cf-tip .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.cf-tip .dot.green { background: var(--green); }
+.cf-tip .dot.red { background: var(--red); }
+.cf-tip .dot.net { background: var(--text-1); }
+
+/* ── Period nav ─────────────────────────────────────────────────────────── */
+.cf-period-bar {
+  display: flex;
+  justify-content: center;
+}
+.cf-period-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.cf-period-nav button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+.cf-period-nav button:hover:not(:disabled) {
+  color: var(--text-1);
+  border-color: var(--text-3);
+}
+.cf-period-nav button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.cf-period-label {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  min-width: 150px;
+  text-align: center;
+}
+
+/* ── Summary tiles ──────────────────────────────────────────────────────── */
+.cf-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.cf-tile {
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 16px 18px;
+}
+.cf-tile-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.cf-tile-value.green { color: var(--green-text); }
+.cf-tile-value.red { color: var(--red-text); }
+.cf-tile-value.neutral { color: var(--text-1); }
+.cf-tile-label {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* ── Breakdown ──────────────────────────────────────────────────────────── */
+.cf-break-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.cf-break-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.cf-break-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .cf-break-grid { grid-template-columns: 1fr; }
+  .cf-tiles { grid-template-columns: repeat(2, 1fr); }
+}
+
+.cf-panel {
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 16px 18px;
+}
+.cf-panel header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.cf-panel h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+.cf-panel-total {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.cf-panel-total.green { color: var(--green-text); }
+.cf-panel-total.red { color: var(--red-text); }
+.cf-empty {
+  color: var(--text-3);
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.cf-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cf-row {
+  display: grid;
+  grid-template-columns: 10px minmax(110px, 1.1fr) 1.4fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 6px;
+  border-radius: 8px;
+  transition: background 120ms ease;
+}
+.cf-row:hover {
+  background: var(--surface-hover);
+}
+.cf-row-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+.cf-row-name {
+  font-size: 13.5px;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cf-row-bar-track {
+  height: 8px;
+  background: var(--surface-elev);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.cf-row-bar {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+}
+.cf-row-bar.green { background: var(--green); }
+.cf-row-bar.red { background: var(--red); }
+.cf-row-amt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  text-align: right;
+}
+.cf-row-pct {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: right;
+  min-width: 46px;
+}
