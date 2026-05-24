@@ -456,321 +456,237 @@ function AccountLogo({ institution, size = 22 }: { institution: string; size?: n
   );
 }
 
-// ─── Filter Panel (Monarch-style multi-tab modal) ─────────────────────────
-type FilterTab = 'categories' | 'merchants' | 'accounts' | 'date' | 'amount' | 'other';
-
-function FilterPanel({
-  onClose, filters, setFilters,
-  categories, accounts, allMerchants, hideAccounts = false,
+// ─── Inline filter dropdowns (one per dimension, next to the search box) ──
+function FilterChip({
+  label, count, width = 300, children,
 }: {
-  onClose: () => void;
+  label: string;
+  count: number;
+  width?: number;
+  children: (close: () => void) => React.ReactNode;
+}) {
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  return (
+    <div className="tx-filter">
+      <button
+        type="button"
+        className={'tx-toolbar-btn' + (count > 0 ? ' has-filters' : '')}
+        onClick={(e) => {
+          if (anchor) { setAnchor(null); return; }
+          const r = e.currentTarget.getBoundingClientRect();
+          setAnchor({ x: Math.min(r.left, window.innerWidth - width - 12), y: r.bottom + 4 });
+        }}
+      >
+        {label}
+        {count > 0 && <span className="badge">{count}</span>}
+        <svg className="tx-filter-chev" width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3.5 5l3.5 3.5L10.5 5" />
+        </svg>
+      </button>
+      {anchor && (
+        <>
+          <div className="tx-inline-backdrop" onClick={(e) => { e.stopPropagation(); setAnchor(null); }} />
+          <div className="tx-filter-pop" style={{ left: anchor.x, top: anchor.y, width }} onClick={(e) => e.stopPropagation()}>
+            {children(() => setAnchor(null))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const SearchIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="6" r="4" /><path d="M9.5 9.5L12 12" />
+  </svg>
+);
+
+function FiltersBar({
+  filters, setFilters, categories, accounts, allMerchants, scoped,
+}: {
   filters: Filters;
   setFilters: (next: Filters) => void;
   categories: CatLite[];
   accounts: AcctLite[];
   allMerchants: string[];
-  hideAccounts?: boolean;
+  scoped: boolean;
 }) {
-  const [tab, setTab] = useState<FilterTab>('categories');
   const [catSearch, setCatSearch] = useState('');
   const [merchSearch, setMerchSearch] = useState('');
   const [acctSearch, setAcctSearch] = useState('');
+  const toggleArr = (arr: string[], id: string) =>
+    arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const parents = useMemo(() => categories.filter((c) => c.parentId === null), [categories]);
+  const childrenOf = (pid: string) => categories.filter((c) => c.parentId === pid);
 
-  const total = activeFilterCount(filters);
-
-  function toggleArr(arr: string[], id: string): string[] {
-    return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
-  }
-
-  // Group categories by parent for hierarchical display
-  const grouped = useMemo(() => {
-    const map = new Map<string | null, CatLite[]>();
-    for (const c of categories) {
-      const key = c.parentId ?? null;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(c);
-    }
-    const topLevel = categories.filter((c) => c.parentId === null);
-    return { topLevel, byParent: map };
-  }, [categories]);
-
-  const filteredCategories = useMemo(() => {
-    const q = catSearch.trim().toLowerCase();
-    if (!q) return categories;
-    return categories.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.parentName ?? '').toLowerCase().includes(q),
-    );
-  }, [categories, catSearch]);
-
-  const filteredMerchants = useMemo(() => {
-    const q = merchSearch.trim().toLowerCase();
-    if (!q) return allMerchants;
-    return allMerchants.filter((m) => m.toLowerCase().includes(q));
-  }, [allMerchants, merchSearch]);
-
-  const filteredAccounts = useMemo(() => {
-    const q = acctSearch.trim().toLowerCase();
-    if (!q) return accounts;
-    return accounts.filter(
-      (a) => a.name.toLowerCase().includes(q) || a.institution.toLowerCase().includes(q),
-    );
-  }, [accounts, acctSearch]);
+  const catQ = catSearch.trim().toLowerCase();
+  const filteredCats = catQ
+    ? categories.filter((c) => c.name.toLowerCase().includes(catQ) || (c.parentName ?? '').toLowerCase().includes(catQ))
+    : [];
+  const merchQ = merchSearch.trim().toLowerCase();
+  const shownMerchants = merchQ ? allMerchants.filter((m) => m.toLowerCase().includes(merchQ)) : allMerchants;
+  const acctQ = acctSearch.trim().toLowerCase();
+  const shownAccounts = acctQ
+    ? accounts.filter((a) => a.name.toLowerCase().includes(acctQ) || a.institution.toLowerCase().includes(acctQ))
+    : accounts;
 
   return (
-    <div className="cc-modal-root">
-      <div className="cc-modal-backdrop" onClick={onClose}>
-        <div className="filter-panel" onClick={(e) => e.stopPropagation()}>
-          <div className="filter-header">
-            <span className="title">Filters</span>
-            <span className="count">
-              <strong>{total}</strong> {total === 1 ? 'filter' : 'filters'} selected
-            </span>
-            <button type="button" className="close-btn" onClick={onClose} aria-label="Close">×</button>
-          </div>
+    <>
+      <FilterChip label="Category" count={filters.categoryIds.length} width={320}>
+        {() => (
+          <>
+            <div className="filter-search">
+              <SearchIcon />
+              <input type="search" placeholder="Search categories…" value={catSearch} onChange={(e) => setCatSearch(e.target.value)} />
+            </div>
+            <div className="filter-list">
+              <label className="filter-option">
+                <input type="checkbox" checked={filters.categoryIds.includes('__uncategorized__')}
+                  onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, '__uncategorized__') })} />
+                <span className="swatch" style={{ background: 'var(--surface-elev)', border: '1px dashed var(--text-3)' }} />
+                <span className="lbl">Uncategorized</span>
+              </label>
+              {catQ
+                ? filteredCats.map((c) => (
+                    <label key={c.id} className="filter-option">
+                      <input type="checkbox" checked={filters.categoryIds.includes(c.id)}
+                        onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, c.id) })} />
+                      <span className="swatch" style={c.color ? { background: c.color } : undefined} />
+                      <span className="lbl">{c.parentName ? `${c.parentName} → ${c.name}` : c.name}</span>
+                    </label>
+                  ))
+                : parents.map((parent) => (
+                    <div key={parent.id}>
+                      <label className="filter-option">
+                        <input type="checkbox" checked={filters.categoryIds.includes(parent.id)}
+                          onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, parent.id) })} />
+                        <span className="swatch" style={parent.color ? { background: parent.color } : undefined} />
+                        <span className="lbl"><strong>{parent.name}</strong></span>
+                      </label>
+                      {childrenOf(parent.id).map((c) => (
+                        <label key={c.id} className="filter-option indent">
+                          <input type="checkbox" checked={filters.categoryIds.includes(c.id)}
+                            onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, c.id) })} />
+                          <span className="swatch" style={c.color ? { background: c.color } : undefined} />
+                          <span className="lbl">{c.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+            </div>
+          </>
+        )}
+      </FilterChip>
 
-          <div className="filter-body">
-            <aside className="filter-tabs">
-              {([
-                ['categories', 'Categories', filters.categoryIds.length],
-                ['merchants', 'Merchants', filters.merchants.length],
-                ['accounts', 'Accounts', filters.accountIds.length],
-                ['date', 'Date', filters.dateRange !== 'all' ? 1 : 0],
-                ['amount', 'Amount', filters.amountMin || filters.amountMax ? 1 : 0],
-                ['other', 'Other', (filters.hideTransfers ? 1 : 0) + (filters.needsReviewOnly ? 1 : 0)],
-              ] as const)
-                .filter(([id]) => !(hideAccounts && id === 'accounts'))
-                .map(([id, label, count]) => (
-                <button
-                  type="button"
-                  key={id}
-                  className={'filter-tab' + (tab === id ? ' active' : '')}
-                  onClick={() => setTab(id as FilterTab)}
-                >
-                  <span>{label}</span>
-                  {count > 0 && <span className="tab-count">{count}</span>}
+      {!scoped && (
+        <FilterChip label="Account" count={filters.accountIds.length} width={300}>
+          {() => (
+            <>
+              <div className="filter-search">
+                <SearchIcon />
+                <input type="search" placeholder="Search accounts…" value={acctSearch} onChange={(e) => setAcctSearch(e.target.value)} />
+              </div>
+              <div className="filter-list">
+                {shownAccounts.map((a) => (
+                  <label key={a.id} className="filter-option">
+                    <input type="checkbox" checked={filters.accountIds.includes(a.id)}
+                      onChange={() => setFilters({ ...filters, accountIds: toggleArr(filters.accountIds, a.id) })} />
+                    <AccountLogo institution={a.institution} size={20} />
+                    <span className="lbl">{a.name}</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </FilterChip>
+      )}
+
+      <FilterChip label="Merchant" count={filters.merchants.length} width={300}>
+        {() => (
+          <>
+            <div className="filter-search">
+              <SearchIcon />
+              <input type="search" placeholder="Search merchants…" value={merchSearch} onChange={(e) => setMerchSearch(e.target.value)} />
+            </div>
+            <div className="filter-list">
+              {shownMerchants.length === 0 && <div className="filter-empty">No merchants match.</div>}
+              {shownMerchants.map((m) => (
+                <label key={m} className="filter-option">
+                  <input type="checkbox" checked={filters.merchants.includes(m)}
+                    onChange={() => setFilters({ ...filters, merchants: toggleArr(filters.merchants, m) })} />
+                  <VendorLogo merchant={m} size={20} />
+                  <span className="lbl">{m}</span>
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+      </FilterChip>
+
+      <FilterChip label="Date" count={filters.dateRange !== 'all' ? 1 : 0} width={260}>
+        {() => (
+          <div className="filter-section">
+            <div className="preset-row">
+              {DATE_PRESETS.map((p) => (
+                <button type="button" key={p.id}
+                  className={'preset-btn' + (filters.dateRange === p.id ? ' active' : '')}
+                  onClick={() => setFilters({ ...filters, dateRange: p.id })}>
+                  {p.label}
                 </button>
               ))}
-            </aside>
-
-            <div className="filter-content">
-              {tab === 'categories' && (
-                <>
-                  <div className="filter-search">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="6" cy="6" r="4" /><path d="M9.5 9.5L12 12" />
-                    </svg>
-                    <input type="search" placeholder="Search categories…"
-                      value={catSearch} onChange={(e) => setCatSearch(e.target.value)} />
-                  </div>
-                  <div className="filter-list">
-                    <label className="filter-option">
-                      <input type="checkbox"
-                        checked={filters.categoryIds.includes('__uncategorized__')}
-                        onChange={() => setFilters({
-                          ...filters,
-                          categoryIds: toggleArr(filters.categoryIds, '__uncategorized__'),
-                        })} />
-                      <span className="swatch" style={{
-                        background: 'var(--surface-elev)',
-                        border: '1px dashed var(--text-3)',
-                      }} />
-                      <span className="lbl">Uncategorized</span>
-                    </label>
-                    {catSearch ? (
-                      // Flat list when searching
-                      filteredCategories.map((c) => (
-                        <label key={c.id} className="filter-option">
-                          <input type="checkbox"
-                            checked={filters.categoryIds.includes(c.id)}
-                            onChange={() => setFilters({
-                              ...filters,
-                              categoryIds: toggleArr(filters.categoryIds, c.id),
-                            })} />
-                          <span className="swatch" style={c.color ? { background: c.color } : undefined} />
-                          <span className="lbl">
-                            {c.parentName ? `${c.parentName} → ${c.name}` : c.name}
-                          </span>
-                        </label>
-                      ))
-                    ) : (
-                      // Hierarchical view: parent groups + children
-                      grouped.topLevel.map((parent) => {
-                        const children = grouped.byParent.get(parent.id) ?? [];
-                        return (
-                          <div key={parent.id}>
-                            <label className="filter-option">
-                              <input type="checkbox"
-                                checked={filters.categoryIds.includes(parent.id)}
-                                onChange={() => setFilters({
-                                  ...filters,
-                                  categoryIds: toggleArr(filters.categoryIds, parent.id),
-                                })} />
-                              <span className="swatch" style={parent.color ? { background: parent.color } : undefined} />
-                              <span className="lbl"><strong>{parent.name}</strong></span>
-                            </label>
-                            {children.map((c) => (
-                              <label key={c.id} className="filter-option indent">
-                                <input type="checkbox"
-                                  checked={filters.categoryIds.includes(c.id)}
-                                  onChange={() => setFilters({
-                                    ...filters,
-                                    categoryIds: toggleArr(filters.categoryIds, c.id),
-                                  })} />
-                                <span className="swatch" style={c.color ? { background: c.color } : undefined} />
-                                <span className="lbl">{c.name}</span>
-                              </label>
-                            ))}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </>
-              )}
-
-              {tab === 'merchants' && (
-                <>
-                  <div className="filter-search">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="6" cy="6" r="4" /><path d="M9.5 9.5L12 12" />
-                    </svg>
-                    <input type="search" placeholder="Search merchants…"
-                      value={merchSearch} onChange={(e) => setMerchSearch(e.target.value)} />
-                  </div>
-                  <div className="filter-list">
-                    {filteredMerchants.length === 0 && (
-                      <div style={{ padding: 16, color: 'var(--text-3)', fontSize: 13 }}>No merchants match.</div>
-                    )}
-                    {filteredMerchants.map((m) => (
-                      <label key={m} className="filter-option">
-                        <input type="checkbox"
-                          checked={filters.merchants.includes(m)}
-                          onChange={() => setFilters({
-                            ...filters,
-                            merchants: toggleArr(filters.merchants, m),
-                          })} />
-                        <VendorLogo merchant={m} size={20} />
-                        <span className="lbl">{m}</span>
-                      </label>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {tab === 'accounts' && (
-                <>
-                  <div className="filter-search">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="6" cy="6" r="4" /><path d="M9.5 9.5L12 12" />
-                    </svg>
-                    <input type="search" placeholder="Search accounts…"
-                      value={acctSearch} onChange={(e) => setAcctSearch(e.target.value)} />
-                  </div>
-                  <div className="filter-list">
-                    {filteredAccounts.map((a) => (
-                      <label key={a.id} className="filter-option">
-                        <input type="checkbox"
-                          checked={filters.accountIds.includes(a.id)}
-                          onChange={() => setFilters({
-                            ...filters,
-                            accountIds: toggleArr(filters.accountIds, a.id),
-                          })} />
-                        <AccountLogo institution={a.institution} size={20} />
-                        <span className="lbl">{a.name}</span>
-                        <span className="meta">{a.institution}</span>
-                      </label>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {tab === 'date' && (
-                <div className="filter-section">
-                  <div className="preset-row">
-                    {DATE_PRESETS.map((p) => (
-                      <button type="button" key={p.id}
-                        className={'preset-btn' + (filters.dateRange === p.id ? ' active' : '')}
-                        onClick={() => setFilters({ ...filters, dateRange: p.id })}>
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                  {filters.dateRange === 'custom' && (
-                    <div className="row-2">
-                      <label className="field">
-                        From
-                        <input type="date" value={filters.customFrom}
-                          max={filters.customTo || TODAY}
-                          onChange={(e) => setFilters({ ...filters, customFrom: e.target.value })} />
-                      </label>
-                      <label className="field">
-                        To
-                        <input type="date" value={filters.customTo}
-                          min={filters.customFrom} max={TODAY}
-                          onChange={(e) => setFilters({ ...filters, customTo: e.target.value })} />
-                      </label>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {tab === 'amount' && (
-                <div className="filter-section">
-                  <div className="row-2">
-                    <label className="field">
-                      Min ($)
-                      <input type="number" value={filters.amountMin} step="0.01" inputMode="decimal"
-                        placeholder="e.g. 10"
-                        onChange={(e) => setFilters({ ...filters, amountMin: e.target.value })} />
-                    </label>
-                    <label className="field">
-                      Max ($)
-                      <input type="number" value={filters.amountMax} step="0.01" inputMode="decimal"
-                        placeholder="e.g. 500"
-                        onChange={(e) => setFilters({ ...filters, amountMax: e.target.value })} />
-                    </label>
-                  </div>
-                  <p style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 4 }}>
-                    Compares against the absolute amount (so &ldquo;Min 10&rdquo; matches both +$10 and −$10).
-                  </p>
-                </div>
-              )}
-
-              {tab === 'other' && (
-                <div className="filter-list" style={{ paddingTop: 8 }}>
-                  <label className="filter-option">
-                    <input type="checkbox" checked={filters.hideTransfers}
-                      onChange={(e) => setFilters({ ...filters, hideTransfers: e.target.checked })} />
-                    <span className="lbl">Hide transfers (between your own accounts)</span>
-                  </label>
-                  <label className="filter-option">
-                    <input type="checkbox" checked={filters.needsReviewOnly}
-                      onChange={(e) => setFilters({ ...filters, needsReviewOnly: e.target.checked })} />
-                    <span className="lbl">Only transactions that need review</span>
-                  </label>
-                </div>
-              )}
             </div>
+            {filters.dateRange === 'custom' && (
+              <div className="row-2">
+                <label className="field">From
+                  <input type="date" value={filters.customFrom} max={filters.customTo || TODAY}
+                    onChange={(e) => setFilters({ ...filters, customFrom: e.target.value })} />
+                </label>
+                <label className="field">To
+                  <input type="date" value={filters.customTo} min={filters.customFrom} max={TODAY}
+                    onChange={(e) => setFilters({ ...filters, customTo: e.target.value })} />
+                </label>
+              </div>
+            )}
           </div>
+        )}
+      </FilterChip>
 
-          <div className="filter-footer">
-            <button type="button" className="clear-all"
-              onClick={() => setFilters(DEFAULT_FILTERS)}>
-              Clear all filters
-            </button>
-            <button type="button" className="done-btn" onClick={onClose}>Done</button>
+      <FilterChip label="Amount" count={filters.amountMin || filters.amountMax ? 1 : 0} width={240}>
+        {() => (
+          <div className="filter-section">
+            <div className="row-2">
+              <label className="field">Min ($)
+                <input type="number" value={filters.amountMin} step="0.01" inputMode="decimal" placeholder="e.g. 10"
+                  onChange={(e) => setFilters({ ...filters, amountMin: e.target.value })} />
+              </label>
+              <label className="field">Max ($)
+                <input type="number" value={filters.amountMax} step="0.01" inputMode="decimal" placeholder="e.g. 500"
+                  onChange={(e) => setFilters({ ...filters, amountMax: e.target.value })} />
+              </label>
+            </div>
+            <p className="filter-hint">Compares against the absolute amount.</p>
           </div>
-        </div>
-      </div>
-    </div>
+        )}
+      </FilterChip>
+
+      <FilterChip label="More" count={(filters.hideTransfers ? 1 : 0) + (filters.needsReviewOnly ? 1 : 0)} width={280}>
+        {() => (
+          <div className="filter-list" style={{ paddingTop: 8 }}>
+            <label className="filter-option">
+              <input type="checkbox" checked={filters.hideTransfers}
+                onChange={(e) => setFilters({ ...filters, hideTransfers: e.target.checked })} />
+              <span className="lbl">Hide transfers</span>
+            </label>
+            <label className="filter-option">
+              <input type="checkbox" checked={filters.needsReviewOnly}
+                onChange={(e) => setFilters({ ...filters, needsReviewOnly: e.target.checked })} />
+              <span className="lbl">Only needs review</span>
+            </label>
+          </div>
+        )}
+      </FilterChip>
+    </>
   );
 }
 
@@ -1124,7 +1040,6 @@ export function TransactionsClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [sortBy, setSortBy] = useState<SortId>('date-desc');
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shownId, setShownId] = useState<string | null>(null);
   const shownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1442,17 +1357,14 @@ export function TransactionsClient({
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
         />
-        <button
-          type="button"
-          className={'tx-toolbar-btn' + (filterCount > 0 ? ' has-filters' : '')}
-          onClick={() => setShowFilters(true)}
-        >
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 3h10M3.5 7h7M5 11h4" />
-          </svg>
-          Filters
-          {filterCount > 0 && <span className="badge">{filterCount}</span>}
-        </button>
+        <FiltersBar
+          filters={filters}
+          setFilters={setFilters}
+          categories={categories}
+          accounts={accounts}
+          allMerchants={allMerchants}
+          scoped={scoped}
+        />
         <button
           type="button"
           className={'tx-toolbar-btn' + (selectMode ? ' has-filters' : '')}
@@ -1766,18 +1678,6 @@ export function TransactionsClient({
           </div>
           <button type="button" className="tx-bulk-done" onClick={exitSelect}>Done</button>
         </div>
-      )}
-
-      {showFilters && (
-        <FilterPanel
-          onClose={() => setShowFilters(false)}
-          filters={filters}
-          setFilters={setFilters}
-          categories={categories}
-          accounts={accounts}
-          allMerchants={allMerchants}
-          hideAccounts={scoped}
-        />
       )}
     </>
   );
