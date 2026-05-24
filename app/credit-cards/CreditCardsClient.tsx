@@ -1419,66 +1419,25 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
 
   return (
     <>
-      <header className="page-hd">
-        <div />
-        <div className="page-actions">
-          <div className="view-toggle" role="tablist" aria-label="View">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === 'grid'}
-              className={view === 'grid' ? 'active' : ''}
-              onClick={() => setView('grid')}
-            >
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <rect x="2" y="2" width="4" height="4" rx="0.8" />
-                <rect x="8" y="2" width="4" height="4" rx="0.8" />
-                <rect x="2" y="8" width="4" height="4" rx="0.8" />
-                <rect x="8" y="8" width="4" height="4" rx="0.8" />
-              </svg>
-              Grid
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === 'list'}
-              className={view === 'list' ? 'active' : ''}
-              onClick={() => setView('list')}
-            >
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                <path d="M2 4h10M2 7h10M2 10h10" />
-              </svg>
-              List
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <nav className="tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          className={'tab' + (activeTab === 'active' ? ' active' : '')}
-          onClick={() => setActiveTab('active')}
-        >
-          Active <span className="count num">{active.length}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={'tab' + (activeTab === 'closed' ? ' active' : '')}
-          onClick={() => setActiveTab('closed')}
-        >
-          Closed <span className="count num">{closed.length}</span>
-        </button>
-      </nav>
-
-      {activeTab === 'active' && (
-        <>
-          <HeroTiles s={summary} />
-          <MasterUtil s={summary} />
-          <div className="cc-toolbar">
-            <div className="cc-filter-chips" role="group" aria-label="Filter cards">
+      <div className="cc-toolbar">
+        <div className="cc-filter-chips" role="group" aria-label="Filter cards">
+          <button
+            type="button"
+            className={'cc-chip cc-tab' + (activeTab === 'active' ? ' active' : '')}
+            onClick={() => { setActiveTab('active'); setSelectedId(null); }}
+          >
+            Active <span className="count num">{active.length}</span>
+          </button>
+          <button
+            type="button"
+            className={'cc-chip cc-tab' + (activeTab === 'closed' ? ' active' : '')}
+            onClick={() => { setActiveTab('closed'); setSelectedId(null); }}
+          >
+            Closed <span className="count num">{closed.length}</span>
+          </button>
+          {activeTab === 'active' && (
+            <>
+              <span className="cc-toolbar-div" aria-hidden />
               {FILTER_OPTIONS.map((opt) => {
                 const count = filterCounts[opt.id];
                 const disabled = count === 0 && opt.id !== 'all';
@@ -1496,6 +1455,39 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
                   </button>
                 );
               })}
+            </>
+          )}
+        </div>
+        {activeTab === 'active' && (
+          <div className="cc-toolbar-right">
+            <div className="view-toggle" role="tablist" aria-label="View">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'grid'}
+                className={view === 'grid' ? 'active' : ''}
+                onClick={() => setView('grid')}
+              >
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <rect x="2" y="2" width="4" height="4" rx="0.8" />
+                  <rect x="8" y="2" width="4" height="4" rx="0.8" />
+                  <rect x="2" y="8" width="4" height="4" rx="0.8" />
+                  <rect x="8" y="8" width="4" height="4" rx="0.8" />
+                </svg>
+                Grid
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'list'}
+                className={view === 'list' ? 'active' : ''}
+                onClick={() => setView('list')}
+              >
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                  <path d="M2 4h10M2 7h10M2 10h10" />
+                </svg>
+                List
+              </button>
             </div>
             <label className="cc-sort">
               <span>Sort by</span>
@@ -1506,6 +1498,13 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
               </select>
             </label>
           </div>
+        )}
+      </div>
+
+      {activeTab === 'active' && (
+        <>
+          <HeroTiles s={summary} />
+          <MasterUtil s={summary} />
           {view === 'grid' ? (
             gridFiltered.length === 0 ? (
               <div className="card cc-no-results">No cards match this filter.</div>

@@ -904,7 +904,24 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .cc-toolbar-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .cc-toolbar-div {
+    width: 1px;
+    align-self: stretch;
+    min-height: 20px;
+    background: var(--line);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+  .cc-chip.cc-tab {
+    font-weight: 600;
   }
   .cc-filter-chips {
     display: flex;
