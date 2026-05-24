@@ -431,11 +431,7 @@ function EditableStat({
   }
 
   return (
-    <div
-      className="drawer-stat is-editable"
-      onClick={start}
-      title="Click to edit"
-    >
+    <div className="drawer-stat">
       <span className="lbl">{label}</span>
       <span className={'val num' + (isPlaceholder ? ' placeholder' : '')}>{display}</span>
       {sub && <span className="sub">{sub}</span>}
@@ -614,21 +610,6 @@ function InlineDetails({
 }) {
   const hasLimit = card.limit != null && card.limit > 0;
   const util = hasLimit ? (card.balance / (card.limit as number)) * 100 : null;
-  const [closing, setClosing] = useState(false);
-  const [closeError, setCloseError] = useState<string | null>(null);
-
-  async function handleClose() {
-    if (!confirm(`Mark "${card.displayName}" as closed? It'll move to the Closed tab. You can re-open it later.`)) return;
-    setClosing(true);
-    setCloseError(null);
-    const result = await patchAccount(card.id, { isActive: false });
-    setClosing(false);
-    if (!result.ok) {
-      setCloseError(result.error);
-      return;
-    }
-    onUpdated();
-  }
 
   return (
     <div className="cc-expand-content">
@@ -839,21 +820,6 @@ function InlineDetails({
         </div>
       </div>
 
-      <div className="cc-actions">
-        {closeError && (
-          <span className="edit-error" style={{ marginRight: 'auto', alignSelf: 'center' }}>
-            {closeError}
-          </span>
-        )}
-        <button
-          type="button"
-          className="pg-btn danger"
-          onClick={handleClose}
-          disabled={closing}
-        >
-          {closing ? 'Closing…' : 'Mark as closed'}
-        </button>
-      </div>
     </div>
   );
 }
@@ -1270,7 +1236,6 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<SortId>('manual');
   const [filterBy, setFilterBy] = useState<FilterId>('all');
-  const [showAddModal, setShowAddModal] = useState(false);
   // Manual order (grid view) + drag-and-drop state
   const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -1452,12 +1417,6 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
     setDropTarget(null);
   }
 
-  async function reopenCard(id: string) {
-    const result = await patchAccount(id, { isActive: true });
-    if (result.ok) router.refresh();
-    else alert(result.error);
-  }
-
   return (
     <>
       <header className="page-hd">
@@ -1494,12 +1453,6 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
               List
             </button>
           </div>
-          <button type="button" className="pg-btn primary" onClick={() => setShowAddModal(true)}>
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 2v10M2 7h10" />
-            </svg>
-            Add card
-          </button>
         </div>
       </header>
 
@@ -1648,32 +1601,12 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
                   <div className="cc-bal" style={{ color: 'var(--text-3)' }}>
                     <span className="b" style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 500 }}>—</span>
                   </div>
-                  <div className="cc-chev">
-                    <button
-                      type="button"
-                      className="pg-btn"
-                      style={{ padding: '4px 10px', fontSize: 12 }}
-                      onClick={() => reopenCard(c.id)}
-                      title="Re-open card"
-                    >
-                      Re-open
-                    </button>
-                  </div>
+                  <div className="cc-chev" />
                 </div>
               </div>
             ))}
           </div>
         )
-      )}
-
-      {showAddModal && (
-        <AddCardModal
-          onClose={() => setShowAddModal(false)}
-          onCreated={() => {
-            setShowAddModal(false);
-            router.refresh();
-          }}
-        />
       )}
 
       {view === 'grid' && selectedId && (() => {
