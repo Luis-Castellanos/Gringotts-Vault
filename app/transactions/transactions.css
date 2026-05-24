@@ -328,6 +328,34 @@
     gap: 10px;
     min-width: 0;
   }
+  /* Bulk-select checkbox (visual; the row click toggles selection) */
+  .tx-check {
+    width: 17px;
+    height: 17px;
+    border-radius: 5px;
+    border: 1.5px solid var(--text-3);
+    flex-shrink: 0;
+    position: relative;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .tx-check.on {
+    background: var(--green);
+    border-color: var(--green);
+  }
+  .tx-check.on::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 1.5px;
+    width: 4px;
+    height: 8px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .tx-row.selected {
+    background: var(--green-tint);
+  }
   .tx-merchant-name {
     font-size: 14px;
     font-weight: 600;
@@ -816,5 +844,86 @@
   .filter-footer .done-btn:hover {
     background: var(--text-2);
     border-color: var(--text-2);
+  }
+
+  /* ─── Bulk-select action bar (floating) ──────────────────────────── */
+  .tx-bulkbar {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: calc(100vw - 32px);
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    background: var(--surface-elev);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  }
+  .tx-bulkbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  .tx-bulkbar-count strong { color: var(--text-1); }
+  .tx-bulk-link {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--blue-text);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+  }
+  .tx-bulk-link:hover { text-decoration: underline; }
+  .tx-bulkbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .tx-bulkbar-actions button,
+  .tx-bulk-cat {
+    appearance: none;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    color: var(--text-1);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .tx-bulkbar-actions button:hover:not(:disabled),
+  .tx-bulk-cat:hover:not(:disabled) {
+    background: var(--surface-hover);
+    border-color: var(--text-3);
+  }
+  .tx-bulkbar-actions button:disabled,
+  .tx-bulk-cat:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .tx-bulk-done {
+    appearance: none;
+    background: var(--text-1);
+    color: var(--bg);
+    border: 0;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
   }
 }

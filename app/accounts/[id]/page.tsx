@@ -107,7 +107,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           <AccountDetailHeader account={account} series={series} />
 
           <div className="ad-body">
-            <section className="ad-transactions">
+            <section className="ad-transactions transactions-page">
               <TransactionsClient
                 txns={txns}
                 total={total}

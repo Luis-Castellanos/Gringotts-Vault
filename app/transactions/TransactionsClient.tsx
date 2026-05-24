@@ -696,6 +696,11 @@ export function TransactionsClient({
   const [shownId, setShownId] = useState<string | null>(null);
   const shownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Bulk selection ("Edit multiple")
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
   // Filtering, search and sort all run server-side. `rows` holds the current
   // result page(s); `total` is the count matching the active filters. Changing
   // a filter/sort refetches page 0 (debounced); scrolling appends pages. A
@@ -811,6 +816,38 @@ export function TransactionsClient({
     [categories],
   );
 
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }, []);
+  const enterSelect = () => { setSelectMode(true); setSelectedId(null); };
+  const exitSelect = () => { setSelectMode(false); setSelected(new Set()); };
+
+  const bulkApply = useCallback(
+    async (patch: { categoryId?: string | null; isTransfer?: boolean; needsReview?: boolean }) => {
+      const ids = [...selected];
+      if (ids.length === 0 || bulkBusy) return;
+      setBulkBusy(true);
+      try {
+        await fetch('/api/transactions/bulk', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ids, ...patch }),
+        });
+      } catch {
+        /* ignore — list refetch below reflects the true state */
+      }
+      setBulkBusy(false);
+      setSelected(new Set());
+      void runFetch(0);
+    },
+    [selected, bulkBusy, runFetch],
+  );
+
   // The locked account doesn't count as a user-applied filter.
   const filterCount =
     activeFilterCount(filters) - (scoped && filters.accountIds.length > 0 ? 1 : 0);
@@ -836,6 +873,16 @@ export function TransactionsClient({
           </svg>
           Filters
           {filterCount > 0 && <span className="badge">{filterCount}</span>}
+        </button>
+        <button
+          type="button"
+          className={'tx-toolbar-btn' + (selectMode ? ' has-filters' : '')}
+          onClick={() => (selectMode ? exitSelect() : enterSelect())}
+        >
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 4.5h6M2 9.5h6M10.5 3l1.5 1.5L10.5 6M10.5 8l1.5 1.5L10.5 11" />
+          </svg>
+          {selectMode ? 'Done' : 'Select'}
         </button>
         <div className="spacer" />
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortId)}>
@@ -883,18 +930,21 @@ export function TransactionsClient({
                 const isPositive = t.amount > 0;
                 const isOpen = selectedId === t.id;
                 const showContent = isOpen || shownId === t.id;
+                const isSel = selected.has(t.id);
                 return (
                   <div key={t.id} className={'tx-row-wrap' + (isOpen ? ' open' : '')}>
                     <div
                       className={
                         'tx-row' +
                         (t.isTransfer ? ' transfer' : '') +
-                        (t.needsReview ? ' needs-review' : '')
+                        (t.needsReview ? ' needs-review' : '') +
+                        (selectMode && isSel ? ' selected' : '')
                       }
                       title={t.rawDescription}
-                      onClick={() => setSelectedId(isOpen ? null : t.id)}
+                      onClick={() => (selectMode ? toggleSelect(t.id) : setSelectedId(isOpen ? null : t.id))}
                     >
                       <div className="tx-merchant">
+                        {selectMode && <span className={'tx-check' + (isSel ? ' on' : '')} aria-hidden />}
                         <VendorLogo merchant={t.merchant} size={28} />
                         <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                           <span className="tx-merchant-name">
@@ -981,6 +1031,38 @@ export function TransactionsClient({
           style={{ textAlign: 'center', padding: '18px 0 8px', fontSize: 13, color: 'var(--text-3)', minHeight: 1 }}
         >
           {loadingMore ? 'Loading more…' : ''}
+        </div>
+      )}
+
+      {selectMode && (
+        <div className="tx-bulkbar">
+          <div className="tx-bulkbar-left">
+            <span className="tx-bulkbar-count"><strong>{selected.size}</strong> selected</span>
+            <button type="button" className="tx-bulk-link" onClick={() => setSelected(new Set(rows.map((r) => r.id)))}>
+              Select all loaded
+            </button>
+            {selected.size > 0 && (
+              <button type="button" className="tx-bulk-link" onClick={() => setSelected(new Set())}>Clear</button>
+            )}
+          </div>
+          <div className="tx-bulkbar-actions">
+            <select
+              className="tx-bulk-cat"
+              value=""
+              disabled={selected.size === 0 || bulkBusy}
+              onChange={(e) => { if (e.target.value) void bulkApply({ categoryId: e.target.value, needsReview: false }); }}
+            >
+              <option value="">Categorize…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.parentName ? `${c.parentName} → ${c.name}` : c.name}</option>
+              ))}
+            </select>
+            <button type="button" disabled={selected.size === 0 || bulkBusy} onClick={() => void bulkApply({ needsReview: false })}>Mark reviewed</button>
+            <button type="button" disabled={selected.size === 0 || bulkBusy} onClick={() => void bulkApply({ needsReview: true })}>Add to review</button>
+            <button type="button" disabled={selected.size === 0 || bulkBusy} onClick={() => void bulkApply({ isTransfer: true })}>Mark transfer</button>
+            <button type="button" disabled={selected.size === 0 || bulkBusy} onClick={() => void bulkApply({ isTransfer: false })}>Not transfer</button>
+          </div>
+          <button type="button" className="tx-bulk-done" onClick={exitSelect}>Done</button>
         </div>
       )}
 
