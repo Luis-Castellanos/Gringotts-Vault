@@ -181,6 +181,9 @@ export const properties = pgTable(
     // (originalPrincipal / interestRate / monthlyPayment / maturityDate) drive
     // the amortization table, and its derived balance drives equity.
     mortgageAccountId: uuid('mortgage_account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    // Escrow sub-account (asset) this property's mortgage escrow accumulates in;
+    // created on demand when a payment is first split with an escrow part.
+    escrowAccountId: uuid('escrow_account_id').references(() => accounts.id, { onDelete: 'set null' }),
     isActive: boolean('is_active').notNull().default(true), // owned vs sold
     soldDate: date('sold_date'),
     soldPrice: numeric('sold_price', { precision: 14, scale: 2 }),
@@ -421,6 +424,10 @@ export const transactions = pgTable(
     transferPairId: uuid('transfer_pair_id').references((): AnyPgColumn => transactions.id, {
       onDelete: 'set null',
     }),
+    // True when this transaction is broken into transaction_splits parts. The
+    // amount stays unchanged (balances untouched); category/flow reports expand
+    // the splits instead of using this row's categoryId. See lib/transactions/split.
+    isSplit: boolean('is_split').notNull().default(false),
 
     notes: text('notes'),
     tags: text('tags').array(),
@@ -447,6 +454,38 @@ export const transactions = pgTable(
       'transactions_no_self_transfer',
       sql`${t.transferPairId} IS NULL OR ${t.transferPairId} <> ${t.id}`,
     ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// transaction_splits — break one transaction into categorized parts.
+//
+// The parent transaction's `amount` is left untouched, so account balances are
+// unaffected (sum of transactions is unchanged). Category/flow reports expand a
+// split parent (transactions.is_split = true) into its parts instead of using
+// the parent's own category. A transfer part (e.g. mortgage principal → the
+// loan account, or escrow → an escrow account) additionally creates a real
+// destination transaction in the target account, linked via transfer_txn_id, so
+// the money actually moves between accounts. Parts must sum to the parent amount.
+// First consumer: the mortgage payment split (principal / interest / escrow).
+// ---------------------------------------------------------------------------
+
+export const transactionSplits = pgTable(
+  'transaction_splits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    transactionId: uuid('transaction_id').notNull().references(() => transactions.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
+    amount: numeric('amount', { precision: 14, scale: 2 }).notNull(),
+    isTransfer: boolean('is_transfer').notNull().default(false),
+    // The +leg created in the destination account for a transfer part.
+    transferTxnId: uuid('transfer_txn_id').references((): AnyPgColumn => transactions.id, { onDelete: 'set null' }),
+    label: text('label'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    txnIdx: index('transaction_splits_txn_idx').on(t.transactionId),
   }),
 );
 
