@@ -171,6 +171,11 @@ export function GoalsClient({ goals, accountOptions, debts }: { goals: GoalView[
 
       {goals.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-20 text-center">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-surface-2 text-text-muted">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" />
+            </svg>
+          </div>
           <h2 className="text-[16px] font-semibold mb-1">No goals yet</h2>
           <p className="text-[13px] text-text-tertiary max-w-md mx-auto mb-5">
             Create a savings goal (emergency fund, down payment) or a debt-payoff goal — assign accounts and Vault tracks the progress automatically.

@@ -2,6 +2,12 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Polish: empty states + skeleton drift.** Brought the Investments
+  empty state up to the shared pattern (icon + heading + description + a link to
+  Accounts) and gave the Goals empty state its icon, so Real Estate / Goals /
+  Investments now read uniformly. Fixed stale Real Estate loading skeleton — it
+  rendered 4 stat-tile placeholders but the page grew to 5 tiles (Monthly rent +
+  Monthly P&I added in later phases); now matches the live 5-tile grid.
 - 2026-05-25 — **Market-data provider wired into Settings.** New **Market data**
   panel in Settings to store the Twelve Data API key (DB-backed, or `MARKET_DATA_KEY`
   env), with a **Test connection** button that probes the provider with the typed-or-

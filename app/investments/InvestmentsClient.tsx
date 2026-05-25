@@ -73,8 +73,19 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
     return (
       <>
         <PageHeader title="Investments" subtitle="Brokerage, retirement, and other holdings." className="mb-8" />
-        <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-16 text-center text-[13px] text-text-tertiary">
-          No investment accounts yet. Add a brokerage or retirement account on the Accounts page and it&rsquo;ll show here.
+        <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-20 text-center">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-surface-2 text-text-muted">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M3 17l6-6 4 4 8-8" /><path d="M21 7v5h-5" />
+            </svg>
+          </div>
+          <h2 className="text-[16px] font-semibold mb-1">No investment accounts yet</h2>
+          <p className="text-[13px] text-text-tertiary max-w-md mx-auto mb-5">
+            Add a brokerage, retirement, or crypto account and Vault tracks its value over time, allocation, and growth here.
+          </p>
+          <Link href="/accounts" className="rounded-lg bg-accent-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-500/90">
+            Go to Accounts
+          </Link>
         </div>
       </>
     );
