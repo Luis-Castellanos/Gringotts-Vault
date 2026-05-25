@@ -167,6 +167,25 @@ export function computeYTD(year: number): YTD {
   };
 }
 
+// Aggregate where net pay landed across a year, by destination account.
+export function depositsByBankYTD(year: number): { bank: string; last4: string; total: number; pct: number }[] {
+  const stubs = STUBS.filter((s) => s.date.startsWith(String(year)));
+  const map = new Map<string, { bank: string; last4: string; total: number }>();
+  for (const s of stubs) {
+    for (const d of s.deposits) {
+      const key = `${d.bank}|${d.last4}`;
+      const cur = map.get(key) ?? { bank: d.bank, last4: d.last4, total: 0 };
+      cur.total += d.amount;
+      map.set(key, cur);
+    }
+  }
+  const arr = [...map.values()];
+  const grand = arr.reduce((s, x) => s + x.total, 0);
+  return arr
+    .map((x) => ({ ...x, total: +x.total.toFixed(2), pct: grand > 0 ? (x.total / grand) * 100 : 0 }))
+    .sort((a, b) => b.total - a.total);
+}
+
 // ─── Formatters ─────────────────────────────────────────────────────────────
 export function fmtMoney(n: number, { sign = false, decimals = 2 }: { sign?: boolean; decimals?: number } = {}): string {
   const prefix = sign && n > 0 ? '+' : '';

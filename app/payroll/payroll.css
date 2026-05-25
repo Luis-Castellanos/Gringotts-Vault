@@ -537,10 +537,93 @@
     display: flex; flex-wrap: wrap; gap: 4px;
   }
   .stub-list-row .amt {
-    text-align: right; font-size: 14px; font-weight: 600; color: var(--text-1);
+    display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+    font-size: 14px; font-weight: 600; color: var(--text-1);
   }
   .stub-list-row .amt.green { color: var(--green-text); }
   .stub-list-row .amt.red   { color: var(--red-text); }
   .stub-list-row .amt.blue  { color: var(--blue-text); }
   .stub-list-row .amt.muted { color: var(--text-2); font-weight: 500; }
+  .stub-list-row .amt .amt-sub {
+    font-size: 10.5px; font-weight: 500; color: var(--text-3); letter-spacing: 0;
+  }
+  .stub-list-row .amt .mom-chip {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+    display: inline-flex; align-items: center; gap: 2px;
+  }
+  .stub-list-row .amt .mom-chip.up { color: var(--green-text); }
+  .stub-list-row .amt .mom-chip.down { color: var(--red-text); }
+  .stub-list-row .col-period .col-dests {
+    font-size: 11px; color: var(--text-3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* Totals footer */
+  .stub-list-row.foot {
+    cursor: default;
+    border-top: 1px solid var(--line-strong);
+    background: var(--surface-elev);
+  }
+  .stub-list-row.foot:hover { background: var(--surface-elev); }
+  .stub-list-row.foot .col-date .d { color: var(--text-2); }
+  .stub-list-row.foot .amt { font-weight: 700; }
+
+  /* ─── YTD: gross-split bar ─────────────────────────── */
+  .ytd-split { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; max-width: 460px; }
+  .ytd-split-bar {
+    display: flex; height: 9px; border-radius: 5px; overflow: hidden;
+    background: var(--surface-elev);
+  }
+  .ytd-split-bar .seg { height: 100%; }
+  .ytd-split-bar .seg.net { background: var(--green); }
+  .ytd-split-bar .seg.tax { background: var(--red); }
+  .ytd-split-bar .seg.ded { background: var(--blue); }
+  .ytd-split-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11.5px; color: var(--text-3); }
+  .ytd-split-legend span { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+  .ytd-split-legend i { width: 8px; height: 8px; border-radius: 2px; }
+  .ytd-split-legend i.net { background: var(--green); }
+  .ytd-split-legend i.tax { background: var(--red); }
+  .ytd-split-legend i.ded { background: var(--blue); }
+  .ytd-projection {
+    margin-top: 10px; font-size: 12.5px; color: var(--amber-text);
+  }
+  .ytd-projection b { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ─── YTD hero stats (right) ───────────────────────── */
+  .ytd-hero-r { gap: 14px; }
+  .ytd-hero-stat { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .ytd-hero-stat-sub { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+  /* ─── YTD: net pay by destination ──────────────────── */
+  .ytd-dests { display: flex; flex-direction: column; }
+  .ytd-dest {
+    display: grid; grid-template-columns: 1fr 90px auto 42px;
+    gap: 12px; align-items: center;
+    padding: var(--row-pad) 0; border-top: 1px solid var(--line);
+    font-size: var(--line-fz);
+  }
+  .ytd-dest:first-child { border-top: 0; }
+  .ytd-dest .bank { color: var(--text-1); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ytd-dest .bank .last4 { color: var(--text-3); font-weight: 400; font-size: 12px; }
+  .ytd-dest .bar { height: 6px; border-radius: 3px; background: var(--surface-elev); overflow: hidden; }
+  .ytd-dest .bar span { display: block; height: 100%; background: var(--green); }
+  .ytd-dest .amt { text-align: right; font-weight: 600; color: var(--text-1); }
+  .ytd-dest .pct { text-align: right; font-size: 12px; color: var(--text-3); }
+
+  /* ─── YTD: year over year ──────────────────────────── */
+  .ytd-yoy { display: flex; flex-direction: column; }
+  .ytd-yoy-row {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 18px; align-items: baseline;
+    padding: 7px 0; border-top: 1px solid var(--line);
+    font-size: var(--line-fz); font-variant-numeric: tabular-nums;
+  }
+  .ytd-yoy-row.head { border-top: 0; padding-top: 0; }
+  .ytd-yoy-row .k { color: var(--text-2); }
+  .ytd-yoy-row .num { text-align: right; min-width: 84px; color: var(--text-1); font-weight: 600; }
+  .ytd-yoy-row .yr {
+    text-align: right; min-width: 84px; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.04em; color: var(--text-3); text-transform: uppercase;
+    display: inline-flex; align-items: center; justify-content: flex-end; gap: 5px;
+  }
+  .ytd-yoy-row .yr .partial-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+  .ytd-yoy-note { margin-top: 10px; font-size: 11.5px; color: var(--text-3); }
 }

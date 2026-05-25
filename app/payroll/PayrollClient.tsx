@@ -7,6 +7,7 @@ import {
   EVENTS,
   computeStub,
   computeYTD,
+  depositsByBankYTD,
   fmtMoney,
   fmtMoneyParts,
   fmtDate,
@@ -440,11 +441,16 @@ function AllStubsView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) 
           <div className="r">Net</div>
         </div>
         <div className="stubs-list-body">
-          {rows.map((s) => {
+          {rows.map((s, i) => {
             const evt = eventByDate[s.date];
             const chips: { tone: EventTone; label: string }[] = [];
             if (s.bonus > 0) chips.push({ tone: 'purple', label: 'Bonus' });
             if (evt) chips.push({ tone: evt.tone, label: evt.label });
+            const prevGross = i > 0 ? rows[i - 1]!.gross : null;
+            const delta = prevGross != null ? +(s.gross - prevGross).toFixed(2) : 0;
+            const effTax = s.gross > 0 ? (s.taxes.total / s.gross) * 100 : 0;
+            const takeHome = s.gross > 0 ? (s.net / s.gross) * 100 : 0;
+            const dests = s.deposits.map((d) => d.bank).join(' · ');
             return (
               <div key={s.id} className="stub-list-row" onClick={() => onJumpToStub(s.id)}>
                 <div className="col-date">
@@ -455,22 +461,49 @@ function AllStubsView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) 
                   <span className="p">{s.period}</span>
                   {chips.length > 0 && (
                     <span className="evts">
-                      {chips.map((c, i) => (
-                        <span key={i} className={'evt-chip ' + c.tone}>
+                      {chips.map((c, j) => (
+                        <span key={j} className={'evt-chip ' + c.tone}>
                           {c.label}
                         </span>
                       ))}
                     </span>
                   )}
+                  {dests && <span className="col-dests">→ {dests}</span>}
                 </div>
-                <div className="amt muted">{fmtMoney(s.gross)}</div>
+                <div className="amt muted">
+                  {fmtMoney(s.gross)}
+                  {delta !== 0 && (
+                    <span className={'mom-chip ' + (delta > 0 ? 'up' : 'down')}>
+                      {delta > 0 ? '▲' : '▼'} {fmtMoney(Math.abs(delta), { decimals: 0 })}
+                    </span>
+                  )}
+                </div>
                 <div className="amt blue">{fmtMoney(s.deductions.total)}</div>
-                <div className="amt red">{fmtMoney(s.taxes.total)}</div>
-                <div className="amt green">{fmtMoney(s.net)}</div>
+                <div className="amt red">
+                  {fmtMoney(s.taxes.total)}
+                  <span className="amt-sub">{effTax.toFixed(1)}% eff.</span>
+                </div>
+                <div className="amt green">
+                  {fmtMoney(s.net)}
+                  <span className="amt-sub">{takeHome.toFixed(0)}% take-home</span>
+                </div>
               </div>
             );
           })}
         </div>
+        {rows.length > 0 && (
+          <div className="stub-list-row foot">
+            <div className="col-date">
+              <span className="d">Totals</span>
+              <span className="v">{rows.length} stubs</span>
+            </div>
+            <div className="col-period" />
+            <div className="amt muted">{fmtMoney(rows.reduce((a, s) => a + s.gross, 0))}</div>
+            <div className="amt blue">{fmtMoney(rows.reduce((a, s) => a + s.deductions.total, 0))}</div>
+            <div className="amt red">{fmtMoney(rows.reduce((a, s) => a + s.taxes.total, 0))}</div>
+            <div className="amt green">{fmtMoney(rows.reduce((a, s) => a + s.net, 0))}</div>
+          </div>
+        )}
       </section>
     </>
   );
@@ -487,6 +520,27 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
   const maxStubGross = Math.max(...ytd.stubs.map((s) => s.gross));
   const avgNet = ytd.stubCount > 0 ? ytd.net / ytd.stubCount : 0;
   const p = fmtMoneyParts(ytd.net);
+
+  // Derived insights
+  const totalComp = +(ytd.gross + ytd.employerTotal).toFixed(2);
+  const savings = +(ytd.k401Contrib + ytd.k401Match + ytd.espp + ytd.fsa).toFixed(2);
+  const savingsRate = ytd.gross > 0 ? (savings / ytd.gross) * 100 : 0;
+  const netPct = ytd.gross > 0 ? (ytd.net / ytd.gross) * 100 : 0;
+  const taxPct = ytd.gross > 0 ? (ytd.taxesYours / ytd.gross) * 100 : 0;
+  const dedPct = ytd.gross > 0 ? (ytd.deductionsTotal / ytd.gross) * 100 : 0;
+  const annualFactor = ytd.stubCount > 0 ? 12 / ytd.stubCount : 1;
+  const dests = depositsByBankYTD(year);
+  const yoy = [2025, 2026].map((y) => {
+    const d = computeYTD(y);
+    return {
+      year: y,
+      gross: d.gross,
+      net: d.net,
+      effRate: d.gross > 0 ? (d.taxesYours / d.gross) * 100 : 0,
+      takeHome: d.gross > 0 ? (d.net / d.gross) * 100 : 0,
+      partial: d.stubCount < 12,
+    };
+  });
 
   return (
     <>
@@ -543,10 +597,36 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
                 · Deductions <b>{fmtMoney(ytd.deductionsTotal)}</b>
               </span>
             </div>
+            {/* Where your gross went — 100% split */}
+            <div className="ytd-split">
+              <div className="ytd-split-bar">
+                <span className="seg net" style={{ width: `${netPct}%` }} title={`Net ${netPct.toFixed(0)}%`} />
+                <span className="seg tax" style={{ width: `${taxPct}%` }} title={`Taxes ${taxPct.toFixed(0)}%`} />
+                <span className="seg ded" style={{ width: `${dedPct}%` }} title={`Deductions ${dedPct.toFixed(0)}%`} />
+              </div>
+              <div className="ytd-split-legend">
+                <span><i className="net" /> Net {netPct.toFixed(0)}%</span>
+                <span><i className="tax" /> Taxes {taxPct.toFixed(0)}%</span>
+                <span><i className="ded" /> Deductions {dedPct.toFixed(0)}%</span>
+              </div>
+            </div>
+            {isPartial && (
+              <div className="ytd-projection">
+                On pace for ~<b>{fmtMoney(ytd.net * annualFactor, { decimals: 0 })}</b> net
+                {' '}(<b>{fmtMoney(ytd.gross * annualFactor, { decimals: 0 })}</b> gross) this year
+              </div>
+            )}
           </div>
           <div className="ytd-hero-r">
-            <span className="avg-lbl">Avg / stub</span>
-            <span className="avg num">{fmtMoney(avgNet)}</span>
+            <div className="ytd-hero-stat">
+              <span className="avg-lbl">Total comp</span>
+              <span className="avg num">{fmtMoney(totalComp, { decimals: 0 })}</span>
+              <span className="ytd-hero-stat-sub">incl. {fmtMoney(ytd.employerTotal, { decimals: 0 })} employer</span>
+            </div>
+            <div className="ytd-hero-stat">
+              <span className="avg-lbl">Avg / stub</span>
+              <span className="avg num">{fmtMoney(avgNet)}</span>
+            </div>
           </div>
         </section>
 
@@ -665,7 +745,7 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
           <section className="card banner-card">
             <div className="card-banner green">
               <span className="ttl">Saved + invested</span>
-              <span className="meta">YTD</span>
+              <span className="meta">{savingsRate.toFixed(0)}% savings rate</span>
             </div>
             <div className="card-body">
               <div className="lines">
@@ -707,6 +787,58 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
                   </div>
                 ))}
               </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="row-pair">
+          <section className="card banner-card">
+            <div className="card-banner green">
+              <span className="ttl">Net pay by destination</span>
+              <span className="meta">{dests.length} {dests.length === 1 ? 'account' : 'accounts'}</span>
+            </div>
+            <div className="card-body">
+              <div className="ytd-dests">
+                {dests.map((d, i) => (
+                  <div key={i} className="ytd-dest">
+                    <span className="bank">{d.bank} <span className="last4">····{d.last4}</span></span>
+                    <span className="bar"><span style={{ width: `${d.pct}%` }} /></span>
+                    <span className="amt num">{fmtMoney(d.total)}</span>
+                    <span className="pct num">{d.pct.toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="card banner-card">
+            <div className="card-banner blue">
+              <span className="ttl">Year over year</span>
+              <span className="meta">2025 vs 2026</span>
+            </div>
+            <div className="card-body">
+              <div className="ytd-yoy">
+                <div className="ytd-yoy-row head">
+                  <span />
+                  {yoy.map((y) => (
+                    <span key={y.year} className="yr">
+                      {y.year}{y.partial && <i className="partial-dot" title="Partial year" />}
+                    </span>
+                  ))}
+                </div>
+                {([
+                  ['Gross', (y: (typeof yoy)[number]) => fmtMoney(y.gross, { decimals: 0 })],
+                  ['Net', (y: (typeof yoy)[number]) => fmtMoney(y.net, { decimals: 0 })],
+                  ['Effective tax', (y: (typeof yoy)[number]) => `${y.effRate.toFixed(1)}%`],
+                  ['Take-home', (y: (typeof yoy)[number]) => `${y.takeHome.toFixed(0)}%`],
+                ] as const).map(([label, fn]) => (
+                  <div key={label} className="ytd-yoy-row">
+                    <span className="k">{label}</span>
+                    {yoy.map((y) => <span key={y.year} className="num">{fn(y)}</span>)}
+                  </div>
+                ))}
+              </div>
+              <div className="ytd-yoy-note">Raw YTD totals — partial years aren’t annualized.</div>
             </div>
           </section>
         </div>
