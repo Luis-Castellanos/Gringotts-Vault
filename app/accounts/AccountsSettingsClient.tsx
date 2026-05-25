@@ -320,16 +320,25 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
               TYPE_ORDER.filter((t) => byType.has(t)).map((t) => {
                 const typeRows = byType.get(t)!.slice().sort((a, b) => a.name.localeCompare(b.name));
                 const typeTotal = typeRows.reduce((s, a) => s + a.balance, 0);
+                const subKey = `${top}:${t}`;
+                const subOpen = !collapsed.has(subKey);
                 return (
-                  <div key={t} className="acctset-subgroup">
-                    <div className="acctset-subgroup-head">
-                      <span className="acctset-subgroup-name">{accountTypeLabel(t)}</span>
+                  <div key={t} className={'acctset-subgroup' + (subOpen ? '' : ' collapsed')}>
+                    <div
+                      className="acctset-subgroup-head"
+                      role="button"
+                      tabIndex={0}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => toggleGroup(subKey)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGroup(subKey); } }}
+                    >
+                      <span className="acctset-subgroup-name"><Caret open={subOpen} small /> {accountTypeLabel(t)}</span>
                       <span className="acctset-subgroup-count">{typeRows.length}</span>
                       <span className="acctset-subgroup-total numeric">{usd.format(typeTotal)}</span>
                     </div>
-                    {view === 'grid'
+                    {subOpen && (view === 'grid'
                       ? <div className="acctset-grid">{orderRows(t, typeRows).map((a, _i, arr) => renderCard(a, t, arr))}</div>
-                      : <ul className="acctset-list">{typeRows.map(renderAccount)}</ul>}
+                      : <ul className="acctset-list">{typeRows.map(renderAccount)}</ul>)}
                   </div>
                 );
               })}
