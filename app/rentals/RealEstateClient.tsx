@@ -1,11 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import type { MortgageAccountOption, Portfolio, PropertyRow } from '@/lib/properties/load';
 import { PropertyForm, propertyTypeLabel } from './PropertyForm';
 import { addressLine, equityPct, fmtMoney0, fmtPct, specLine } from './format';
+
+const SORT_OPTIONS = [
+  { id: 'default', label: 'Default order' },
+  { id: 'value', label: 'Value · high → low' },
+  { id: 'equity', label: 'Equity · high → low' },
+  { id: 'newest', label: 'Newest first' },
+  { id: 'name', label: 'Name (A → Z)' },
+] as const;
+type SortId = (typeof SORT_OPTIONS)[number]['id'];
 
 function HouseImage({ url, alt, className = '' }: { url: string | null; alt: string; className?: string }) {
   if (url) {
@@ -37,10 +46,11 @@ function PropertyCard({ p }: { p: PropertyRow }) {
   const value = p.marketValue ?? p.acquisitionPrice ?? 0;
   const ePct = equityPct(p);
   const ePctClamped = ePct == null ? 0 : Math.max(0, Math.min(100, ePct));
+  const realizedGain = !p.isActive && p.soldPrice != null && p.acquisitionPrice != null ? p.soldPrice - p.acquisitionPrice : null;
   return (
     <Link
       href={`/rentals/${p.id}`}
-      className="group flex flex-col rounded-2xl bg-surface-1 border border-border-subtle overflow-hidden hover:border-border-strong transition-colors"
+      className={`group flex flex-col rounded-2xl bg-surface-1 border border-border-subtle overflow-hidden hover:border-border-strong transition-colors ${p.isActive ? '' : 'opacity-75'}`}
     >
       <div className="relative">
         <HouseImage url={p.imageUrl} alt={p.name} className="h-44 w-full" />
@@ -63,29 +73,45 @@ function PropertyCard({ p }: { p: PropertyRow }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 pt-1">
-          <div>
-            <div className="text-[10.5px] uppercase tracking-[0.06em] text-text-muted">Value</div>
-            <div className="text-[14px] font-semibold tabular-nums">{fmtMoney0(value)}</div>
+        {p.isActive ? (
+          <>
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <div>
+                <div className="text-[10.5px] uppercase tracking-[0.06em] text-text-muted">Value</div>
+                <div className="text-[14px] font-semibold tabular-nums">{fmtMoney0(value)}</div>
+              </div>
+              <div>
+                <div className="text-[10.5px] uppercase tracking-[0.06em] text-text-muted">Loan</div>
+                <div className="text-[14px] font-semibold tabular-nums text-negative">{p.loanBalance > 0 ? fmtMoney0(p.loanBalance) : '$0'}</div>
+              </div>
+              <div>
+                <div className="text-[10.5px] uppercase tracking-[0.06em] text-text-muted">Equity</div>
+                <div className="text-[14px] font-semibold tabular-nums text-positive">{fmtMoney0(p.equity)}</div>
+              </div>
+            </div>
+            <div>
+              <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden">
+                <div className="h-full rounded-full bg-positive" style={{ width: `${ePctClamped}%` }} />
+              </div>
+              <div className="text-[11px] text-text-muted mt-1">
+                {ePct != null ? `${fmtPct(ePct)} equity` : 'Add value + mortgage to see equity'}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div>
+              <div className="text-[10.5px] uppercase tracking-[0.06em] text-text-muted">Sold for</div>
+              <div className="text-[14px] font-semibold tabular-nums">{fmtMoney0(p.soldPrice)}</div>
+            </div>
+            <div>
+              <div className="text-[10.5px] uppercase tracking-[0.06em] text-text-muted">Gain</div>
+              <div className={`text-[14px] font-semibold tabular-nums ${realizedGain != null && realizedGain >= 0 ? 'text-positive' : 'text-negative'}`}>
+                {realizedGain != null ? (realizedGain >= 0 ? '+' : '') + fmtMoney0(realizedGain) : '—'}
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-[10.5px] uppercase tracking-[0.06em] text-text-muted">Loan</div>
-            <div className="text-[14px] font-semibold tabular-nums text-negative">{p.loanBalance > 0 ? fmtMoney0(p.loanBalance) : '$0'}</div>
-          </div>
-          <div>
-            <div className="text-[10.5px] uppercase tracking-[0.06em] text-text-muted">Equity</div>
-            <div className="text-[14px] font-semibold tabular-nums text-positive">{fmtMoney0(p.equity)}</div>
-          </div>
-        </div>
-
-        <div>
-          <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden">
-            <div className="h-full rounded-full bg-positive" style={{ width: `${ePctClamped}%` }} />
-          </div>
-          <div className="text-[11px] text-text-muted mt-1">
-            {ePct != null ? `${fmtPct(ePct)} equity` : 'Add value + mortgage to see equity'}
-          </div>
-        </div>
+        )}
       </div>
     </Link>
   );
@@ -99,7 +125,31 @@ export function RealEstateClient({
   mortgageOptions: MortgageAccountOption[];
 }) {
   const [adding, setAdding] = useState(false);
+  const [sortBy, setSortBy] = useState<SortId>('default');
+  const [showSold, setShowSold] = useState(false);
   const { properties, count, totalMarketValue, totalEquity, totalLoanBalance } = portfolio;
+
+  const soldCount = properties.filter((p) => !p.isActive).length;
+  const monthlyPI = properties
+    .filter((p) => p.isActive)
+    .reduce((s, p) => s + (p.mortgage?.monthlyPayment ?? 0), 0);
+
+  const shown = useMemo(() => {
+    const base = properties.filter((p) => (showSold ? true : p.isActive));
+    const valueOf = (p: PropertyRow) => p.marketValue ?? p.acquisitionPrice ?? 0;
+    const arr = [...base];
+    switch (sortBy) {
+      case 'value': arr.sort((a, b) => valueOf(b) - valueOf(a)); break;
+      case 'equity': arr.sort((a, b) => b.equity - a.equity); break;
+      case 'name': arr.sort((a, b) => a.name.localeCompare(b.name)); break;
+      case 'newest':
+        arr.sort((a, b) => (b.acquisitionDate ?? '').localeCompare(a.acquisitionDate ?? '')); break;
+      default: break; // server order (sortOrder, name)
+    }
+    return arr;
+  }, [properties, sortBy, showSold]);
+
+  const selectCls = 'rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500';
 
   return (
     <>
@@ -120,11 +170,11 @@ export function RealEstateClient({
       </div>
 
       {count > 0 && (
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-4 gap-4 mb-6">
           <Tile label="Portfolio value" value={fmtMoney0(totalMarketValue)} sub={`${count} propert${count === 1 ? 'y' : 'ies'}`} />
           <Tile label="Total equity" value={fmtMoney0(totalEquity)} sub={totalMarketValue > 0 ? `${fmtPct((totalEquity / totalMarketValue) * 100)} of value` : undefined} />
           <Tile label="Loan balance" value={fmtMoney0(totalLoanBalance)} sub="Across linked mortgages" />
-          <Tile label="Avg. equity" value={fmtMoney0(count > 0 ? totalEquity / count : 0)} sub="Per property" />
+          <Tile label="Monthly P&I" value={monthlyPI > 0 ? fmtMoney0(monthlyPI) : '—'} sub="Sum of mortgage payments" />
         </div>
       )}
 
@@ -148,11 +198,31 @@ export function RealEstateClient({
           </button>
         </div>
       ) : (
-        <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-          {properties.map((p) => (
-            <PropertyCard key={p.id} p={p} />
-          ))}
-        </div>
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-[13px] text-text-tertiary">
+              {shown.length} {showSold ? 'shown' : 'active'}
+            </div>
+            <div className="flex items-center gap-3">
+              {soldCount > 0 && (
+                <label className="flex items-center gap-2 text-[13px] text-text-secondary cursor-pointer select-none">
+                  <input type="checkbox" checked={showSold} onChange={(e) => setShowSold(e.target.checked)} className="accent-accent-500" />
+                  Show sold ({soldCount})
+                </label>
+              )}
+              <select className={selectCls} value={sortBy} onChange={(e) => setSortBy(e.target.value as SortId)} aria-label="Sort properties">
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+            {shown.map((p) => (
+              <PropertyCard key={p.id} p={p} />
+            ))}
+          </div>
+        </>
       )}
 
       {adding && <PropertyForm mortgageOptions={mortgageOptions} onClose={() => setAdding(false)} />}

@@ -126,6 +126,63 @@ function AmortizationSection({ schedule }: { schedule: AmortResult }) {
   );
 }
 
+function SellModal({ property, onClose }: { property: PropertyRow; onClose: () => void }) {
+  const router = useRouter();
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [price, setPrice] = useState(property.marketValue != null ? String(property.marketValue) : '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    const body = {
+      isActive: false,
+      soldDate: date || null,
+      soldPrice: price.trim() ? Number(price.replace(/[$,]/g, '')) : null,
+    };
+    const res = await fetch(`/api/properties/${property.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    setSaving(false);
+    if (!res.ok || json.error) {
+      setError(json?.error?.message ?? `HTTP ${res.status}`);
+      return;
+    }
+    router.refresh();
+    onClose();
+  }
+
+  const field = 'w-full rounded-lg bg-surface-2 border border-border-subtle px-3 py-2 text-[14px] text-text-primary focus:outline-none focus:border-accent-500';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <form className="w-full max-w-[420px] rounded-2xl bg-surface-1 border border-border-subtle shadow-2xl p-6" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <h2 className="text-[18px] font-semibold mb-4">Mark as sold</h2>
+        {error && <div className="mb-3 rounded-lg bg-negative/10 border border-negative/30 px-3 py-2 text-[13px] text-negative">{error}</div>}
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5 text-[12px] font-medium text-text-tertiary">
+            Sale date
+            <input className={field} type="date" value={date} onChange={(e) => setDate(e.target.value)} max={new Date().toISOString().slice(0, 10)} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-[12px] font-medium text-text-tertiary">
+            Sale price
+            <input className={field} value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="520000" autoFocus />
+          </label>
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <button type="button" className="rounded-lg px-4 py-2 text-[13px] font-medium text-text-secondary hover:bg-surface-2" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="submit" className="rounded-lg bg-accent-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-500/90 disabled:opacity-60" disabled={saving}>{saving ? 'Saving…' : 'Mark sold'}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function PropertyDetailClient({
   property,
   schedule,
@@ -137,9 +194,37 @@ export function PropertyDetailClient({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [selling, setSelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const value = property.marketValue ?? property.acquisitionPrice ?? 0;
   const ePct = value > 0 ? (property.equity / value) * 100 : null;
+
+  // Appreciation since purchase (active properties with both figures).
+  const appreciation =
+    property.isActive && property.marketValue != null && property.acquisitionPrice != null && property.acquisitionPrice > 0
+      ? property.marketValue - property.acquisitionPrice
+      : null;
+  const appreciationSub =
+    appreciation != null && property.acquisitionPrice
+      ? `${appreciation >= 0 ? '+' : ''}${fmtMoney0(appreciation)} (${fmtPct((appreciation / property.acquisitionPrice) * 100, 1)}) since purchase`
+      : property.marketValue == null
+        ? 'Using purchase price'
+        : undefined;
+
+  const realizedGain =
+    !property.isActive && property.soldPrice != null && property.acquisitionPrice != null
+      ? property.soldPrice - property.acquisitionPrice
+      : null;
+
+  async function reopen() {
+    const res = await fetch(`/api/properties/${property.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ isActive: true, soldDate: null, soldPrice: null }),
+    });
+    if (res.ok) router.refresh();
+    else alert('Could not reopen property.');
+  }
 
   async function del() {
     if (!confirm(`Delete ${property.name}? This removes the property record (the mortgage account is kept).`)) return;
@@ -180,6 +265,11 @@ export function PropertyDetailClient({
               <p className="text-[13px] text-text-tertiary mt-0.5">{addressLine(property) || '—'}</p>
             </div>
             <div className="flex gap-2 shrink-0">
+              {property.isActive ? (
+                <button type="button" onClick={() => setSelling(true)} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">Mark sold</button>
+              ) : (
+                <button type="button" onClick={reopen} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">Reopen</button>
+              )}
               <button type="button" onClick={() => setEditing(true)} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">Edit</button>
               <button type="button" onClick={del} disabled={deleting} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-negative hover:bg-negative/10 disabled:opacity-60">{deleting ? 'Deleting…' : 'Delete'}</button>
             </div>
@@ -193,9 +283,25 @@ export function PropertyDetailClient({
         </div>
       </div>
 
+      {/* Sold banner */}
+      {!property.isActive && (
+        <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border border-border-subtle bg-surface-2 px-5 py-3 text-[13px]">
+          <span className="font-medium text-text-secondary">Sold{property.soldDate ? ` ${fmtDate(property.soldDate)}` : ''}</span>
+          {property.soldPrice != null && <span className="text-text-tertiary">for <span className="tabular-nums text-text-primary">{fmtMoney0(property.soldPrice)}</span></span>}
+          {realizedGain != null && (
+            <span className="text-text-tertiary">
+              realized gain{' '}
+              <span className={`tabular-nums ${realizedGain >= 0 ? 'text-positive' : 'text-negative'}`}>
+                {realizedGain >= 0 ? '+' : ''}{fmtMoney0(realizedGain)}
+              </span>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Metric label="Market value" value={fmtMoney0(property.marketValue ?? property.acquisitionPrice)} sub={property.marketValue == null ? 'Using purchase price' : undefined} />
+        <Metric label="Market value" value={fmtMoney0(property.marketValue ?? property.acquisitionPrice)} sub={appreciationSub} />
         <Metric label="Loan balance" value={property.loanBalance > 0 ? fmtMoney0(property.loanBalance) : '$0'} tone={property.loanBalance > 0 ? 'neg' : undefined} sub={property.mortgage?.name} />
         <Metric label="Equity" value={fmtMoney0(property.equity)} tone="pos" sub={ePct != null ? `${fmtPct(ePct)} of value` : undefined} />
         <Metric label="Monthly payment" value={property.mortgage?.monthlyPayment != null ? fmtMoney(property.mortgage.monthlyPayment) : '—'} sub="P&I (from mortgage)" />
@@ -219,6 +325,7 @@ export function PropertyDetailClient({
       </div>
 
       {editing && <PropertyForm property={property} mortgageOptions={mortgageOptions} onClose={() => setEditing(false)} />}
+      {selling && <SellModal property={property} onClose={() => setSelling(false)} />}
     </>
   );
 }

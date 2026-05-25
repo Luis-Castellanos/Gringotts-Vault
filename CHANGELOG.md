@@ -15,7 +15,10 @@ Reverse chronological. The latest thing first.
   is estimated from the schedule, falling back to transaction-derived then
   original principal. Real Estate moved from "Not started" → "Under development"
   in the sidebar. Deferred: rental income/expenses and splitting the mortgage
-  outflow into principal / interest / escrow.
+  outflow into principal / interest / escrow. _Polish (same day):_ sort dropdown,
+  sold lifecycle (mark sold / reopen + realized-gain banner, show/hide-sold
+  toggle), monthly-P&I portfolio tile, and appreciation-since-purchase on the
+  detail page.
 - 2026-05-25 — **Faster upload/ingest (parallel parse).** The upload route
   (`app/api/documents/upload`) processed files strictly sequentially — store →
   spawn Python parser → ingest, one at a time — so a bulk import idled on

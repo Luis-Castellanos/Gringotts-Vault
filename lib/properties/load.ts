@@ -43,6 +43,8 @@ export type PropertyRow = {
   marketValue: number | null;
   imageUrl: string | null;
   isActive: boolean;
+  soldDate: string | null;
+  soldPrice: number | null;
   sortOrder: number;
   notes: string | null;
   mortgage: MortgageInfo | null;
@@ -173,6 +175,8 @@ export async function loadPortfolio(): Promise<Portfolio> {
       marketValue: num(r.marketValue),
       imageUrl: r.imageUrl,
       isActive: r.isActive,
+      soldDate: r.soldDate,
+      soldPrice: num(r.soldPrice),
       sortOrder: r.sortOrder,
       notes: r.notes,
       mortgage,
@@ -230,6 +234,8 @@ export async function loadProperty(
     marketValue: num(row.marketValue),
     imageUrl: row.imageUrl,
     isActive: row.isActive,
+    soldDate: row.soldDate,
+    soldPrice: num(row.soldPrice),
     sortOrder: row.sortOrder,
     notes: row.notes,
     mortgage,
