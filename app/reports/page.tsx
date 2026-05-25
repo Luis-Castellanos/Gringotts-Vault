@@ -1,4 +1,6 @@
 import { loadAnnualReport, loadReportYears } from '@/lib/reports/load';
+import { loadRecurring } from '@/lib/reports/recurring';
+import { loadAnomalies } from '@/lib/reports/anomalies';
 import { ReportsClient } from './ReportsClient';
 
 export const metadata = { title: 'Reports · Vault' };
@@ -21,11 +23,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   }
 
   const selected = year && years.includes(Number(year)) ? Number(year) : years[0]!;
-  const report = await loadAnnualReport(selected);
+  const [report, recurring, anomalies] = await Promise.all([
+    loadAnnualReport(selected),
+    loadRecurring(),
+    loadAnomalies(),
+  ]);
 
   return (
     <main className="w-full max-w-[1200px] px-10 pt-8 pb-20">
-      <ReportsClient years={years} report={report} />
+      <ReportsClient years={years} report={report} recurring={recurring} anomalies={anomalies} />
     </main>
   );
 }
