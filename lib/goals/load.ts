@@ -4,7 +4,7 @@
  * projection (lib/goals/calc.ts). Balances are derived, so goals track the ledger.
  */
 
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accounts, goalAccounts, goals, transactions } from '@/lib/db/schema';
@@ -217,6 +217,74 @@ export async function loadDebts(): Promise<Debt[]> {
       minPayment: num(r.monthlyPayment),
     }))
     .filter((d) => d.balance > 0);
+}
+
+export type OverAllocatedAccount = { id: string; name: string; balance: number; allocated: number };
+export type AllocationOverview = {
+  totalAvailable: number; // pool: balances across assignable asset accounts
+  totalAllocated: number; // committed to save-up goals
+  available: number; // totalAvailable − totalAllocated (negative = over-allocated)
+  pctAllocated: number; // 0–100+ (capped display handled in UI)
+  overAllocated: OverAllocatedAccount[];
+  hasAllocations: boolean;
+};
+
+/**
+ * Monarch-style "available vs allocated" — how much of your assignable money is
+ * committed to save-up goals vs still free to assign. The pool is your active
+ * asset (non-liability) accounts; allocation is what each save-up goal claims
+ * (entire balance, or a fixed amount). Flags accounts assigned beyond their
+ * balance (e.g. the same account claimed whole by two goals).
+ */
+export async function loadAllocationOverview(): Promise<AllocationOverview> {
+  const [acctRows, links] = await Promise.all([
+    db
+      .select({
+        id: accounts.id,
+        name: accounts.displayName,
+        balance: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
+      })
+      .from(accounts)
+      .leftJoin(transactions, eq(transactions.accountId, accounts.id))
+      .where(and(eq(accounts.isActive, true), ne(accounts.assetClass, 'liability')))
+      .groupBy(accounts.id),
+    db
+      .select({
+        accountId: goalAccounts.accountId,
+        useEntire: goalAccounts.useEntireBalance,
+        alloc: goalAccounts.allocatedAmount,
+      })
+      .from(goalAccounts)
+      .innerJoin(goals, eq(goals.id, goalAccounts.goalId))
+      .where(and(eq(goals.type, 'save_up'), eq(goals.isArchived, false))),
+  ]);
+
+  const balById = new Map(acctRows.map((a) => [a.id, { name: a.name, balance: Math.max(0, Number(a.balance)) }]));
+  const totalAvailable = acctRows.reduce((s, a) => s + Math.max(0, Number(a.balance)), 0);
+
+  const allocByAcct = new Map<string, number>();
+  for (const l of links) {
+    const acct = balById.get(l.accountId);
+    const amt = l.useEntire ? acct?.balance ?? 0 : Number(l.alloc ?? 0);
+    allocByAcct.set(l.accountId, (allocByAcct.get(l.accountId) ?? 0) + amt);
+  }
+
+  let totalAllocated = 0;
+  const overAllocated: OverAllocatedAccount[] = [];
+  for (const [id, allocated] of allocByAcct) {
+    totalAllocated += allocated;
+    const bal = balById.get(id)?.balance ?? 0;
+    if (allocated - bal > 0.01) overAllocated.push({ id, name: balById.get(id)?.name ?? '—', balance: bal, allocated: round2(allocated) });
+  }
+
+  return {
+    totalAvailable: round2(totalAvailable),
+    totalAllocated: round2(totalAllocated),
+    available: round2(totalAvailable - totalAllocated),
+    pctAllocated: totalAvailable > 0 ? round2((totalAllocated / totalAvailable) * 100) : 0,
+    overAllocated,
+    hasAllocations: allocByAcct.size > 0,
+  };
 }
 
 /** Accounts for the goal-assignment picker (id, label, asset class). */

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import type { GoalView } from '@/lib/goals/load';
+import type { AllocationOverview, GoalView } from '@/lib/goals/load';
 import type { SaveStatus } from '@/lib/goals/calc';
 import { PageHeader } from '@/components/PageHeader';
 import { StatTile } from '@/components/StatTile';
@@ -108,7 +108,49 @@ function GoalCard({ g, dnd, onEdit, onDelete }: { g: GoalView; dnd: Dnd; onEdit:
   );
 }
 
-export function GoalsClient({ goals, accountOptions, debts }: { goals: GoalView[]; accountOptions: AccountOption[]; debts: Debt[] }) {
+function AllocationCard({ a }: { a: AllocationOverview }) {
+  const pct = Math.max(0, Math.min(100, a.pctAllocated));
+  const over = a.available < -0.01;
+  return (
+    <section className="rounded-2xl bg-surface-1 border border-border-subtle p-5 mb-8">
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <h2 className="text-[14px] font-semibold">Money assigned to goals</h2>
+        <span className="text-[12px] text-text-tertiary tabular-nums">
+          {fmtPct(a.pctAllocated)} of {fmtMoney0(a.totalAvailable)} assignable
+        </span>
+      </div>
+      <div className="h-3 rounded-full bg-surface-3 overflow-hidden flex">
+        <div className={`h-full ${over ? 'bg-negative' : 'bg-positive'}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="flex items-center gap-4 mt-3 text-[12.5px] flex-wrap">
+        <span className="flex items-center gap-1.5">
+          <span className={`size-2.5 rounded-full ${over ? 'bg-negative' : 'bg-positive'}`} />
+          <span className="text-text-secondary">Assigned</span>
+          <span className="tabular-nums font-medium text-text-primary">{fmtMoney0(a.totalAllocated)}</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-surface-3" />
+          <span className="text-text-secondary">{over ? 'Over-assigned' : 'Available to assign'}</span>
+          <span className={`tabular-nums font-medium ${over ? 'text-negative' : 'text-text-primary'}`}>{fmtMoney0(a.available)}</span>
+        </span>
+      </div>
+      {a.overAllocated.length > 0 && (
+        <div className="mt-3 rounded-lg bg-negative/[0.07] border border-negative/20 px-3 py-2 text-[12px] text-text-secondary">
+          <span className="text-negative font-medium">Over-assigned: </span>
+          {a.overAllocated.map((o, i) => (
+            <span key={o.id}>
+              {i > 0 && ', '}
+              {o.name} ({fmtMoney0(o.allocated)} assigned vs {fmtMoney0(o.balance)} balance)
+            </span>
+          ))}
+          . The same money is committed to more than one goal.
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function GoalsClient({ goals, accountOptions, debts, allocation }: { goals: GoalView[]; accountOptions: AccountOption[]; debts: Debt[]; allocation: AllocationOverview }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<GoalView | null>(null);
@@ -191,6 +233,8 @@ export function GoalsClient({ goals, accountOptions, debts }: { goals: GoalView[
             <StatTile size="lg" label="Debt in payoff" value={fmtMoney0(totalDebt)} tone={totalDebt > 0 ? 'neg' : 'default'} sub={`${payDowns.length} pay-down goal${payDowns.length === 1 ? '' : 's'}`} />
             <StatTile size="lg" label="Goals" value={String(goals.length)} sub="Active" />
           </div>
+
+          {allocation.hasAllocations && <AllocationCard a={allocation} />}
 
           {saveUps.length > 0 && (
             <div className="mb-8">
