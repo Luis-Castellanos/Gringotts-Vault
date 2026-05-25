@@ -363,9 +363,12 @@ Ideas for later, in no particular order. May or may not get built.
 - [ ] **Tax engine** — tax-prep-lite tailored to a single accountant's actual
   return. Build vs integrate Aiwyn's tax engine is an open question; annual rules
   updates required either way. Year-end summary view falls out of this naturally.
-- [ ] **Investment analysis** — sophisticated breakdowns of brokerage / retirement /
-  401k holdings: asset allocation, performance attribution, fees, contributions vs
-  growth. Brokerage accounts already in schema; no functionality yet.
+- [~] **Investment analysis** — **first pass shipped 2026-05-25** (`/investments`,
+  moved to "Under development"): total portfolio value + value-over-time area
+  chart (Fidelity-style) from transaction history, per-account balances with
+  sparklines, and allocation-by-account. `lib/investments/load.ts`. _Still needs a
+  holdings/cost-basis model_ for asset-class allocation, performance attribution,
+  fees, contributions-vs-growth, and per-holding detail.
 - [ ] Subscription tracker (auto-detect recurring charges, surface upcoming renewals)
 - [ ] Net worth goals ("you'd hit $X by Y at current rate")
 - [ ] **Move Categories taxonomy and Vendors list into Vault.** Today they live

@@ -1,24 +1,14 @@
-import { UnderDevelopment } from '@/components/UnderDevelopment';
+import { loadInvestments } from '@/lib/investments/load';
+import { InvestmentsClient } from './InvestmentsClient';
 
 export const metadata = { title: 'Investments · Vault' };
+export const dynamic = 'force-dynamic';
 
-export default function InvestmentsPage() {
+export default async function InvestmentsPage() {
+  const data = await loadInvestments();
   return (
-    <main className="w-full max-w-[1600px] px-12 pt-10 pb-20">
-      <UnderDevelopment
-        title="Investments"
-        description="Sophisticated breakdowns of brokerage, retirement, and 401(k) holdings — past Monarch's surface-level view."
-        features={[
-          'Asset allocation across all investment accounts (stocks / bonds / cash / crypto / real estate)',
-          'Performance attribution — top winners and losers, by holding and by category',
-          'Fees paid — expense ratios, advisory fees, transaction costs over time',
-          'Contributions vs market growth — how much of your balance is yours vs the market\'s',
-          'Per-holding detail: cost basis, gain%, dividends, dividend yield',
-          'Tax-loss harvesting candidates and wash-sale flags',
-          'Portfolio rebalancing suggestions against a target allocation',
-          'Brokerage accounts already in schema; functionality not yet built',
-        ]}
-      />
+    <main className="w-full max-w-[1200px] px-10 pt-8 pb-20">
+      <InvestmentsClient data={data} />
     </main>
   );
 }

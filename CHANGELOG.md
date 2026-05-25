@@ -2,6 +2,14 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Investments (first pass).** `/investments` replaces its
+  placeholder: total portfolio value + 30-day delta + a Fidelity-style
+  value-over-time area chart built from investment-account transaction history,
+  a per-account list (balance, subtype, share, 12-week sparkline), and
+  allocation-by-account. `lib/investments/load.ts`. Holdings / cost basis / true
+  performance need a holdings model (noted on the page + roadmap). Sidebar:
+  Investments moved to "Under development" (only Tax + Forecasting remain "Not
+  started").
 - 2026-05-25 — **Reports (first pass).** `/reports` is now a year-end summary
   instead of a placeholder: a year picker (URL-driven via `?year=`), summary tiles
   (income / spending / net / savings rate), a monthly income-vs-spending bar chart,
