@@ -24,7 +24,7 @@ import { db } from '@/lib/db/client';
 import { documents, imports } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { runExtractor, type ExtractResult } from '@/lib/parser/extract';
-import { ingestHoldings, ingestParsedStatement, ingestPaystub, loadIngestMaps } from '@/lib/ingest';
+import { ingestBalanceSnapshot, ingestHoldings, ingestParsedStatement, ingestPaystub, loadIngestMaps } from '@/lib/ingest';
 
 export const runtime = 'nodejs';
 
@@ -243,6 +243,20 @@ export const POST = handler(async (req: NextRequest) => {
       // recognized statement may legitimately yield no rows.
       if (res.deferred || res.transactions.length === 0) {
         const deferred = res.deferred;
+        // A recognized loan statement contributes its stated balance (e.g. a
+        // mortgage's unpaid principal) as a balance_snapshot — the authoritative
+        // loan balance — without ledger transactions (the payment is captured on
+        // the checking side). buildMortgage then prefers the latest snapshot.
+        if (res.issuer === 'chase_mortgage' && res.summary?.ending_balance != null && res.summary.period_end) {
+          try {
+            await ingestBalanceSnapshot({
+              accountLabel: res.account ?? fileName,
+              accountNumber: res.accountNumber,
+              asOf: res.summary.period_end,
+              balance: res.summary.ending_balance,
+            });
+          } catch { /* snapshot is best-effort; don't fail the upload */ }
+        }
         await db
           .update(documents)
           .set({

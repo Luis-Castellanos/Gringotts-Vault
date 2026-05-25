@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { accounts, categories, holdings as holdingsTable, imports, paystubs, transactions, vendorRules } from '@/lib/db/schema';
+import { accounts, balanceSnapshots, categories, holdings as holdingsTable, imports, paystubs, transactions, vendorRules } from '@/lib/db/schema';
 import { cleanMerchant } from '@/lib/transactions/merchant';
 import { UNCATEGORIZED_SLUG } from '@/lib/transactions/taxonomy';
 import { classifyByRules } from '@/lib/categorize/rules';
@@ -453,6 +453,30 @@ export async function ingestHoldings(args: {
   }));
   await db.insert(holdingsTable).values(values);
   return { accountId, inserted: values.length };
+}
+
+/**
+ * Record a loan statement's stated balance as a `balance_snapshots` row (e.g. a
+ * mortgage's unpaid principal). The mortgage payment itself is captured on the
+ * checking side (split), so the loan statement contributes only the authoritative
+ * balance — buildMortgage prefers the latest snapshot. Idempotent per
+ * (account, as_of). No ledger transactions (avoids double-count + balance skew).
+ */
+export async function ingestBalanceSnapshot(args: {
+  accountLabel: string;
+  accountNumber: string | null;
+  asOf: string;
+  balance: number;
+}): Promise<{ accountId: string }> {
+  const accountId = await getOrCreateAccount(args.accountLabel, args.accountNumber);
+  await db
+    .insert(balanceSnapshots)
+    .values({ accountId, asOfDate: args.asOf, balance: args.balance.toFixed(2), source: 'statement' })
+    .onConflictDoUpdate({
+      target: [balanceSnapshots.accountId, balanceSnapshots.asOfDate],
+      set: { balance: args.balance.toFixed(2), source: 'statement' },
+    });
+  return { accountId };
 }
 
 // ---------------------------------------------------------------------------

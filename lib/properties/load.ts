@@ -8,10 +8,10 @@
  * balance, then to the original principal. Equity = market value − loan balance.
  */
 
-import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { accounts, properties, transactions } from '@/lib/db/schema';
+import { accounts, balanceSnapshots, properties, transactions } from '@/lib/db/schema';
 import { amortize, type AmortResult } from './amortization';
 import { loadTotalMonthlyRent } from './leases';
 
@@ -80,7 +80,7 @@ type AcctTerms = {
   maturityDate: string | null;
 };
 
-function buildMortgage(a: AcctTerms, txnBalance: number | null): MortgageInfo {
+function buildMortgage(a: AcctTerms, txnBalance: number | null, snapshotBalance: number | null): MortgageInfo {
   const sched = amortize({
     principal: a.originalPrincipal ?? 0,
     aprPct: a.interestRate,
@@ -89,7 +89,11 @@ function buildMortgage(a: AcctTerms, txnBalance: number | null): MortgageInfo {
     maturityDate: a.maturityDate,
   });
   let currentBalance: number;
-  if (sched.ok && sched.currentBalance != null) currentBalance = sched.currentBalance;
+  // Most authoritative → least: the statement's stated unpaid principal
+  // (balance_snapshots), then the amortization estimate, then any txn-derived
+  // balance, then the original principal.
+  if (snapshotBalance != null) currentBalance = snapshotBalance;
+  else if (sched.ok && sched.currentBalance != null) currentBalance = sched.currentBalance;
   else if (txnBalance != null && txnBalance > 0) currentBalance = txnBalance;
   else currentBalance = a.originalPrincipal ?? 0;
   return {
@@ -107,9 +111,10 @@ function buildMortgage(a: AcctTerms, txnBalance: number | null): MortgageInfo {
 async function loadMortgageMaps(ids: string[]): Promise<{
   terms: Map<string, AcctTerms>;
   txnBalance: Map<string, number>;
+  snapshot: Map<string, number>;
 }> {
-  if (ids.length === 0) return { terms: new Map(), txnBalance: new Map() };
-  const [acctRows, txnRows] = await Promise.all([
+  if (ids.length === 0) return { terms: new Map(), txnBalance: new Map(), snapshot: new Map() };
+  const [acctRows, txnRows, snapRows] = await Promise.all([
     db
       .select({
         id: accounts.id,
@@ -130,6 +135,12 @@ async function loadMortgageMaps(ids: string[]): Promise<{
       .from(transactions)
       .where(inArray(transactions.accountId, ids))
       .groupBy(transactions.accountId),
+    // Latest stated unpaid-principal snapshot per account (from mortgage statements).
+    db
+      .select({ accountId: balanceSnapshots.accountId, balance: balanceSnapshots.balance, asOf: balanceSnapshots.asOfDate })
+      .from(balanceSnapshots)
+      .where(inArray(balanceSnapshots.accountId, ids))
+      .orderBy(desc(balanceSnapshots.asOfDate)),
   ]);
   const terms = new Map<string, AcctTerms>(
     acctRows.map((a) => [
@@ -146,7 +157,9 @@ async function loadMortgageMaps(ids: string[]): Promise<{
     ]),
   );
   const txnBalance = new Map<string, number>(txnRows.map((t) => [t.accountId, Number(t.bal)]));
-  return { terms, txnBalance };
+  const snapshot = new Map<string, number>();
+  for (const r of snapRows) if (!snapshot.has(r.accountId)) snapshot.set(r.accountId, Number(r.balance)); // first = latest (desc)
+  return { terms, txnBalance, snapshot };
 }
 
 export async function loadPortfolio(): Promise<Portfolio> {
@@ -156,11 +169,11 @@ export async function loadPortfolio(): Promise<Portfolio> {
     .orderBy(asc(properties.sortOrder), asc(properties.name));
 
   const mortgageIds = [...new Set(rows.map((r) => r.mortgageAccountId).filter((x): x is string => !!x))];
-  const { terms, txnBalance } = await loadMortgageMaps(mortgageIds);
+  const { terms, txnBalance, snapshot } = await loadMortgageMaps(mortgageIds);
 
   const out: PropertyRow[] = rows.map((r) => {
     const t = r.mortgageAccountId ? terms.get(r.mortgageAccountId) : undefined;
-    const mortgage = t ? buildMortgage(t, txnBalance.get(t.id) ?? null) : null;
+    const mortgage = t ? buildMortgage(t, txnBalance.get(t.id) ?? null, snapshot.get(t.id) ?? null) : null;
     const loanBalance = mortgage?.currentBalance ?? 0;
     const value = num(r.marketValue) ?? num(r.acquisitionPrice) ?? 0;
     return {
@@ -210,9 +223,9 @@ export async function loadProperty(
   if (!row) return null;
 
   const mortgageIds = row.mortgageAccountId ? [row.mortgageAccountId] : [];
-  const { terms, txnBalance } = await loadMortgageMaps(mortgageIds);
+  const { terms, txnBalance, snapshot } = await loadMortgageMaps(mortgageIds);
   const t = row.mortgageAccountId ? terms.get(row.mortgageAccountId) : undefined;
-  const mortgage = t ? buildMortgage(t, txnBalance.get(t.id) ?? null) : null;
+  const mortgage = t ? buildMortgage(t, txnBalance.get(t.id) ?? null, snapshot.get(t.id) ?? null) : null;
   const loanBalance = mortgage?.currentBalance ?? 0;
   const value = num(row.marketValue) ?? num(row.acquisitionPrice) ?? 0;
 

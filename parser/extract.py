@@ -53,7 +53,8 @@ from parse_statements import (  # noqa: E402
 # discover/gain) are tuned to Xpdf and stay on it; only these re-extract via
 # poppler for parsing.
 POPPLER_LAYOUT_ISSUERS = {"amex_checking", "amex_hysa", "citi_card", "boa_card", "capital_one",
-                          "apple_savings", "boa_checking", "schwab_checking", "ally", "optum_hsa"}
+                          "apple_savings", "boa_checking", "schwab_checking", "ally", "optum_hsa",
+                          "chase_mortgage"}
 
 
 def _poppler_candidates():

@@ -2,6 +2,21 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Statement parser coverage: most accounts now parse.** New issuer
+  parsers — **Amex Checking/HYSA, Citi, Capital One, BOA card, BOA checking,
+  Apple Savings, Ally, Schwab, Optum HSA** (cash) — plus **Chase mortgage/auto**
+  recognition. Net flows reconcile to stated balances on every validated sample.
+  Key pieces: a **poppler-layout hybrid** in `extract.py` (Xpdf mangles
+  multi-column statements — drops/misaligns rows; existing parsers stay on Xpdf,
+  new multi-column issuers re-extract via poppler); **balance-delta signing**
+  (`_parse_balance_delta`) for Ally/Schwab/Optum, whose debits print in a column
+  with no inline minus; and the **loan-ledger model** — a mortgage statement's
+  unpaid principal is stored as a `balance_snapshots` row (`ingestBalanceSnapshot`)
+  and `buildMortgage` prefers it, so the Real Estate mortgage balance is
+  statement-accurate without ledger transactions (no double-count with the
+  checking-side split). Wealthfront (Green Dot, swept-empty) recognized; Apple
+  Cash / Fidelity CMA have no statements. Full format reference in
+  `parser/references/bank_formats.md`.
 - 2026-05-25 — **Brokerage holdings parsers: Fidelity + Empower.** Investment
   statements now extract positions into the `holdings` table (→ Investments
   holdings view). **Fidelity** (NFS): `-tsv` coordinate parsing of the Holdings
