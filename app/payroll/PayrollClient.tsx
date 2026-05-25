@@ -568,7 +568,7 @@ function AllStubsView({
           </div>
         )}
       </section>
-    </>
+    </div>
   );
 }
 
