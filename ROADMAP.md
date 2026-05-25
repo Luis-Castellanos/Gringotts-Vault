@@ -336,13 +336,19 @@ Ideas for later, in no particular order. May or may not get built.
 > (Reports, Rental Properties, Investments, Tax, Forecasting) — the nav surfaces
 > them under "Not started" so the shape of the eventual product is visible.
 
-- [ ] **Rental Properties** — treat each property as its own small business:
-  per-property income (rent) and expenses (mortgage, taxes, insurance, repairs,
-  management fees), monthly/annual cash flow, equity built + mortgage payoff
-  progress, depreciation schedule tracking, return metrics (cap rate,
-  cash-on-cash, total ROI), tenant/lease info (lease dates, deposit held, rent
-  escalations), and a portfolio roll-up across all properties. Placeholder route +
-  nav item are live; no data source yet.
+- [~] **Real Estate** — **first pass shipped 2026-05-25** (moved to "Under
+  development"). New `properties` table (address / specs / acquisition / market
+  value / optional `mortgage_account_id`). `/rentals` is a large-card portfolio
+  (value · loan · equity + equity bar) with portfolio tiles, add/edit modal, and
+  empty state; `/rentals/[id]` shows the property header, metric cards, and a
+  **mortgage amortization table** (yearly⇄monthly, payoff progress) computed by
+  `lib/properties/amortization.ts` from the linked account's loan terms. API:
+  POST /api/properties, PATCH+DELETE /api/properties/[id].
+  - _Still to build:_ per-property rental income + expenses, monthly/annual cash
+    flow, **splitting the monthly mortgage outflow into principal / interest /
+    escrow** sub-accounts, depreciation schedule, return metrics (cap rate,
+    cash-on-cash, ROI), tenant/lease info, photo upload (URL only today),
+    value-over-time history, drag-reorder.
 
 - [ ] Tags as a cross-cutting label system (separate from categories)
 - [ ] **Forecasting** — Projection Labs-style scenario modeling (portfolio growth,

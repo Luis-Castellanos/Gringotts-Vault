@@ -151,6 +151,51 @@ export const accounts = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// properties — real estate holdings (Real Estate page). A property is a house:
+// its own market value + acquisition details, optionally linked to a mortgage
+// account (accounts.type='mortgage') whose loan terms drive the amortization
+// schedule. Equity = market_value − mortgage balance. Rental income/expenses
+// and the principal/interest/escrow transaction split are a later phase; this
+// table is the anchor that those will hang off.
+// ---------------------------------------------------------------------------
+
+export const properties = pgTable(
+  'properties',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(), // label / nickname (defaults to the street line)
+    street: text('street'),
+    city: text('city'),
+    state: text('state'),
+    zip: text('zip'),
+    // Plain text (not an enum) so new kinds can be added without a migration.
+    propertyType: text('property_type').notNull().default('single_family'),
+    beds: integer('beds'),
+    baths: numeric('baths', { precision: 4, scale: 1 }), // allow half-baths (2.5)
+    sqft: integer('sqft'),
+    acquisitionDate: date('acquisition_date'),
+    acquisitionPrice: numeric('acquisition_price', { precision: 14, scale: 2 }),
+    marketValue: numeric('market_value', { precision: 14, scale: 2 }), // current estimate (manual)
+    imageUrl: text('image_url'), // optional photo (path under /public or a URL)
+    // Optional link to the mortgage liability account; its loan terms
+    // (originalPrincipal / interestRate / monthlyPayment / maturityDate) drive
+    // the amortization table, and its derived balance drives equity.
+    mortgageAccountId: uuid('mortgage_account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    isActive: boolean('is_active').notNull().default(true), // owned vs sold
+    soldDate: date('sold_date'),
+    soldPrice: numeric('sold_price', { precision: 14, scale: 2 }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    mortgageIdx: index('properties_mortgage_idx').on(t.mortgageAccountId),
+    activeIdx: index('properties_active_idx').on(t.isActive),
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // categories — hierarchical via parent_id
 // ---------------------------------------------------------------------------
 

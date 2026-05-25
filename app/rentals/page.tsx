@@ -1,23 +1,15 @@
-import { UnderDevelopment } from '@/components/UnderDevelopment';
+import { loadMortgageAccountOptions, loadPortfolio } from '@/lib/properties/load';
+import { RealEstateClient } from './RealEstateClient';
 
-export const metadata = { title: 'Rental Properties · Vault' };
+export const metadata = { title: 'Real Estate · Vault' };
+export const dynamic = 'force-dynamic';
 
-export default function RentalsPage() {
+export default async function RealEstatePage() {
+  const [portfolio, mortgageOptions] = await Promise.all([loadPortfolio(), loadMortgageAccountOptions()]);
+
   return (
-    <main className="w-full max-w-[1600px] px-12 pt-10 pb-20">
-      <UnderDevelopment
-        title="Rental Properties"
-        description="Treat each property as its own little business — income, expenses, equity, returns. Built so the accountant brain has somewhere to put the property numbers."
-        features={[
-          'Per-property income (rent) and expenses (mortgage, taxes, insurance, repairs, management fees)',
-          'Monthly and annual cash flow per property',
-          'Equity built + mortgage payoff progress over time',
-          'Depreciation schedule tracking for tax purposes',
-          'Return metrics: cap rate, cash-on-cash, total ROI',
-          'Tenant info — lease dates, security deposit held, rent escalations',
-          'Roll-up across all properties in the portfolio',
-        ]}
-      />
+    <main className="w-full max-w-[1500px] px-10 pt-8 pb-20">
+      <RealEstateClient portfolio={portfolio} mortgageOptions={mortgageOptions} />
     </main>
   );
 }

@@ -2,6 +2,20 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Real Estate page (first pass).** New `properties` table (address,
+  specs, acquisition, market value, optional `mortgage_account_id`) + CRUD API
+  (`/api/properties`). `/rentals` is a large-card property portfolio — each card
+  shows value / loan balance / equity with an equity bar — over portfolio tiles
+  (value, equity, loan balance, avg equity), with an add/edit modal and empty
+  state. `/rentals/[id]` shows the property header, metric cards (market value /
+  loan / equity / monthly P&I), and a **mortgage amortization table**
+  (yearly⇄monthly toggle, current-payment highlight, payoff progress) computed by
+  `lib/properties/amortization.ts` from the linked mortgage account's loan terms
+  (solves for term or payment; verified against a known 30-yr loan). Loan balance
+  is estimated from the schedule, falling back to transaction-derived then
+  original principal. Real Estate moved from "Not started" → "Under development"
+  in the sidebar. Deferred: rental income/expenses and splitting the mortgage
+  outflow into principal / interest / escrow.
 - 2026-05-25 — **Faster upload/ingest (parallel parse).** The upload route
   (`app/api/documents/upload`) processed files strictly sequentially — store →
   spawn Python parser → ingest, one at a time — so a bulk import idled on
