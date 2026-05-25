@@ -35,7 +35,7 @@ export const POST = handler(async (req: NextRequest) => {
 
   const [row] = await db
     .insert(accountTypes)
-    .values({ slug, label: body.label.trim(), groupKey: body.group, assetClass: body.assetClass, sortOrder: nextOrder, isBuiltin: false })
+    .values({ slug, label: body.label.trim(), groupKey: body.group, assetClass: body.assetClass, icon: '📁', sortOrder: nextOrder, isBuiltin: false })
     .returning();
 
   return ok(row);

@@ -77,10 +77,22 @@ export const accountTypes = pgTable('account_types', {
   label: text('label').notNull(),
   assetClass: assetClassEnum('asset_class').notNull().default('asset'),
   groupKey: text('group').notNull().default('other'),
+  icon: text('icon'), // emoji
+  color: text('color'), // hex; null → inherit the group color
   sortOrder: integer('sort_order').notNull().default(0),
   isArchived: boolean('is_archived').notNull().default(false),
   isBuiltin: boolean('is_builtin').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// account_type_groups — the editable top-level parents (label + color + order).
+// Seeded from lib/account-types.ts ACCOUNT_TYPE_GROUPS. Keys are fixed (built-in).
+export const accountTypeGroups = pgTable('account_type_groups', {
+  key: text('key').primaryKey(),
+  label: text('label').notNull(),
+  color: text('color').notNull().default('#94a3b8'),
+  icon: text('icon'),
+  sortOrder: integer('sort_order').notNull().default(0),
 });
 
 export const accounts = pgTable(
