@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import type { Holdings, InvAccount, InvestmentsData, ValuePoint } from '@/lib/investments/load';
+import type { Holdings, HoldingView, InvAccount, InvestmentsData, ValuePoint } from '@/lib/investments/load';
 import { accountTypeLabel } from '@/lib/account-types';
 import { assetClassLabel } from '@/lib/investments/asset-class';
 import { PageHeader } from '@/components/PageHeader';
@@ -34,6 +34,55 @@ function AreaChart({ series, height = 220 }: { series: ValuePoint[]; height?: nu
       </defs>
       <path d={area} fill="url(#inv-area)" />
       <path d={line} fill="none" stroke="var(--color-positive)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+// Normalize a value series to % growth from its first point.
+function toPct(series: ValuePoint[]): { date: string; pct: number }[] {
+  if (series.length < 2 || !series[0]!.value) return [];
+  const base = series[0]!.value;
+  return series.map((p) => ({ date: p.date, pct: ((p.value - base) / base) * 100 }));
+}
+
+// Align a daily benchmark series to the portfolio's dates (last close at-or-before
+// each date), then normalize to % from the first — a fair portfolio-vs-index curve.
+function alignBenchmark(portfolioDates: string[], bench: ValuePoint[]): ValuePoint[] {
+  if (bench.length === 0) return [];
+  const sorted = [...bench].sort((a, b) => a.date.localeCompare(b.date));
+  const out: ValuePoint[] = [];
+  for (const d of portfolioDates) {
+    let val: number | null = null;
+    for (const b of sorted) { if (b.date <= d) val = b.value; else break; }
+    if (val == null) return []; // benchmark doesn't cover the start → skip overlay
+    out.push({ date: d, value: val });
+  }
+  return out;
+}
+
+/** Two normalized %-growth lines (portfolio vs benchmark) over the same dates. */
+function PerformanceChart({ portfolio, benchmark, height = 200 }: { portfolio: ValuePoint[]; benchmark: ValuePoint[]; height?: number }) {
+  const pPct = toPct(portfolio);
+  const bPct = toPct(benchmark);
+  if (pPct.length < 2) return null;
+  const W = 1000;
+  const H = height;
+  const all = [...pPct.map((p) => p.pct), ...bPct.map((p) => p.pct), 0];
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const range = max - min || 1;
+  const n = pPct.length;
+  const x = (i: number) => (i / (n - 1)) * W;
+  const y = (v: number) => H - 8 - ((v - min) / range) * (H - 16);
+  const path = (pts: { pct: number }[]) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.pct).toFixed(1)}`).join(' ');
+  const zeroY = y(0);
+  const pLast = pPct[pPct.length - 1]!.pct;
+  const bLast = bPct.length ? bPct[bPct.length - 1]!.pct : null;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full" style={{ height }} aria-hidden>
+      {min < 0 && max > 0 && <line x1="0" x2={W} y1={zeroY} y2={zeroY} stroke="var(--color-border-subtle)" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeDasharray="4 4" />}
+      {bPct.length >= 2 && <path d={path(bPct)} fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeDasharray="5 4" />}
+      <path d={path(pPct)} fill="none" stroke={pLast >= (bLast ?? 0) ? 'var(--color-positive)' : 'var(--color-cat-blue)'} strokeWidth="2" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -70,6 +119,14 @@ function AccountRow({ a, color }: { a: InvAccount; color: string }) {
 
 const ALLOC_PALETTE = ['var(--color-cat-blue)', 'var(--color-cat-purple)', 'var(--color-cat-emerald)', 'var(--color-cat-amber)', 'var(--color-cat-cyan)', 'var(--color-cat-pink)'];
 
+/** Holdings grouped by account, accounts ordered by total market value desc. */
+function groupByAccount(rows: HoldingView[]): [string, HoldingView[]][] {
+  const m = new Map<string, HoldingView[]>();
+  for (const h of rows) (m.get(h.accountName) ?? m.set(h.accountName, []).get(h.accountName)!).push(h);
+  const total = (items: HoldingView[]) => items.reduce((s, h) => s + h.marketValue, 0);
+  return [...m.entries()].sort((a, b) => total(b[1]) - total(a[1]));
+}
+
 function HoldingsSection({ holdings }: { holdings: Holdings }) {
   const { rows, totalValue, totalCost, totalGain, allocation, anyLive } = holdings;
   const gainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : null;
@@ -87,32 +144,43 @@ function HoldingsSection({ holdings }: { holdings: Holdings }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5">
-        {/* Positions */}
+        {/* Positions, grouped by account */}
         <div className="rounded-xl bg-surface-1 border border-border-subtle overflow-hidden">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 text-[10.5px] uppercase tracking-[0.06em] text-text-muted border-b border-border-subtle">
-            <span>Holding</span>
-            <span className="text-right">Value</span>
-            <span className="text-right w-20">Gain</span>
-          </div>
-          <div className="divide-y divide-border-subtle">
-            {rows.map((h) => (
-              <div key={h.id} className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2.5 items-center">
-                <div className="min-w-0">
-                  <div className="text-[13.5px] font-medium text-text-primary truncate">
-                    {h.symbol ? <span className="tabular-nums">{h.symbol}</span> : h.name}
-                    {h.symbol && <span className="text-text-tertiary font-normal"> · {h.name}</span>}
-                  </div>
-                  <div className="text-[11.5px] text-text-tertiary tabular-nums">
-                    {h.quantity != null ? `${h.quantity} ` : ''}{h.price != null ? `@ ${fmtMoney(h.price)}` : ''} · {h.accountName}
-                  </div>
+          {groupByAccount(rows).map(([acctName, items]) => {
+            const av = items.reduce((s, h) => s + h.marketValue, 0);
+            const ag = items.every((h) => h.gain == null) ? null : items.reduce((s, h) => s + (h.gain ?? 0), 0);
+            return (
+              <div key={acctName} className="border-b border-border-subtle last:border-b-0">
+                <div className="flex items-center justify-between gap-2 px-4 py-2 bg-surface-2/40">
+                  <span className="text-[12px] font-semibold text-text-secondary truncate">{acctName}</span>
+                  <span className="flex items-center gap-2 text-[12px] tabular-nums shrink-0">
+                    <span className="font-semibold">{money0(av)}</span>
+                    {ag != null && <span className={ag >= 0 ? 'text-positive' : 'text-negative'}>{moneySigned(ag)}</span>}
+                  </span>
                 </div>
-                <div className="text-right text-[13.5px] font-semibold tabular-nums">{money0(h.marketValue)}</div>
-                <div className={`text-right w-20 text-[12.5px] tabular-nums ${h.gain == null ? 'text-text-muted' : h.gain >= 0 ? 'text-positive' : 'text-negative'}`}>
-                  {h.gain == null ? '—' : `${h.gainPct != null ? (h.gainPct >= 0 ? '+' : '') + h.gainPct.toFixed(1) + '%' : moneySigned(h.gain)}`}
+                <div className="divide-y divide-border-subtle/60">
+                  {items.map((h) => (
+                    <div key={h.id} className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2.5 items-center">
+                      <div className="min-w-0">
+                        <div className="text-[13.5px] font-medium text-text-primary truncate">
+                          {h.symbol ? <span className="tabular-nums">{h.symbol}</span> : h.name}
+                          {h.symbol && <span className="text-text-tertiary font-normal"> · {h.name}</span>}
+                        </div>
+                        <div className="text-[11.5px] text-text-tertiary tabular-nums">
+                          {h.quantity != null ? `${h.quantity} ` : ''}{h.price != null ? `@ ${fmtMoney(h.price)}` : ''}
+                          {h.costBasis != null ? ` · cost ${money0(h.costBasis)}` : ''}
+                        </div>
+                      </div>
+                      <div className="text-right text-[13.5px] font-semibold tabular-nums">{money0(h.marketValue)}</div>
+                      <div className={`text-right w-20 text-[12.5px] tabular-nums ${h.gain == null ? 'text-text-muted' : h.gain >= 0 ? 'text-positive' : 'text-negative'}`}>
+                        {h.gain == null ? '—' : `${h.gainPct != null ? (h.gainPct >= 0 ? '+' : '') + h.gainPct.toFixed(1) + '%' : moneySigned(h.gain)}`}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
 
         {/* Asset-class allocation */}
@@ -140,7 +208,17 @@ function HoldingsSection({ holdings }: { holdings: Holdings }) {
 }
 
 export function InvestmentsClient({ data }: { data: InvestmentsData }) {
-  const { totalValue, delta30, accounts, series, benchmark, holdings } = data;
+  const { totalValue, delta30, accounts, series, holdingsSeries, benchmarkSeries, benchmark, holdings } = data;
+  // Prefer the true market-value series (from holdings snapshots); fall back to
+  // the cash-flow (net contributions) series when there's no holdings history.
+  const hasMV = holdingsSeries.length >= 2;
+  const chartSeries = hasMV ? holdingsSeries : series;
+  const benchAligned = hasMV ? alignBenchmark(holdingsSeries.map((p) => p.date), benchmarkSeries) : [];
+  const showPerf = hasMV && benchAligned.length >= 2;
+  const portPct = showPerf ? toPct(holdingsSeries) : [];
+  const benchPct = showPerf ? toPct(benchAligned) : [];
+  const portReturn = portPct.length ? portPct[portPct.length - 1]!.pct : null;
+  const benchReturn = benchPct.length ? benchPct[benchPct.length - 1]!.pct : null;
 
   if (accounts.length === 0) {
     return (
@@ -166,7 +244,7 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
 
   return (
     <>
-      <PageHeader title="Investments" subtitle="Portfolio value over time, from your account history." />
+      <PageHeader title="Investments" subtitle={hasMV ? 'Market value, holdings, and performance.' : 'Portfolio value over time, from your account history.'} />
 
       {/* Hero value + chart */}
       <section className="rounded-2xl bg-surface-1 border border-border-subtle p-6 mb-5">
@@ -190,8 +268,30 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
             {moneySigned(delta30)} <span className="text-text-tertiary">last 30 days</span>
           </div>
         </div>
-        <AreaChart series={series} />
+        <AreaChart series={chartSeries} />
+        <div className="text-[11px] text-text-muted mt-1">{hasMV ? 'Market value from statement holdings.' : 'Net contributions from account history (upload brokerage statements for true market value).'}</div>
       </section>
+
+      {/* Performance vs benchmark */}
+      {showPerf && (
+        <section className="rounded-2xl bg-surface-1 border border-border-subtle p-6 mb-5">
+          <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <h2 className="text-[15px] font-semibold">Performance vs S&amp;P 500</h2>
+            <div className="flex items-center gap-4 text-[12.5px] tabular-nums">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-4 h-0.5 rounded" style={{ background: (portReturn ?? 0) >= (benchReturn ?? 0) ? 'var(--color-positive)' : 'var(--color-cat-blue)' }} />
+                Portfolio <b className={(portReturn ?? 0) >= 0 ? 'text-positive' : 'text-negative'}>{portReturn != null ? `${portReturn >= 0 ? '+' : ''}${portReturn.toFixed(1)}%` : '—'}</b>
+              </span>
+              <span className="flex items-center gap-1.5 text-text-tertiary">
+                <span className="inline-block w-4 h-0.5 rounded border-t border-dashed border-text-muted" />
+                S&amp;P 500 {benchReturn != null ? `${benchReturn >= 0 ? '+' : ''}${benchReturn.toFixed(1)}%` : '—'}
+              </span>
+            </div>
+          </div>
+          <PerformanceChart portfolio={holdingsSeries} benchmark={benchAligned} />
+          <div className="text-[11px] text-text-muted mt-1">% growth since {holdingsSeries[0]!.date}. Benchmark is SPY (S&amp;P 500 proxy), aligned to your statement dates.</div>
+        </section>
+      )}
 
       {holdings.rows.length > 0 && <HoldingsSection holdings={holdings} />}
 

@@ -2,6 +2,17 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Investments page: rich build-out (holdings-powered).** Now that
+  statements populate the `holdings` table, the page gains: a **true
+  market-value-over-time** chart (sum of holdings snapshots, carry-forward),
+  replacing the misleading cash-flow series for the hero when holdings history
+  exists (clearly labeled either way); a **Performance vs S&P 500** section — the
+  portfolio's %-growth curve overlaid against SPY (`getDailySeries`) aligned to
+  statement dates and normalized, with each side's period return; **holdings
+  grouped by account** with per-account subtotal + gain/loss and per-position
+  cost basis; and the existing asset-class allocation. `loadHoldingsSeries` +
+  `loadBenchmarkSeries` in lib/investments/load.ts. Degrades to the account-based
+  view until brokerage statements are uploaded.
 - 2026-05-25 — **Statement parser coverage: most accounts now parse.** New issuer
   parsers — **Amex Checking/HYSA, Citi, Capital One, BOA card, BOA checking,
   Apple Savings, Ally, Schwab, Optum HSA** (cash) — plus **Chase mortgage/auto**

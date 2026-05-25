@@ -9,7 +9,7 @@ import { asc, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accounts, holdings, transactions } from '@/lib/db/schema';
-import { getQuotes, DEFAULT_BENCHMARK } from '@/lib/market/quotes';
+import { getQuotes, getDailySeries, DEFAULT_BENCHMARK } from '@/lib/market/quotes';
 
 const INVEST_TYPES = ['brokerage', 'retirement', 'roth_ira', 'traditional_ira', '401k', 'roth_401k', 'hsa', 'crypto'];
 const MS_DAY = 86_400_000;
@@ -62,10 +62,53 @@ export type InvestmentsData = {
   totalValue: number;
   delta30: number;
   accounts: InvAccount[];
-  series: ValuePoint[];
+  series: ValuePoint[]; // cash-flow (net contributions) — fallback when no holdings history
+  holdingsSeries: ValuePoint[]; // true market value over time, from holdings snapshots
+  benchmarkSeries: ValuePoint[]; // S&P 500 (SPY) daily close, for a normalized overlay
   benchmark: Benchmark | null;
   holdings: Holdings;
 };
+
+/**
+ * Portfolio market value over time, derived from holdings snapshots (each
+ * statement's positions at its as-of date). For each date any account reported,
+ * sum every account's most-recent snapshot total at-or-before that date
+ * (carry-forward). This is true market value — unlike the cash-flow series,
+ * which only tracks contributions. Empty until statements populate `holdings`.
+ */
+async function loadHoldingsSeries(accountIds: string[]): Promise<ValuePoint[]> {
+  if (accountIds.length === 0) return [];
+  const rows = await db
+    .select({ accountId: holdings.accountId, asOf: holdings.asOf, value: holdings.statementValue })
+    .from(holdings)
+    .where(inArray(holdings.accountId, accountIds));
+  // Per account: as-of date → snapshot total (sum of that statement's positions).
+  const byAcct = new Map<string, Map<string, number>>();
+  for (const r of rows) {
+    if (!r.asOf) continue;
+    const m = byAcct.get(r.accountId) ?? new Map<string, number>();
+    m.set(r.asOf, (m.get(r.asOf) ?? 0) + Number(r.value ?? 0));
+    byAcct.set(r.accountId, m);
+  }
+  const dates = [...new Set(rows.map((r) => r.asOf).filter((d): d is string => !!d))].sort();
+  if (dates.length < 2) return [];
+  return dates.map((d) => {
+    let total = 0;
+    for (const m of byAcct.values()) {
+      let bestDate: string | null = null;
+      let bestVal = 0;
+      for (const [ad, v] of m) if (ad <= d && (bestDate === null || ad > bestDate)) { bestDate = ad; bestVal = v; }
+      total += bestVal;
+    }
+    return { date: d, value: round2(total) };
+  });
+}
+
+/** S&P 500 (SPY) daily close series for the benchmark overlay. Empty when market data isn't configured. */
+async function loadBenchmarkSeries(): Promise<ValuePoint[]> {
+  const pts = await getDailySeries(DEFAULT_BENCHMARK, 730);
+  return pts.map((p) => ({ date: p.date, value: p.close }));
+}
 
 const EMPTY_HOLDINGS: Holdings = { rows: [], totalValue: 0, totalCost: 0, totalGain: 0, allocation: [], anyLive: false };
 
@@ -158,13 +201,15 @@ export async function loadInvestments(): Promise<InvestmentsData> {
     .orderBy(asc(accounts.name));
 
   if (acctRows.length === 0) {
-    return { totalValue: 0, delta30: 0, accounts: [], series: [], benchmark: null, holdings: EMPTY_HOLDINGS };
+    return { totalValue: 0, delta30: 0, accounts: [], series: [], holdingsSeries: [], benchmarkSeries: [], benchmark: null, holdings: EMPTY_HOLDINGS };
   }
 
   const ids = acctRows.map((a) => a.id);
   const nameById = new Map(acctRows.map((a) => [a.id, a.name]));
   const benchmarkP = loadBenchmark(); // fire concurrently with the txn aggregation
   const holdingsP = loadHoldings(ids, nameById);
+  const holdingsSeriesP = loadHoldingsSeries(ids);
+  const benchmarkSeriesP = loadBenchmarkSeries();
   const txnRows = await db
     .select({
       accountId: transactions.accountId,
@@ -241,5 +286,18 @@ export async function loadInvestments(): Promise<InvestmentsData> {
   for (const a of invAccounts) a.share = total > 0 ? round2((a.balance / total) * 100) : 0;
   invAccounts.sort((a, b) => b.balance - a.balance);
 
-  return { totalValue, delta30: round2(delta30), accounts: invAccounts, series, benchmark: await benchmarkP, holdings: await holdingsP };
+  const holdingsData = await holdingsP;
+  // Prefer real market value (holdings) for the headline when available.
+  const headlineValue = holdingsData.totalValue > 0 ? holdingsData.totalValue : totalValue;
+
+  return {
+    totalValue: headlineValue,
+    delta30: round2(delta30),
+    accounts: invAccounts,
+    series,
+    holdingsSeries: await holdingsSeriesP,
+    benchmarkSeries: await benchmarkSeriesP,
+    benchmark: await benchmarkP,
+    holdings: holdingsData,
+  };
 }
