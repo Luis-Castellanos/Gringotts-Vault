@@ -15,6 +15,7 @@ export type AccountRow = {
   name: string;
   displayName: string;
   type: AccountType;
+  icon: string;
   institution: string;
   last4: string;
   isActive: boolean;
@@ -654,7 +655,7 @@ function AccountRowEl({
       <span className="spacer" />
       <InstLogo institution={a.institution} />
       <div className="name">
-        <span className="n">{a.name}</span>
+        <span className="n"><span style={{ marginRight: 6 }}>{a.icon}</span>{a.name}</span>
         <span className="sub">
           <b>{a.institution || '—'}</b>
           {a.last4 && <> · ····{a.last4}</>}
@@ -814,7 +815,7 @@ function AccountCard({
       <div className="gv-top">
         <InstLogo institution={a.institution} />
         <div className="gv-id">
-          <div className="gv-name">{a.name}</div>
+          <div className="gv-name"><span style={{ marginRight: 6 }}>{a.icon}</span>{a.name}</div>
           <div className="gv-sub">
             {a.institution}{a.last4 ? ` · ····${a.last4}` : ''}
           </div>
@@ -1591,12 +1592,18 @@ function AccountDetailModal({
 export function NetWorthClient({
   accounts,
   nwSeries,
+  groupColors,
+  groupLabels,
   readOnly = false,
 }: {
   accounts: AccountRow[];
   nwSeries: NWPoint[];
+  groupColors?: Record<string, string>;
+  groupLabels?: Record<string, string>;
   readOnly?: boolean;
 }) {
+  const groupColor = (g: string) => groupColors?.[g] ?? '#94a3b8';
+  const groupLabelOf = (g: string) => groupLabels?.[g] ?? GROUP_LABEL[g] ?? g;
   const router = useRouter();
   const [tab, setTab] = useState<'active' | 'closed'>('active');
   const [view, setView] = useState<'grid' | 'list'>('grid');
@@ -1926,7 +1933,7 @@ export function NetWorthClient({
                         </svg>
                       </span>
                       <span className="ttl">
-                        {GROUP_LABEL[g] ?? g}
+                        <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 3, background: groupColor(g), marginRight: 8, verticalAlign: 'middle' }} />{groupLabelOf(g)}
                         <span className="n">
                           {count} {count === 1 ? 'account' : 'accounts'}
                         </span>
@@ -2002,7 +2009,7 @@ export function NetWorthClient({
                       </svg>
                     </span>
                     <span className="ttl">
-                      {GROUP_LABEL[g] ?? g}
+                      <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 3, background: groupColor(g), marginRight: 8, verticalAlign: 'middle' }} />{groupLabelOf(g)}
                       <span className="n">
                         {count} {count === 1 ? 'account' : 'accounts'}
                       </span>

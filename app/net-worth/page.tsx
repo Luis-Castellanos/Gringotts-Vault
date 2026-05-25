@@ -3,6 +3,7 @@ import { asc, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { accounts, transactions } from '@/lib/db/schema';
 import { Sidebar } from '@/components/Sidebar';
+import { loadTaxonomyStyle } from '@/lib/taxonomy-style';
 import { NetWorthClient, type AccountRow, type NWPoint } from './NetWorthClient';
 import './net-worth.css';
 
@@ -21,6 +22,7 @@ function daysAgo(n: number): string {
 export default async function NetWorthPage() {
   // All accounts with metadata
   const acctRows = await db.select().from(accounts).orderBy(asc(accounts.name));
+  const style = await loadTaxonomyStyle();
 
   // Per-account, per-date net sums — fuels balances, deltas, sparklines, and the
   // global net-worth daily series.
@@ -96,6 +98,7 @@ export default async function NetWorthPage() {
       name: a.name,
       displayName: a.displayName,
       type: a.type,
+      icon: style.typeIcon[a.type] ?? '📁',
       institution: a.institution ?? '',
       last4: a.accountNumber ?? '',
       isActive: a.isActive,
@@ -116,7 +119,13 @@ export default async function NetWorthPage() {
       <Sidebar />
       <div className="flex-1 flex justify-center">
         <main className="accounts-page w-full max-w-[1600px] px-12 pt-10 pb-20">
-          <NetWorthClient accounts={allRows} nwSeries={nwSeries} readOnly />
+          <NetWorthClient
+            accounts={allRows}
+            nwSeries={nwSeries}
+            groupColors={style.groupColor}
+            groupLabels={style.groupLabel}
+            readOnly
+          />
         </main>
       </div>
     </div>

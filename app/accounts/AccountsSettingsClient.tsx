@@ -15,6 +15,7 @@ export type AcctRow = {
   institution: string;
   last4: string;
   type: AcctType;
+  icon: string;
   assetClass: 'asset' | 'liability';
   isActive: boolean;
   openedDate: string | null;
@@ -135,7 +136,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
           <Caret open={open} small />
           <InstLogo institution={a.institution} />
           <span className="acctset-name">
-            {a.name}
+            <span style={{ marginRight: 6 }}>{a.icon}</span>{a.name}
             {!a.isActive && <span className="acctset-badge">Closed</span>}
             <span className="acctset-rowsub">
               {a.institution || '—'}{a.last4 ? ` · ····${a.last4}` : ''} · {accountTypeLabel(a.type)}
@@ -187,7 +188,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
           <InstLogo institution={a.institution} />
           <div className="acctset-card-id">
             <span className="acctset-card-name">
-              {a.name}{!a.isActive && <span className="acctset-badge">Closed</span>}
+              <span style={{ marginRight: 6 }}>{a.icon}</span>{a.name}{!a.isActive && <span className="acctset-badge">Closed</span>}
             </span>
             <span className="acctset-card-sub">{a.institution || '—'}{a.last4 ? ` ····${a.last4}` : ''}</span>
           </div>

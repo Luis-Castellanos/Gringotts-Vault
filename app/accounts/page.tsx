@@ -3,6 +3,7 @@ import { asc, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { accounts, transactions } from '@/lib/db/schema';
 import { Sidebar } from '@/components/Sidebar';
+import { loadTaxonomyStyle } from '@/lib/taxonomy-style';
 import { AccountsSettingsClient, type AcctRow } from './AccountsSettingsClient';
 import './accounts-settings.css';
 
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AccountsPage() {
   const acctRows = await db.select().from(accounts).orderBy(asc(accounts.name));
+  const style = await loadTaxonomyStyle();
 
   const stats = await db
     .select({
@@ -30,6 +32,7 @@ export default async function AccountsPage() {
       institution: a.institution ?? '',
       last4: a.accountNumber ?? '',
       type: a.type,
+      icon: style.typeIcon[a.type] ?? '📁',
       assetClass: a.assetClass,
       isActive: a.isActive,
       openedDate: a.openedAt ?? null,
