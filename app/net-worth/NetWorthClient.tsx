@@ -1612,6 +1612,9 @@ export function NetWorthClient({
   const [openGroups, setOpenGroups] = useState<Record<GroupName, boolean>>(
     () => Object.fromEntries(GROUP_ORDER.map((g) => [g, true])) as Record<GroupName, boolean>,
   );
+  const [collapsedSubs, setCollapsedSubs] = useState<Set<string>>(new Set());
+  const toggleSub = (k: string) =>
+    setCollapsedSubs((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const [showAdd, setShowAdd] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -1946,12 +1949,15 @@ export function NetWorthClient({
                     <div className="gv-section-body">
                       {buckets.map((sub) => {
                         const bucketKey = sub.name ?? g;
+                        const subKey = `${g}:${bucketKey}`;
+                        const subOpen = !collapsedSubs.has(subKey);
                         const orderedRows = sortRowsBy(orderRows(bucketKey, sub.rows), sortBy);
                         return (
-                          <div key={sub.name ?? '_flat'}>
+                          <div key={sub.name ?? '_flat'} className={subOpen ? '' : 'sub-collapsed'}>
                             {sub.name && (
-                              <div className="gv-sub-hd">
+                              <div className="gv-sub-hd" style={{ cursor: 'pointer' }} onClick={() => toggleSub(subKey)}>
                                 <span className="ttl">
+                                  <span style={{ display: 'inline-block', transform: subOpen ? 'rotate(90deg)' : 'none', transition: 'transform 150ms ease', marginRight: 6, color: 'var(--text-3)' }}>›</span>
                                   {sub.name}
                                   <span className="n">
                                     {sub.isCcAggregate
@@ -1962,6 +1968,7 @@ export function NetWorthClient({
                                 <span className="total num">{fmtMoneyA(Math.abs(sub.total))}</span>
                               </div>
                             )}
+                            {subOpen && (
                             <div className="gv-grid">
                               {sub.isCcAggregate && ccAggregate ? (
                                 <CreditCardsAggregateCard s={ccAggregate} />
@@ -1986,6 +1993,7 @@ export function NetWorthClient({
                                 ))
                               )}
                             </div>
+                            )}
                           </div>
                         );
                       })}
@@ -2020,11 +2028,14 @@ export function NetWorthClient({
                     <span className="bal num">{fmtMoneyA(Math.abs(total))}</span>
                   </div>
                   <div className="v1-group-rows">
-                    {buckets.map((sub) => (
+                    {buckets.map((sub) => {
+                      const subKey = `${g}:${sub.name ?? g}`;
+                      const subOpen = !collapsedSubs.has(subKey);
+                      return (
                       <div key={sub.name ?? '_flat'}>
                         {sub.name && (
-                          <div className="v1-subgroup-hd">
-                            <span />
+                          <div className="v1-subgroup-hd" style={{ cursor: 'pointer' }} onClick={() => toggleSub(subKey)}>
+                            <span style={{ display: 'inline-block', transform: subOpen ? 'rotate(90deg)' : 'none', transition: 'transform 150ms ease', color: 'var(--text-3)', textAlign: 'center' }}>›</span>
                             <span className="ttl">
                               {sub.name}
                               <span className="n">
@@ -2036,7 +2047,7 @@ export function NetWorthClient({
                             <span className="bal num">{fmtMoneyA(Math.abs(sub.total))}</span>
                           </div>
                         )}
-                        {sub.isCcAggregate && ccAggregate ? (
+                        {subOpen && (sub.isCcAggregate && ccAggregate ? (
                           <CreditCardsAggregateRow s={ccAggregate} />
                         ) : (
                           sortRowsBy(orderRows(sub.name ?? g, sub.rows), sortBy).map((a) => (
@@ -2050,9 +2061,10 @@ export function NetWorthClient({
                               busy={busyId === a.id}
                             />
                           ))
-                        )}
+                        ))}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
