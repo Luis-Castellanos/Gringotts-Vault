@@ -29,8 +29,19 @@ const TYPE_LABEL: Record<string, string> = {
   bank: 'Bank',
   investment: 'Investment',
   paystub: 'Paystub',
+  loan: 'Loan',
   unknown: 'Unknown',
 };
+
+// Editable document-type options (the kind of PDF, distinct from account type).
+const DOC_TYPE_OPTIONS = [
+  { value: 'bank', label: 'Bank' },
+  { value: 'credit_card', label: 'Credit card' },
+  { value: 'investment', label: 'Investment' },
+  { value: 'paystub', label: 'Paystub' },
+  { value: 'loan', label: 'Loan' },
+  { value: 'unknown', label: 'Unknown' },
+];
 
 const STATUS_STYLE: Record<string, string> = {
   parsed: 'bg-positive/15 text-positive',
@@ -43,7 +54,7 @@ const STATUS_STYLE: Record<string, string> = {
 // Resizable columns: File Name flexes (1fr), the rest are draggable px widths,
 // the trailing action column is fixed. Widths persist in localStorage.
 const MIN_W = 70;
-const DEFAULT_W = { type: 130, account: 150, period: 140, txns: 110, status: 100, uploaded: 150 };
+const DEFAULT_W = { docType: 120, type: 130, account: 150, period: 140, txns: 110, status: 100, uploaded: 150 };
 type ColKey = keyof typeof DEFAULT_W;
 const COL_STORAGE_KEY = 'vault-files-col-widths';
 
@@ -59,7 +70,8 @@ function periodStart(p: string): string {
 function sortVal(r: FileRow, key: SortKey): string | number {
   switch (key) {
     case 'fileName': return r.fileName.toLowerCase();
-    case 'type': return (r.accountType ?? r.detectedType).toLowerCase();
+    case 'docType': return (TYPE_LABEL[r.detectedType] ?? r.detectedType).toLowerCase();
+    case 'type': return (r.accountType ?? '').toLowerCase();
     case 'account': return `${r.institution ?? ''}${r.last4 ?? ''}`.toLowerCase();
     case 'period': return r.statementPeriod ? periodStart(r.statementPeriod) : '';
     case 'txns': return r.transactionCount ?? 0;
@@ -179,7 +191,7 @@ export function FilesClient({
   }, [w]);
 
   const gridStyle = {
-    gridTemplateColumns: `34px minmax(160px,1fr) ${w.type}px ${w.account}px ${w.period}px ${w.txns}px ${w.status}px ${w.uploaded}px 44px`,
+    gridTemplateColumns: `34px minmax(160px,1fr) ${w.docType}px ${w.type}px ${w.account}px ${w.period}px ${w.txns}px ${w.status}px ${w.uploaded}px 44px`,
   };
 
   function applyAccountLocal(rowId: string, accountId: string) {
@@ -218,6 +230,14 @@ export function FilesClient({
       if (!r.accountId) continue;
       setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, accountType: slug } : x)));
       await fetch(`/api/accounts/${r.accountId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: slug }) });
+    }
+    setBulkBusy(false);
+  }
+  async function bulkSetDocType(docType: string) {
+    setBulkBusy(true); setError(null);
+    for (const r of selectedRows()) {
+      setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, detectedType: docType } : x)));
+      await fetch(`/api/documents/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ detectedType: docType }) });
     }
     setBulkBusy(false);
   }
@@ -293,6 +313,29 @@ export function FilesClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not change type.');
       setRows((rs) => rs.map((r) => (r.accountId === acctId ? { ...r, accountType: prev } : r)));
+    }
+  }
+
+  // Set a file's document type (the kind of PDF). Independent of the account.
+  async function changeDocType(row: FileRow, docType: string) {
+    if (docType === row.detectedType) return;
+    const prev = row.detectedType;
+    setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, detectedType: docType } : r)));
+    setError(null);
+    try {
+      const res = await fetch(`/api/documents/${row.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ detectedType: docType }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.error) {
+        setError(json.error.message ?? 'Could not change document type.');
+        setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, detectedType: prev } : r)));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change document type.');
+      setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, detectedType: prev } : r)));
     }
   }
 
@@ -375,8 +418,10 @@ export function FilesClient({
             <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-accent-border bg-accent-soft px-4 py-2.5">
               <span className="text-[13px] font-medium text-text-primary">{selected.size} selected</span>
               <div className="flex items-center gap-2 text-[12px] text-text-tertiary">
-                <span>Set type</span>
-                <Select value="" onChange={bulkSetType} options={typeSelectOptions} className="vsel-sm" placeholder="Choose…" ariaLabel="Set type for selected" />
+                <span>Doc type</span>
+                <Select value="" onChange={bulkSetDocType} options={DOC_TYPE_OPTIONS} className="vsel-sm" placeholder="Choose…" ariaLabel="Set document type for selected" />
+                <span>· account type</span>
+                <Select value="" onChange={bulkSetType} options={typeSelectOptions} className="vsel-sm" placeholder="Choose…" ariaLabel="Set account type for selected" />
                 <span>· account</span>
                 <Select value="" onChange={bulkSetAccount} options={acctSelectOptions} className="vsel-sm" placeholder="Choose…" ariaLabel="Set account for selected" />
               </div>
@@ -398,7 +443,8 @@ export function FilesClient({
               <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} aria-label="Select all" style={{ accentColor: 'var(--color-accent-500)' }} />
             </div>
             <button type="button" onClick={() => toggleSort('fileName')} className="inline-flex items-center gap-1 text-left uppercase hover:text-text-secondary transition-colors">File Name {caret('fileName')}</button>
-            <div className="relative"><button type="button" onClick={() => toggleSort('type')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Type {caret('type')}</button>{handle('type')}</div>
+            <div className="relative"><button type="button" onClick={() => toggleSort('docType')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Document type {caret('docType')}</button>{handle('docType')}</div>
+            <div className="relative"><button type="button" onClick={() => toggleSort('type')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Account type {caret('type')}</button>{handle('type')}</div>
             <div className="relative"><button type="button" onClick={() => toggleSort('account')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Account {caret('account')}</button>{handle('account')}</div>
             <div className="relative"><button type="button" onClick={() => toggleSort('period')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Period {caret('period')}</button>{handle('period')}</div>
             <div className="relative"><button type="button" onClick={() => toggleSort('txns')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Transactions {caret('txns')}</button>{handle('txns')}</div>
@@ -432,12 +478,13 @@ export function FilesClient({
                   {r.fileName}
                 </a>
                 <div className="flex justify-center min-w-0">
+                  <Select value={r.detectedType} onChange={(v) => changeDocType(r, v)} options={DOC_TYPE_OPTIONS} className="vsel-sm" ariaLabel="Document type" />
+                </div>
+                <div className="flex justify-center min-w-0">
                   {r.accountId ? (
                     <Select value={r.accountType ?? ''} onChange={(v) => changeType(r, v)} options={typeSelectOptions} className="vsel-sm" ariaLabel="Account type" />
                   ) : (
-                    <span className="text-text-secondary truncate" title={r.detectedIssuer ?? undefined}>
-                      {TYPE_LABEL[r.detectedType] ?? r.detectedType}
-                    </span>
+                    <span className="text-text-muted" title="Assign an account to set its type">—</span>
                   )}
                 </div>
                 <div className="flex items-center justify-center gap-1.5 min-w-0">
