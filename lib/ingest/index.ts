@@ -14,6 +14,7 @@ import { db } from '@/lib/db/client';
 import { accounts, categories, imports, paystubs, transactions, vendorRules } from '@/lib/db/schema';
 import { cleanMerchant } from '@/lib/transactions/merchant';
 import { UNCATEGORIZED_SLUG } from '@/lib/transactions/taxonomy';
+import { classifyByRules } from '@/lib/categorize/rules';
 import { assetClassForType } from '@/lib/account-types';
 
 // ---------------------------------------------------------------------------
@@ -155,6 +156,21 @@ async function loadVendorMap(): Promise<Map<string, string>> {
 }
 
 /**
+ * Category lookups for tier-2 rule categorization: slug → {id, isTransfer} for
+ * applying a rule hit, and id → isTransfer so a vendor-map hit on a transfer
+ * category also flips is_transfer. Loaded once per ingest.
+ */
+async function loadCategoryMaps(): Promise<{
+  bySlug: Map<string, { id: string; isTransfer: boolean }>;
+  isTransferById: Map<string, boolean>;
+}> {
+  const rows = await db.select({ id: categories.id, slug: categories.slug, flow: categories.flowType }).from(categories);
+  const bySlug = new Map(rows.map((c) => [c.slug, { id: c.id, isTransfer: c.flow === 'transfer' }]));
+  const isTransferById = new Map(rows.map((c) => [c.id, c.flow === 'transfer']));
+  return { bySlug, isTransferById };
+}
+
+/**
  * Ingest one parsed statement's rows into the ledger. Resolves/creates the
  * account, records an `imports` provenance row, and inserts transactions
  * (Uncategorized + needs_review) with content-hash dedup. Idempotent: re-running
@@ -173,6 +189,7 @@ export async function ingestParsedStatement(args: {
   const accountId = await getOrCreateAccount(accountLabel, accountNumber);
   const uncatId = await uncategorizedId();
   const vendorMap = await loadVendorMap();
+  const catMaps = await loadCategoryMaps();
 
   // numeric columns take string | null in drizzle.
   const money = (n: number | null | undefined) => (n == null ? null : n.toFixed(2));
@@ -201,20 +218,39 @@ export async function ingestParsedStatement(args: {
     const hash = contentHash(accountId, r.date, amount, r.source);
     if (seen.has(hash)) continue;
     seen.add(hash);
-    // Tier 1: a known merchant gets auto-categorized (no review); unknowns
-    // fall to Uncategorized + needs_review for the queue / Claude.
+    // Tiered categorization:
+    //   1. vendor-map exact match on the cleaned merchant → confirmed.
+    //   2. rule patterns on the raw text (transfers/Zelle/ATM/…) → high-confidence
+    //      confirmed, low-confidence (spend guesses) suggested (kept in review).
+    //   3. neither → Uncategorized + needs_review for the queue / Claude.
     const merchant = cleanMerchant(r.source);
+    let categoryId: string = uncatId;
+    let needsReview = true;
+    let isTransfer = false;
     const ruleCat = merchant ? vendorMap.get(merchant) : undefined;
+    if (ruleCat) {
+      categoryId = ruleCat;
+      needsReview = false;
+      isTransfer = catMaps.isTransferById.get(ruleCat) ?? false;
+    } else {
+      const hit = classifyByRules(r.source, r.amount);
+      const cat = hit ? catMaps.bySlug.get(hit.slug) : undefined;
+      if (hit && cat) {
+        categoryId = cat.id;
+        needsReview = hit.confidence === 'low';
+        isTransfer = cat.isTransfer;
+      }
+    }
     values.push({
       accountId,
-      categoryId: ruleCat ?? uncatId,
+      categoryId,
       date: r.date,
       amount,
       balance: money(r.balance),
       rawDescription: r.source,
       merchant,
-      needsReview: !ruleCat,
-      isTransfer: false,
+      needsReview,
+      isTransfer,
       statementPeriod: statementPeriod ?? null,
       sourceFile,
       importId,

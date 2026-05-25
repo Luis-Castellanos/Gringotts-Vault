@@ -50,8 +50,20 @@ const TITLE_CASE_CONNECTORS = new Set(['of', 'the', 'and', '&', 'in', 'on', 'for
 
 export function cleanMerchant(raw: string): string {
   let s = raw.trim();
-  // PayPal passthroughs look like "PAYPAL *MERCHANTNAME" — keep just the merchant.
-  const paypal = s.match(/^PAYPAL\s*\*\s*(.+)$/i);
+  // Strip leading transaction-type noise + the MM/DD(/YYYY) date prefix. Chase
+  // prefixes every line with a date and wraps the real merchant in
+  // "Card Purchase [With Pin]" / "Payment Sent|Received"; leaving these in
+  // fragments one logical merchant into hundreds of unique keys.
+  s = s.replace(/^(recurring\s+)?card purchase(\s+with pin)?\s+/i, '');
+  s = s.replace(/^payment (sent|received)\s+/i, '');
+  s = s.replace(/^\d{1,2}\/\d{1,2}(\/\d{2,4})?\s+/, '');
+  // Strip trailing ACH/processor identifiers (their variable suffix also
+  // fragments the key): "... Web ID: 123", "... PPD ID: X", "... Transaction#: N".
+  s = s.replace(/\s+(web id|ppd id|ccd id|transaction\s*#)\s*:?.*$/i, '');
+  // PayPal is just the payment method; the real merchant follows. Keep it:
+  //   "PAYPAL *MERCHANT"            → MERCHANT
+  //   "Paypal Inst Xfer MERCHANT"   → MERCHANT
+  const paypal = s.match(/^paypal\s*\*\s*(.+)$/i) ?? s.match(/^paypal\s+inst xfer\s+(.+)$/i);
   if (paypal) s = paypal[1].trim();
   s = s.replace(/\s+USA\s*$/i, '');
   s = s.replace(/\s+[A-Z]{2}\s+\d{5}(-\d{4})?\s*$/, '');
