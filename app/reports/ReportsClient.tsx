@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import type { AnnualReport, ReportCategory } from '@/lib/reports/load';
@@ -80,9 +79,12 @@ export function ReportsClient({ years, report }: { years: number[]; report: Annu
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <Link href="/settings" className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">
-              Export →
-            </Link>
+            <a
+              href={`/api/export/transactions?from=${report.year}-01-01&to=${report.year}-12-31`}
+              className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2"
+            >
+              Export {report.year} ↓
+            </a>
           </>
         }
       />
