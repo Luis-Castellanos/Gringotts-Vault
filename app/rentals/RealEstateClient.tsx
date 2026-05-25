@@ -153,7 +153,7 @@ export function RealEstateClient({
   const [order, setOrder] = useState<string[]>(() => portfolio.properties.map((p) => p.id));
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null>(null);
-  const { properties, count, totalMarketValue, totalEquity, totalLoanBalance } = portfolio;
+  const { properties, count, totalMarketValue, totalEquity, totalLoanBalance, totalMonthlyRent } = portfolio;
 
   const soldCount = properties.filter((p) => !p.isActive).length;
   const monthlyPI = properties
@@ -236,10 +236,11 @@ export function RealEstateClient({
       />
 
       {count > 0 && (
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <StatTile size="lg" label="Portfolio value" value={fmtMoney0(totalMarketValue)} sub={`${count} propert${count === 1 ? 'y' : 'ies'}`} />
           <StatTile size="lg" label="Total equity" value={fmtMoney0(totalEquity)} sub={totalMarketValue > 0 ? `${fmtPct((totalEquity / totalMarketValue) * 100)} of value` : undefined} />
           <StatTile size="lg" label="Loan balance" value={fmtMoney0(totalLoanBalance)} sub="Across linked mortgages" />
+          <StatTile size="lg" label="Monthly rent" value={totalMonthlyRent > 0 ? fmtMoney0(totalMonthlyRent) : '—'} tone={totalMonthlyRent > 0 ? 'pos' : 'default'} sub="Active leases" />
           <StatTile size="lg" label="Monthly P&I" value={monthlyPI > 0 ? fmtMoney0(monthlyPI) : '—'} sub="Sum of mortgage payments" />
         </div>
       )}

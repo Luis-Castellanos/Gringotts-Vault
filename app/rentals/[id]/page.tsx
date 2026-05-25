@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { loadMortgageAccountOptions, loadProperty } from '@/lib/properties/load';
 import { loadPropertyFinancials } from '@/lib/properties/financials';
+import { loadLeases } from '@/lib/properties/leases';
 import { PropertyDetailClient } from './PropertyDetailClient';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   const rollupAccounts = [data.property.mortgage?.accountId, data.property.escrowAccountId].filter(
     (x): x is string => !!x,
   );
-  const financials = await loadPropertyFinancials(id, rollupAccounts);
+  const [financials, leases] = await Promise.all([loadPropertyFinancials(id, rollupAccounts), loadLeases(id)]);
 
   return (
     <main className="w-full max-w-[1100px] px-10 pt-8 pb-20">
@@ -28,6 +29,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         property={data.property}
         schedule={data.schedule}
         financials={financials}
+        leases={leases}
         mortgageOptions={mortgageOptions}
       />
     </main>

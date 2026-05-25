@@ -13,6 +13,7 @@ import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { accounts, properties, transactions } from '@/lib/db/schema';
 import { amortize, type AmortResult } from './amortization';
+import { loadTotalMonthlyRent } from './leases';
 
 const num = (v: unknown): number | null => (v == null ? null : Number(v));
 
@@ -58,6 +59,7 @@ export type Portfolio = {
   totalMarketValue: number;
   totalEquity: number;
   totalLoanBalance: number;
+  totalMonthlyRent: number;
   count: number;
 };
 
@@ -188,11 +190,13 @@ export async function loadPortfolio(): Promise<Portfolio> {
   });
 
   const active = out.filter((p) => p.isActive);
+  const totalMonthlyRent = await loadTotalMonthlyRent();
   return {
     properties: out,
     totalMarketValue: active.reduce((s, p) => s + (p.marketValue ?? p.acquisitionPrice ?? 0), 0),
     totalEquity: active.reduce((s, p) => s + p.equity, 0),
     totalLoanBalance: active.reduce((s, p) => s + p.loanBalance, 0),
+    totalMonthlyRent,
     count: active.length,
   };
 }

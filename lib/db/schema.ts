@@ -202,6 +202,33 @@ export const properties = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// leases — rent roll for a property (Real Estate Phase 3). One row per unit's
+// lease: tenant, rent, term, deposit, status. The portfolio rent roll sums
+// active-lease rent; expected rent here complements the actual rent income that
+// shows in the property's Financials (from tagged transactions).
+// ---------------------------------------------------------------------------
+
+export const leases = pgTable(
+  'leases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    propertyId: uuid('property_id').notNull().references(() => properties.id, { onDelete: 'cascade' }),
+    unit: text('unit'), // for multi-unit properties
+    tenantName: text('tenant_name'),
+    tenantContact: text('tenant_contact'), // email / phone
+    rentAmount: numeric('rent_amount', { precision: 14, scale: 2 }), // monthly
+    depositAmount: numeric('deposit_amount', { precision: 14, scale: 2 }),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+    status: text('status').notNull().default('active'), // active | upcoming | past | vacant
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ propertyIdx: index('leases_property_idx').on(t.propertyId) }),
+);
+
+// ---------------------------------------------------------------------------
 // categories — hierarchical via parent_id
 // ---------------------------------------------------------------------------
 

@@ -75,8 +75,10 @@ Schedule E worksheet (income, each expense line, depreciation) as Excel/PDF.
    Used a **down-payment proxy** (purchase − original loan) for cash invested
    rather than adding a `cash_invested` field (avoids a schema change). _Still
    could add:_ explicit `cash_invested`, GRM, total-ROI breakdown, portfolio roll-up.
-3. **Rent roll** — `leases` model + a Rent Roll view (portfolio + per-property);
-   rent income flows into the financials.
+3. ✅ **Rent roll — shipped 2026-05-25.** `leases` table (unit · tenant · rent ·
+   deposit · term · status) + CRUD API (`/api/leases`). Per-property **Rent roll**
+   section on the detail page (list + add/edit/delete leases) and a portfolio
+   **Monthly rent** tile (sum of active leases). `lib/properties/leases.ts`.
 4. **Maintenance** — `maintenance` model + a per-property + portfolio list/board.
 5. **Reports + Schedule E export** — a Reports surface for `/rentals` (Net Cash Flow,
    Income Statement, Schedule E) with Excel export (reuse the xlsx export pattern),

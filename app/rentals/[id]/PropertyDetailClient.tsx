@@ -7,9 +7,73 @@ import { useState } from 'react';
 import type { AmortResult } from '@/lib/properties/amortization';
 import type { MortgageAccountOption, PropertyRow } from '@/lib/properties/load';
 import type { FinCategory, PropertyFinancials, TTM } from '@/lib/properties/financials';
+import type { LeaseRow } from '@/lib/properties/leases';
 import { StatTile } from '@/components/StatTile';
 import { PropertyForm, propertyTypeLabel } from '../PropertyForm';
 import { addressLine, fmtDate, fmtMoney, fmtMoney0, fmtPct, specLine } from '../format';
+import { LeaseForm } from './LeaseForm';
+
+const LEASE_STATUS_CLS: Record<string, string> = {
+  active: 'text-positive',
+  upcoming: 'text-cat-blue',
+  vacant: 'text-amber-400',
+  past: 'text-text-muted',
+};
+
+function RentRollSection({ propertyId, leases }: { propertyId: string; leases: LeaseRow[] }) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<LeaseRow | null>(null);
+  const totalRent = leases.filter((l) => l.status === 'active').reduce((s, l) => s + (l.rentAmount ?? 0), 0);
+
+  async function del(l: LeaseRow) {
+    if (!confirm(`Delete the lease${l.tenantName ? ` for ${l.tenantName}` : ''}?`)) return;
+    const res = await fetch(`/api/leases/${l.id}`, { method: 'DELETE' });
+    if (res.ok) router.refresh();
+    else alert('Could not delete lease.');
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[15px] font-semibold">Rent roll {totalRent > 0 && <span className="text-[12px] font-normal text-text-tertiary">· {fmtMoney0(totalRent)}/mo active</span>}</h2>
+        <button type="button" onClick={() => setAdding(true)} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">+ Add lease</button>
+      </div>
+      {leases.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-8 text-[13px] text-text-tertiary">
+          No leases yet. Add one to track tenant, rent, deposit, and term.
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden">
+          <div className="grid grid-cols-[1.4fr_110px_150px_90px_70px] gap-3 px-4 py-2.5 border-b border-border-subtle text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+            <div>Unit · Tenant</div>
+            <div className="text-right">Rent/mo</div>
+            <div>Term</div>
+            <div>Status</div>
+            <div />
+          </div>
+          {leases.map((l) => (
+            <div key={l.id} className="grid grid-cols-[1.4fr_110px_150px_90px_70px] gap-3 px-4 py-2.5 border-t border-border-subtle text-[13px] items-center first:border-t-0">
+              <div className="min-w-0">
+                <div className="text-text-primary truncate">{l.tenantName || (l.unit ? `Unit ${l.unit}` : 'Lease')}</div>
+                {(l.unit || l.tenantContact) && <div className="text-[11.5px] text-text-tertiary truncate">{[l.unit && `Unit ${l.unit}`, l.tenantContact].filter(Boolean).join(' · ')}</div>}
+              </div>
+              <div className="text-right tabular-nums">{l.rentAmount != null ? fmtMoney0(l.rentAmount) : '—'}</div>
+              <div className="text-text-tertiary text-[12px]">{l.startDate ? fmtDate(l.startDate) : '—'}{l.endDate ? ` – ${fmtDate(l.endDate)}` : ''}</div>
+              <div className={`capitalize ${LEASE_STATUS_CLS[l.status] ?? 'text-text-tertiary'}`}>{l.status}</div>
+              <div className="flex gap-1 justify-end text-[12px]">
+                <button type="button" onClick={() => setEditing(l)} className="text-text-tertiary hover:text-text-primary">Edit</button>
+                <button type="button" onClick={() => del(l)} className="text-text-muted hover:text-negative">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {adding && <LeaseForm propertyId={propertyId} onClose={() => setAdding(false)} />}
+      {editing && <LeaseForm propertyId={propertyId} lease={editing} onClose={() => setEditing(null)} />}
+    </div>
+  );
+}
 
 function AmortizationSection({ schedule }: { schedule: AmortResult }) {
   const [view, setView] = useState<'yearly' | 'monthly'>('yearly');
@@ -272,11 +336,13 @@ export function PropertyDetailClient({
   property,
   schedule,
   financials,
+  leases,
   mortgageOptions,
 }: {
   property: PropertyRow;
   schedule: AmortResult | null;
   financials: PropertyFinancials;
+  leases: LeaseRow[];
   mortgageOptions: MortgageAccountOption[];
 }) {
   const router = useRouter();
@@ -412,6 +478,11 @@ export function PropertyDetailClient({
         <FinancialsSection fin={financials} />
       </div>
 
+      {/* Rent roll */}
+      <div className="mb-8">
+        <RentRollSection propertyId={property.id} leases={leases} />
+      </div>
+
       {/* Mortgage / amortization */}
       <h2 className="text-[15px] font-semibold mb-3">Mortgage</h2>
       {property.mortgage ? (
@@ -426,7 +497,7 @@ export function PropertyDetailClient({
 
       {/* Roadmap: the rest of the Stessa-parity module. */}
       <div className="mt-8 rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-5 text-[12.5px] text-text-muted">
-        Coming next: rent roll &amp; leases, maintenance log, return metrics (cap rate, cash-on-cash, NOI), and a Schedule E export.
+        Coming next: maintenance log and a Schedule E tax export.
       </div>
 
       {editing && <PropertyForm property={property} mortgageOptions={mortgageOptions} onClose={() => setEditing(false)} />}

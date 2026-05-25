@@ -2,6 +2,12 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Real Estate Phase 3: rent roll.** New `leases` table (unit · tenant ·
+  contact · rent · deposit · term · status) + CRUD API (`/api/leases`). The property
+  detail page gains a **Rent roll** section — list leases with add/edit/delete and a
+  status pill, plus the active monthly-rent total — and the `/rentals` portfolio
+  gains a **Monthly rent** tile (sum of active-lease rent). `lib/properties/leases.ts`.
+  Next in the Real Estate plan: maintenance log, then Schedule E export.
 - 2026-05-25 — **Goals: full Monarch parity.** Built out the deferred Goals 3.0
   features: **debt-payoff scenarios** (avalanche/snowball + extra-monthly + lump-sum
   what-ifs → debt-free date, total interest, "X sooner / $Y saved" vs minimums, and
