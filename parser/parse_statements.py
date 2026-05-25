@@ -886,6 +886,37 @@ def _paystub_header(text: str) -> dict:
     }
 
 
+def _tax_settings(text: str) -> dict:
+    """Parse the 'Tax Allowance Settings' block (the employee's W-4 elections).
+    Works on a flat (newline-joined) rendering. Returns None values when absent."""
+    t = text.replace("Additional Allowances", "Additional_Allowances")
+
+    def f(pat, g=1):
+        m = re.search(pat, t)
+        return m.group(g) if m else None
+
+    def num(pat):
+        v = f(pat)
+        return _money(v) if v else None
+
+    def intg(pat):
+        v = f(pat)
+        return int(v) if v else None
+
+    fed = re.search(r"Federal:\s*([A-Za-z/][A-Za-z/ .]+?)(?:\s{2,}|California:|Form|$)", t)
+    return {
+        "filing_status": f(r"Filing Status:\s*([A-Za-z]+)"),
+        "federal": fed.group(1).strip() if fed else None,
+        "claim_dependent": num(r"Claim Dependent:\s*\$?([\d,]+\.\d{2})"),
+        "deduction": num(r"\bDeduction:\s*\$?([\d,]+\.\d{2})"),
+        "other_income": num(r"Other Income:\s*\$?([\d,]+\.\d{2})"),
+        "allowances": intg(r"\bAllowances:\s*(\d+)"),
+        "additional_allowances": intg(r"Additional_Allowances:\s*(\d+)"),
+        "two_jobs": f(r"Two Jobs:\s*(Yes|No)"),
+        "supplemental_type": f(r"Supplemental Type:\s*([A-Za-z]+)"),
+    }
+
+
 def _parse_paystub_tsv(tsv_text: str) -> dict:
     """Coordinate-based paystub parse from `pdftotext -tsv` output.
 
@@ -1047,6 +1078,7 @@ def _parse_paystub_tsv(tsv_text: str) -> dict:
         "taxes": tax_lines if _reconciles(tax_lines, taxes_total) else [],
         "employer_contributions": emp_lines if _reconciles(emp_lines, employer_total) else [],
         "imputed": imputed,
+        "tax_settings": _tax_settings(flat),
     }
 
 
@@ -1079,6 +1111,7 @@ def _parse_paystub_text(text: str) -> dict:
         "non_cash_fringe": _money(fringe) if fringe else None,
         "deposits": [],
         "earnings": [], "deductions": [], "taxes": [], "employer_contributions": [], "imputed": [],
+        "tax_settings": _tax_settings(text),
     }
 
 

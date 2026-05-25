@@ -11,6 +11,17 @@
 
 export type LineItem = { label: string; amount: number };
 export type Deposit = { bank: string; last4: string; amount: number };
+export type TaxSettings = {
+  filingStatus: string | null;
+  federal: string | null;
+  claimDependent: number | null;
+  deduction: number | null;
+  otherIncome: number | null;
+  allowances: number | null;
+  additionalAllowances: number | null;
+  twoJobs: string | null;
+  supplementalType: string | null;
+};
 
 export type Stub = {
   id: string;
@@ -34,6 +45,7 @@ export type Stub = {
   contributions: LineItem[]; // employer-paid
   imputed: LineItem[];
   deposits: Deposit[];
+  taxSettings: TaxSettings | null; // W-4 elections
 };
 
 export type EventTone = 'green' | 'blue' | 'purple' | 'amber' | 'red';
@@ -47,8 +59,16 @@ const round = (n: number) => +n.toFixed(2);
 const LABEL_MAP: Record<string, string> = {
   '401K': '401(k)',
   SALARY: 'Salary',
+  SAL: 'Salary',
   REGULAR: 'Regular pay',
+  REG: 'Regular pay',
+  OT: 'Overtime',
+  HOLIDAY: 'Holiday',
+  PTO: 'PTO',
   BONUS: 'Bonus',
+  BNSNIP: 'Bonus',
+  BNS: 'Bonus',
+  GIFT: 'Gift',
   SUPPLEMENTAL: 'Supplemental',
   ESPP: 'ESPP',
   MEDICAL: 'Medical',
@@ -205,14 +225,16 @@ export function depositsByBankYTD(stubs: Stub[], year: number): { bank: string; 
     .sort((a, b) => b.total - a.total);
 }
 
-// Derive timeline events (raise / bonus / ESPP start) from stub-over-stub change.
+// Derive timeline events (raise / bonus / ESPP start / W-4 change) from
+// stub-over-stub change.
 export function deriveEvents(stubs: Stub[]): PayrollEvent[] {
   const ordered = [...stubs].sort((a, b) => a.date.localeCompare(b.date));
   const events: PayrollEvent[] = [];
   let prevBase: number | null = null;
   let esppSeen = false;
+  let prevTax: TaxSettings | null = null;
   for (const s of ordered) {
-    if (s.bonus > 0) events.push({ stubDate: s.date, label: 'Bonus', tone: 'purple', desc: `+${fmtMoney(s.bonus, { decimals: 0 })} supplemental` });
+    if (s.bonus > 0) events.push({ stubDate: s.date, label: 'Bonus', tone: 'purple', desc: `+${fmtMoney(s.bonus, { decimals: 0 })} bonus` });
     if (prevBase != null && s.baseComp > prevBase) {
       events.push({ stubDate: s.date, label: 'Raise', tone: 'green', desc: `${fmtMoney(prevBase, { decimals: 0 })} → ${fmtMoney(s.baseComp, { decimals: 0 })}` });
     }
@@ -221,7 +243,22 @@ export function deriveEvents(stubs: Stub[]): PayrollEvent[] {
       events.push({ stubDate: s.date, label: 'ESPP active', tone: 'blue', desc: 'Stock purchase started' });
       esppSeen = true;
     }
+    // W-4 elections changed vs the prior stub.
+    if (prevTax && s.taxSettings) {
+      const t = s.taxSettings;
+      const changes: string[] = [];
+      if ((t.claimDependent ?? 0) !== (prevTax.claimDependent ?? 0))
+        changes.push(`Dependents ${fmtMoney(prevTax.claimDependent ?? 0, { decimals: 0 })} → ${fmtMoney(t.claimDependent ?? 0, { decimals: 0 })}`);
+      if ((t.allowances ?? 0) !== (prevTax.allowances ?? 0))
+        changes.push(`Allowances ${prevTax.allowances ?? 0} → ${t.allowances ?? 0}`);
+      if ((t.additionalAllowances ?? 0) !== (prevTax.additionalAllowances ?? 0))
+        changes.push(`Add'l allowances ${prevTax.additionalAllowances ?? 0} → ${t.additionalAllowances ?? 0}`);
+      if (t.filingStatus !== prevTax.filingStatus)
+        changes.push(`Filing ${prevTax.filingStatus ?? '—'} → ${t.filingStatus ?? '—'}`);
+      if (changes.length) events.push({ stubDate: s.date, label: 'W-4 updated', tone: 'amber', desc: changes.join(' · ') });
+    }
     if (s.baseComp > 0) prevBase = s.baseComp;
+    if (s.taxSettings) prevTax = s.taxSettings;
   }
   return events;
 }

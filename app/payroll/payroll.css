@@ -289,6 +289,18 @@
     font-size: var(--line-fz);
     font-style: italic;
   }
+  .w4-grid { display: flex; flex-wrap: wrap; gap: 14px 32px; }
+  .w4-item { display: flex; flex-direction: column; gap: 3px; }
+  .w4-k {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--text-3);
+  }
+  .w4-v { font-size: 15px; font-weight: 600; color: var(--text-1); display: flex; align-items: center; gap: 8px; }
+  .w4-chg {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--amber-text); background: var(--amber-tint);
+    padding: 1px 6px; border-radius: 6px;
+  }
   .line-row .lbl { color: var(--text-1); font-weight: 500; }
   .line-row .meta { color: var(--text-3); font-size: 12px; }
   .line-row .amt { color: var(--text-1); font-weight: 600; }

@@ -41,6 +41,17 @@ export type ExtractedPaystub = {
   taxes: ExtractedPaystubLine[];
   employer_contributions: ExtractedPaystubLine[];
   imputed: ExtractedPaystubLine[];
+  tax_settings: {
+    filing_status: string | null;
+    federal: string | null;
+    claim_dependent: number | null;
+    deduction: number | null;
+    other_income: number | null;
+    allowances: number | null;
+    additional_allowances: number | null;
+    two_jobs: string | null;
+    supplemental_type: string | null;
+  } | null;
 };
 
 export type ExtractResult =

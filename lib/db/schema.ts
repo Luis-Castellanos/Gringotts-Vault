@@ -277,6 +277,17 @@ export const vendorRules = pgTable(
 // ---------------------------------------------------------------------------
 
 export type PaystubLine = { label: string; amount: number };
+export type PaystubTaxSettings = {
+  filingStatus: string | null;
+  federal: string | null;
+  claimDependent: number | null;
+  deduction: number | null;
+  otherIncome: number | null;
+  allowances: number | null;
+  additionalAllowances: number | null;
+  twoJobs: string | null;
+  supplementalType: string | null;
+};
 
 export const paystubs = pgTable(
   'paystubs',
@@ -304,6 +315,8 @@ export const paystubs = pgTable(
     taxes: jsonb('taxes').$type<PaystubLine[]>(),
     employerContributions: jsonb('employer_contributions').$type<PaystubLine[]>(),
     imputed: jsonb('imputed').$type<PaystubLine[]>(),
+    // The employee's W-4 elections (filing status, dependents, allowances).
+    taxSettings: jsonb('tax_settings').$type<PaystubTaxSettings>(),
     sourceFile: text('source_file'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

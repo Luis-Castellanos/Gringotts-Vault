@@ -34,8 +34,9 @@ export async function loadStubs(): Promise<Stub[]> {
 
   return rows.map((r) => {
     const earnings = lines(r.earnings);
+    // CBIZ labels bonuses "BNSNIP" (also seen: BNS / BONUS / supplemental).
     const bonus = earnings
-      .filter((e) => /BONUS|SUPPL/i.test(e.label))
+      .filter((e) => /BNS|BONUS|SUPPL/i.test(e.label))
       .reduce((a, e) => a + e.amount, 0);
     const baseComp = n(r.baseComp);
     return {
@@ -60,6 +61,7 @@ export async function loadStubs(): Promise<Stub[]> {
       contributions: lines(r.employerContributions),
       imputed: lines(r.imputed),
       deposits: r.deposits ?? [],
+      taxSettings: r.taxSettings ?? null,
     };
   });
 }

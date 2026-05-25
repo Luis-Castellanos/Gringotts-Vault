@@ -240,11 +240,36 @@ export type ParsedPaystub = {
   taxes: ParsedPaystubLine[];
   employer_contributions: ParsedPaystubLine[];
   imputed: ParsedPaystubLine[];
+  tax_settings: {
+    filing_status: string | null;
+    federal: string | null;
+    claim_dependent: number | null;
+    deduction: number | null;
+    other_income: number | null;
+    allowances: number | null;
+    additional_allowances: number | null;
+    two_jobs: string | null;
+    supplemental_type: string | null;
+  } | null;
 };
 
 export async function ingestPaystub(documentId: string, ps: ParsedPaystub, sourceFile: string): Promise<{ id: string | null }> {
   const num = (n: number | null | undefined) => (n == null ? null : n.toFixed(2));
   const lines = (a: ParsedPaystubLine[] | undefined) => (a && a.length ? a : null);
+  const ts = ps.tax_settings;
+  const taxSettings = ts
+    ? {
+        filingStatus: ts.filing_status,
+        federal: ts.federal,
+        claimDependent: ts.claim_dependent,
+        deduction: ts.deduction,
+        otherIncome: ts.other_income,
+        allowances: ts.allowances,
+        additionalAllowances: ts.additional_allowances,
+        twoJobs: ts.two_jobs,
+        supplementalType: ts.supplemental_type,
+      }
+    : null;
   const [row] = await db
     .insert(paystubs)
     .values({
@@ -267,6 +292,7 @@ export async function ingestPaystub(documentId: string, ps: ParsedPaystub, sourc
       taxes: lines(ps.taxes),
       employerContributions: lines(ps.employer_contributions),
       imputed: lines(ps.imputed),
+      taxSettings,
       sourceFile,
     })
     .onConflictDoNothing({ target: paystubs.voucher })

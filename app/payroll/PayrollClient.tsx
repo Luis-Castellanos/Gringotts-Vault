@@ -318,6 +318,41 @@ function EmployerCard({ stub }: { stub: Stub }) {
   );
 }
 
+function W4Card({ stub, prev }: { stub: Stub; prev: Stub | null }) {
+  const t = stub.taxSettings;
+  if (!t) return null;
+  const pt = prev?.taxSettings ?? null;
+  const fs = (v: string | null) => (v === 'S' ? 'Single' : v === 'M' ? 'Married' : v ?? '—');
+  const items: { k: string; v: string; changed: boolean }[] = [];
+  if (t.filingStatus) items.push({ k: 'Filing status', v: fs(t.filingStatus), changed: !!pt && pt.filingStatus !== t.filingStatus });
+  if (t.claimDependent != null) items.push({ k: 'Dependents claimed', v: fmtMoney(t.claimDependent, { decimals: 0 }), changed: !!pt && (pt.claimDependent ?? 0) !== t.claimDependent });
+  if (t.allowances != null) items.push({ k: 'Allowances', v: String(t.allowances), changed: !!pt && (pt.allowances ?? 0) !== t.allowances });
+  if (t.additionalAllowances) items.push({ k: "Add'l allowances", v: String(t.additionalAllowances), changed: !!pt && (pt.additionalAllowances ?? 0) !== t.additionalAllowances });
+  if (t.otherIncome) items.push({ k: 'Other income', v: fmtMoney(t.otherIncome, { decimals: 0 }), changed: false });
+  if (items.length === 0) return null;
+  return (
+    <section className="card banner-card w4-card" style={{ gridColumn: '1 / -1' }}>
+      <div className="card-banner amber">
+        <span className="ttl">Tax elections (W-4)</span>
+        <span className="meta">As filed this pay period</span>
+      </div>
+      <div className="card-body">
+        <div className="w4-grid">
+          {items.map((it, i) => (
+            <div className="w4-item" key={i}>
+              <span className="w4-k">{it.k}</span>
+              <span className="w4-v">
+                {it.v}
+                {it.changed && <span className="w4-chg">changed</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ImputedFootnote({ stub }: { stub: Stub }) {
   if (stub.imputed.length === 0 && stub.nonCashFringe <= 0) return null;
   return (
@@ -352,6 +387,7 @@ function ImputedFootnote({ stub }: { stub: Stub }) {
 // ─── Single stub view ─────────────────────────────────────────────────────
 function SingleStubView({
   stub,
+  prevStub,
   idx,
   total,
   onPrev,
@@ -359,6 +395,7 @@ function SingleStubView({
   theme,
 }: {
   stub: Stub;
+  prevStub: Stub | null;
   idx: number;
   total: number;
   onPrev: () => void;
@@ -403,6 +440,7 @@ function SingleStubView({
         <DeductionsCard stub={stub} />
         <TaxesCard stub={stub} />
         <EmployerCard stub={stub} />
+        <W4Card stub={stub} prev={prevStub} />
         <ImputedFootnote stub={stub} />
       </div>
     </>
@@ -997,6 +1035,7 @@ export function PayrollClient({ stubs }: { stubs: Stub[] }) {
       {activeTab === 'single' && (
         <SingleStubView
           stub={stub}
+          prevStub={idx > 0 ? stubs[idx - 1]! : null}
           idx={idx}
           total={stubs.length}
           onPrev={() => setStubIdx((i) => Math.max(0, Math.min(i, stubs.length - 1) - 1))}
