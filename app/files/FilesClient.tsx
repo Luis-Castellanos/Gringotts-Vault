@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { IconSearch, IconUpload } from '@/components/nav-icons';
 import { faviconUrl, instDomain, instInitials } from '@/lib/institution-logo';
@@ -127,6 +127,74 @@ function TrashIcon() {
   );
 }
 
+function Chevron() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M2 4l3 3 3-3" />
+    </svg>
+  );
+}
+
+// A compact multi-select facet (flat list — status / type / account have no
+// hierarchy). Empty selection = no filter. Counts reflect the full set.
+function FacetFilter({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: { value: string; label: string; count: number }[];
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = selected.size > 0;
+  const toggle = (v: string) => {
+    const n = new Set(selected);
+    if (n.has(v)) n.delete(v); else n.add(v);
+    onChange(n);
+  };
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[13px] transition-colors ${active ? 'border-accent-border bg-accent-soft text-text-primary' : 'border-border-subtle bg-surface-1 text-text-secondary hover:border-border-strong'}`}
+      >
+        {label}{active ? ` · ${selected.size}` : ''}
+        <span className="text-text-muted"><Chevron /></span>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-[calc(100%+6px)] z-40 w-[220px] rounded-lg border border-border-strong bg-surface-base p-1.5 shadow-xl">
+            {active && (
+              <button
+                type="button"
+                onClick={() => onChange(new Set())}
+                className="mb-1 w-full rounded-md px-2.5 py-1.5 text-left text-[12px] text-text-tertiary hover:bg-surface-2 transition-colors"
+              >
+                Clear {label.toLowerCase()}
+              </button>
+            )}
+            <div className="max-h-[280px] overflow-y-auto">
+              {options.map((o) => (
+                <label key={o.value} className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] text-text-primary hover:bg-surface-2">
+                  <input type="checkbox" checked={selected.has(o.value)} onChange={() => toggle(o.value)} style={{ accentColor: 'var(--color-accent-500)' }} />
+                  <span className="flex-1 truncate capitalize">{o.label}</span>
+                  <span className="text-[11px] tabular-nums text-text-muted">{o.count}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 type AccountOption = { value: string; label: string; last4: string | null; institution: string | null; type: string };
 
 export function FilesClient({
@@ -147,14 +215,46 @@ export function FilesClient({
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'uploaded', dir: 'desc' });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [statusF, setStatusF] = useState<Set<string>>(new Set());
+  const [docTypeF, setDocTypeF] = useState<Set<string>>(new Set());
+  const [acctF, setAcctF] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const lastIndexRef = useRef<number | null>(null);
 
   const acctById = useMemo(() => new Map(accountOptions.map((a) => [a.value, a])), [accountOptions]);
   const acctSelectOptions = useMemo(() => accountOptions.map((a) => ({ value: a.value, label: a.label })), [accountOptions]);
   const typeSelectOptions = useMemo(() => typeOptions.map((o) => ({ value: o.slug, label: o.label })), [typeOptions]);
 
+  // Facet options (with live counts) derived from the full set.
+  const facets = useMemo(() => {
+    const status = new Map<string, number>();
+    const docType = new Map<string, number>();
+    const account = new Map<string, { label: string; count: number }>();
+    for (const r of rows) {
+      status.set(r.status, (status.get(r.status) ?? 0) + 1);
+      docType.set(r.detectedType, (docType.get(r.detectedType) ?? 0) + 1);
+      const key = r.accountId ?? '__unassigned__';
+      const label = r.accountId ? `${r.institution ?? 'Account'}${r.last4 ? ` ····${r.last4}` : ''}` : 'Unassigned';
+      const cur = account.get(key) ?? { label, count: 0 };
+      cur.count += 1;
+      account.set(key, cur);
+    }
+    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    return {
+      status: [...status].map(([value, count]) => ({ value, label: cap(value), count })).sort((a, b) => a.label.localeCompare(b.label)),
+      docType: [...docType].map(([value, count]) => ({ value, label: TYPE_LABEL[value] ?? value, count })).sort((a, b) => a.label.localeCompare(b.label)),
+      account: [...account].map(([value, v]) => ({ value, label: v.label, count: v.count })).sort((a, b) => a.label.localeCompare(b.label)),
+    };
+  }, [rows]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = q ? rows.filter((r) => matches(r, q)) : rows;
+    const filtered = rows.filter((r) =>
+      (!q || matches(r, q)) &&
+      (statusF.size === 0 || statusF.has(r.status)) &&
+      (docTypeF.size === 0 || docTypeF.has(r.detectedType)) &&
+      (acctF.size === 0 || acctF.has(r.accountId ?? '__unassigned__')),
+    );
     const sorted = [...filtered].sort((a, b) => {
       const av = sortVal(a, sort.key);
       const bv = sortVal(b, sort.key);
@@ -162,7 +262,10 @@ export function FilesClient({
       return sort.dir === 'asc' ? c : -c;
     });
     return sorted;
-  }, [rows, query, sort]);
+  }, [rows, query, sort, statusF, docTypeF, acctF]);
+
+  const filtersActive = query.trim() !== '' || statusF.size > 0 || docTypeF.size > 0 || acctF.size > 0;
+  function clearFilters() { setQuery(''); setStatusF(new Set()); setDocTypeF(new Set()); setAcctF(new Set()); }
 
   function toggleSort(key: SortKey) {
     setSort((prev) =>
@@ -249,15 +352,32 @@ export function FilesClient({
     }
     setBulkBusy(false);
   }
-  async function bulkRemove() {
-    const n = selected.size;
-    if (!window.confirm(`Remove ${n} file${n === 1 ? '' : 's'}? The imported transactions are kept.`)) return;
+  async function doBulkRemove(withData: boolean) {
     setBulkBusy(true); setError(null);
-    for (const id of [...selected]) await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+    for (const id of [...selected]) {
+      await fetch(`/api/documents/${id}${withData ? '?withData=1' : ''}`, { method: 'DELETE' });
+    }
     setRows((rs) => rs.filter((r) => !selected.has(r.id)));
     setSelected(new Set());
     setBulkBusy(false);
+    setBulkConfirm(false);
   }
+
+  // Shift-click selects the contiguous range from the last toggled row.
+  function onRowCheck(shift: boolean, id: string, index: number) {
+    if (shift && lastIndexRef.current !== null) {
+      const [a, b] = [lastIndexRef.current, index].sort((x, y) => x - y);
+      const ids = visible.slice(a, b + 1).map((r) => r.id);
+      setSelected((s) => { const n = new Set(s); ids.forEach((i) => n.add(i)); return n; });
+    } else {
+      toggleSelect(id);
+    }
+    lastIndexRef.current = index;
+  }
+  const bulkTxnTotal = useMemo(
+    () => rows.filter((r) => selected.has(r.id)).reduce((s, r) => s + (r.status === 'parsed' ? r.transactionCount : 0), 0),
+    [rows, selected],
+  );
 
   function startResize(e: React.PointerEvent, key: ColKey) {
     e.preventDefault();
@@ -373,7 +493,7 @@ export function FilesClient({
       <p className="text-[13px] text-text-tertiary mb-5">
         {rows.length === 0
           ? 'Every statement you upload is parsed and stored here.'
-          : query.trim()
+          : filtersActive
             ? `${visible.length} of ${rows.length} ${rows.length === 1 ? 'document' : 'documents'} match.`
             : `${rows.length} ${rows.length === 1 ? 'document' : 'documents'} · the original PDF of each is stored and downloadable.`}
       </p>
@@ -401,8 +521,8 @@ export function FilesClient({
         </div>
       ) : (
         <>
-          <div className="mb-4 flex items-center gap-3">
-            <div className="relative w-full max-w-[340px]">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="relative w-full max-w-[300px]">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
                 <IconSearch size={15} />
               </span>
@@ -413,6 +533,14 @@ export function FilesClient({
                 className="w-full rounded-lg border border-border-subtle bg-surface-1 pl-9 pr-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-strong"
               />
             </div>
+            <FacetFilter label="Status" options={facets.status} selected={statusF} onChange={setStatusF} />
+            <FacetFilter label="Type" options={facets.docType} selected={docTypeF} onChange={setDocTypeF} />
+            <FacetFilter label="Account" options={facets.account} selected={acctF} onChange={setAcctF} />
+            {filtersActive && (
+              <button type="button" onClick={clearFilters} className="text-[12px] text-text-tertiary hover:text-text-primary transition-colors">
+                Clear filters
+              </button>
+            )}
           </div>
           {selected.size > 0 && (
             <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-accent-border bg-accent-soft px-4 py-2.5">
@@ -426,7 +554,7 @@ export function FilesClient({
                 <Select value="" onChange={bulkSetAccount} options={acctSelectOptions} className="vsel-sm" placeholder="Choose…" ariaLabel="Set account for selected" />
               </div>
               <div className="flex-1" />
-              <button type="button" onClick={bulkRemove} disabled={bulkBusy} className="rounded-md border border-negative/30 text-negative hover:bg-negative/10 text-[12px] font-medium px-3 py-1.5 transition-colors disabled:opacity-50">
+              <button type="button" onClick={() => setBulkConfirm(true)} disabled={bulkBusy} className="rounded-md border border-negative/30 text-negative hover:bg-negative/10 text-[12px] font-medium px-3 py-1.5 transition-colors disabled:opacity-50">
                 Remove
               </button>
               <button type="button" onClick={() => setSelected(new Set())} className="text-[12px] text-text-tertiary hover:text-text-primary transition-colors">
@@ -453,17 +581,17 @@ export function FilesClient({
             <div />
           </div>
           <div className="flex flex-col">
-            {visible.map((r) => (
+            {visible.map((r, index) => (
               <div
                 key={r.id}
                 style={gridStyle}
-                className="grid gap-3 px-4 py-3 border-t border-border-subtle items-center text-[13px] text-center first:border-t-0"
+                className={`grid gap-3 px-4 py-3 border-t border-border-subtle items-center text-[13px] text-center first:border-t-0 ${selected.has(r.id) ? 'bg-accent-soft/40' : ''}`}
               >
                 <div className="flex items-center justify-center">
                   <input
                     type="checkbox"
                     checked={selected.has(r.id)}
-                    onChange={() => toggleSelect(r.id)}
+                    onChange={(e) => onRowCheck((e.nativeEvent as MouseEvent).shiftKey, r.id, index)}
                     aria-label={`Select ${r.fileName}`}
                     style={{ accentColor: 'var(--color-accent-500)' }}
                   />
@@ -520,7 +648,7 @@ export function FilesClient({
           </div>
           {visible.length === 0 && (
             <div className="px-4 py-12 text-center text-[13px] text-text-tertiary border-t border-border-subtle">
-              No files match “{query.trim()}”.
+              No files match the current filters. <button type="button" onClick={clearFilters} className="text-accent-500 hover:underline">Clear filters</button>
             </div>
           )}
           </div>
@@ -576,6 +704,61 @@ export function FilesClient({
                   className="rounded-lg bg-negative px-3.5 py-2 text-[13px] font-medium text-white hover:brightness-110 transition-colors disabled:opacity-60"
                 >
                   {busy ? 'Removing…' : `Remove file + ${confirm.transactionCount} rows`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk remove confirmation */}
+      {bulkConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => !bulkBusy && setBulkConfirm(false)}
+        >
+          <div
+            className="w-full max-w-[460px] rounded-xl border border-border-subtle bg-surface-base p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-[15px] font-semibold mb-1">
+              Remove {selected.size} file{selected.size === 1 ? '' : 's'}?
+            </div>
+            <p className="text-[13px] text-text-secondary mb-5">
+              {bulkTxnTotal > 0 ? (
+                <>
+                  The selected files imported <b>{bulkTxnTotal.toLocaleString()}</b> transactions. Remove just
+                  the files (keep the transactions), or remove the files <b>and</b> all data they imported?
+                </>
+              ) : (
+                <>The stored PDFs will be deleted. The selected files have no imported transactions to remove.</>
+              )}
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => setBulkConfirm(false)}
+                className="rounded-lg px-3.5 py-2 text-[13px] font-medium text-text-secondary hover:bg-surface-2 transition-colors disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => doBulkRemove(false)}
+                className="rounded-lg border border-border-strong px-3.5 py-2 text-[13px] font-medium text-text-primary hover:bg-surface-2 transition-colors disabled:opacity-60"
+              >
+                {bulkBusy ? 'Removing…' : 'Remove files only'}
+              </button>
+              {bulkTxnTotal > 0 && (
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  onClick={() => doBulkRemove(true)}
+                  className="rounded-lg bg-negative px-3.5 py-2 text-[13px] font-medium text-white hover:brightness-110 transition-colors disabled:opacity-60"
+                >
+                  {bulkBusy ? 'Removing…' : `Remove files + ${bulkTxnTotal.toLocaleString()} rows`}
                 </button>
               )}
             </div>
