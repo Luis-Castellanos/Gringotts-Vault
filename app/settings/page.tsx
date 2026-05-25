@@ -6,6 +6,7 @@ import { ANTHROPIC_KEY, MARKET_DATA_KEY, getAnthropicKey, getAnthropicModel, get
 import { SettingsClient, type GroupRow, type TypeRow } from './SettingsClient';
 import { ClaudeSettings } from './ClaudeSettings';
 import { MarketDataSettings } from './MarketDataSettings';
+import { MaintenancePanel } from './MaintenancePanel';
 import { ExportPanel } from './ExportPanel';
 
 export const metadata = { title: 'Settings · Vault' };
@@ -52,6 +53,7 @@ export default async function SettingsPage() {
       <SettingsClient groups={groupRows} rows={rows} />
       <ClaudeSettings hasKey={hasKey} keySource={keySource} model={model} />
       <MarketDataSettings hasKey={hasMarketKey} keySource={marketKeySource} />
+      <MaintenancePanel />
       <ExportPanel />
     </main>
   );

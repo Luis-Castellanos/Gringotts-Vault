@@ -2,6 +2,15 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Import polish: dry-run preview + re-clean button.** Upload gains a
+  **Preview (dry run)** step (`/api/documents/preview`) that parses without writing
+  and reports, per file: detected account (and whether it's new), new vs
+  already-imported row counts (content-hash check), statement reconciliation
+  (stated vs derived), and re-uploaded-file detection — so you see exactly what a
+  commit would do first. `previewIngest()` + `resolveAccountPreview()` in
+  `lib/ingest`. Settings → **Data maintenance** gains a **Re-clean merchant names**
+  button (`/api/transactions/reclean`), promoting the former CLI-only script;
+  `lib/transactions/reclean.ts` is now shared by the script and the route.
 - 2026-05-25 — **Cashflow: merchant breakdown + year-over-year.** The breakdown
   grouping gains a **Merchant** dimension (alongside Category / Sub category),
   backed by a per-(month·account·merchant) aggregation; rows drill into the

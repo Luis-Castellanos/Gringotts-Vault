@@ -8,7 +8,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accounts, categories, imports, paystubs, transactions, vendorRules } from '@/lib/db/schema';
@@ -102,6 +102,29 @@ export async function getOrCreateAccount(
     .returning({ id: accounts.id });
   console.log(`  [+] Created account: ${display} (type=${type}, asset_class=${assetClass})`);
   return row!.id;
+}
+
+/**
+ * Read-only account resolution for the import dry-run: mirror getOrCreateAccount's
+ * lookup (exact name+number, then unique number match) but never create. Returns
+ * the resolved display name and whether it already exists.
+ */
+export async function resolveAccountPreview(
+  label: string,
+  accountNumberFromColumn: string | null,
+): Promise<{ id: string | null; name: string; display: string }> {
+  const { name, accountNumber } = resolveAccountIdentity(label, accountNumberFromColumn);
+  const display = accountNumber ? `${name} ••${accountNumber}` : name;
+  const exact = await db
+    .select({ id: accounts.id, display: accounts.displayName })
+    .from(accounts)
+    .where(and(eq(accounts.name, name), eq(accounts.accountNumber, accountNumber ?? '')));
+  if (exact[0]) return { id: exact[0].id, name, display: exact[0].display };
+  if (accountNumber) {
+    const byNumber = await db.select({ id: accounts.id, display: accounts.displayName }).from(accounts).where(eq(accounts.accountNumber, accountNumber));
+    if (byNumber.length === 1) return { id: byNumber[0]!.id, name, display: byNumber[0]!.display };
+  }
+  return { id: null, name, display };
 }
 
 // ---------------------------------------------------------------------------
@@ -297,6 +320,82 @@ export async function ingestParsedStatement(args: {
     .where(eq(imports.id, importId));
 
   return { accountId, importId, inserted, skipped };
+}
+
+/**
+ * Dry-run an ingest: predict the resolved account, how many rows are new vs
+ * already in the ledger (content-hash check), and whether the statement's stated
+ * control totals reconcile against the parsed rows. No writes.
+ */
+export type IngestPreview = {
+  accountName: string;
+  accountExists: boolean;
+  totalRows: number;
+  newRows: number;
+  duplicateRows: number;
+  reconciles: boolean | null; // null when the statement prints no stated totals
+  endDelta: number | null; // derived end − stated end
+};
+
+export async function previewIngest(args: {
+  rows: ParsedTxn[];
+  accountLabel: string;
+  accountNumber: string | null;
+  summary?: ParsedStatementSummary | null;
+}): Promise<IngestPreview> {
+  const { rows, accountLabel, accountNumber, summary } = args;
+  const acct = await resolveAccountPreview(accountLabel, accountNumber);
+
+  // Unique content hashes for this statement's rows (dedup within the file first).
+  const seen = new Set<string>();
+  const hashes: string[] = [];
+  for (const r of rows) {
+    if (!acct.id) { seen.add(`${r.date}|${r.amount.toFixed(2)}|${r.source}`); continue; }
+    const h = contentHash(acct.id, r.date, r.amount.toFixed(2), r.source);
+    if (seen.has(h)) continue;
+    seen.add(h);
+    hashes.push(h);
+  }
+
+  let duplicateRows: number;
+  if (!acct.id) {
+    // Brand-new account → nothing in the ledger yet; only in-file dupes are dupes.
+    const uniqueInFile = seen.size;
+    duplicateRows = rows.length - uniqueInFile;
+  } else {
+    const existing = hashes.length
+      ? await db
+          .select({ h: transactions.contentHash })
+          .from(transactions)
+          .where(and(eq(transactions.accountId, acct.id), inArray(transactions.contentHash, hashes)))
+      : [];
+    const existingSet = new Set(existing.map((e) => e.h));
+    const inLedger = hashes.filter((h) => existingSet.has(h)).length;
+    const inFileDupes = rows.length - hashes.length;
+    duplicateRows = inLedger + inFileDupes;
+  }
+  const newRows = rows.length - duplicateRows;
+
+  // Reconciliation from stated control totals.
+  let reconciles: boolean | null = null;
+  let endDelta: number | null = null;
+  const begin = summary?.beginning_balance ?? null;
+  const end = summary?.ending_balance ?? null;
+  if (begin != null && end != null) {
+    const net = rows.reduce((s, r) => s + r.amount, 0);
+    endDelta = Math.round((begin + net - end) * 100) / 100;
+    reconciles = Math.abs(endDelta) <= 0.01;
+  }
+
+  return {
+    accountName: acct.display,
+    accountExists: acct.id != null,
+    totalRows: rows.length,
+    newRows,
+    duplicateRows,
+    reconciles,
+    endDelta,
+  };
 }
 
 // ---------------------------------------------------------------------------
