@@ -28,6 +28,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  primaryKey,
   check,
   customType,
   AnyPgColumn,
@@ -395,6 +396,45 @@ export const appSettings = pgTable('app_settings', {
   value: text('value'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// goals — Monarch-style financial goals (Goals page). Two kinds:
+//   save_up  — target amount + date + monthly contribution; progress = the
+//              balance of the assigned (asset) accounts. Status: ahead/on-track/at-risk.
+//   pay_down — assigned debt accounts; progress = how far the balance is paid
+//              down; projection (months to debt-free) from APR + monthly payment.
+// Assigned accounts live in goal_accounts. Balances are derived from
+// transactions, so a goal's progress updates as the ledger does.
+// ---------------------------------------------------------------------------
+
+export const goals = pgTable(
+  'goals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    type: text('type').notNull().default('save_up'), // 'save_up' | 'pay_down'
+    targetAmount: numeric('target_amount', { precision: 14, scale: 2 }), // null for pay_down (target = $0)
+    targetDate: date('target_date'),
+    monthlyContribution: numeric('monthly_contribution', { precision: 14, scale: 2 }),
+    icon: text('icon'),
+    color: text('color'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isArchived: boolean('is_archived').notNull().default(false),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ activeIdx: index('goals_active_idx').on(t.isArchived) }),
+);
+
+export const goalAccounts = pgTable(
+  'goal_accounts',
+  {
+    goalId: uuid('goal_id').notNull().references(() => goals.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.goalId, t.accountId] }) }),
+);
 
 // ---------------------------------------------------------------------------
 // transactions — the core ledger

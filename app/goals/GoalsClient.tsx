@@ -1,0 +1,159 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+import type { GoalView } from '@/lib/goals/load';
+import type { SaveStatus } from '@/lib/goals/calc';
+import { PageHeader } from '@/components/PageHeader';
+import { StatTile } from '@/components/StatTile';
+import { fmtMoney0, fmtPct, fmtDate } from '@/lib/format';
+import { GoalForm, type AccountOption } from './GoalForm';
+
+const STATUS: Record<SaveStatus, { label: string; cls: string }> = {
+  reached: { label: 'Reached 🎉', cls: 'text-positive' },
+  ahead: { label: 'Ahead', cls: 'text-positive' },
+  on_track: { label: 'On track', cls: 'text-cat-blue' },
+  at_risk: { label: 'At risk', cls: 'text-amber-400' },
+  no_plan: { label: 'No target set', cls: 'text-text-muted' },
+};
+
+function monthsLabel(n: number): string {
+  if (n <= 0) return 'now';
+  if (n < 12) return `${n} mo`;
+  const y = Math.floor(n / 12);
+  const m = n % 12;
+  return m ? `${y}y ${m}m` : `${y} yr`;
+}
+
+function GoalCard({ g, onEdit, onDelete }: { g: GoalView; onEdit: () => void; onDelete: () => void }) {
+  const pct = g.progressPct;
+  const isPay = g.type === 'pay_down';
+  const barColor = isPay ? 'bg-negative' : 'bg-positive';
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl bg-surface-1 border border-border-subtle p-5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[15px] font-semibold text-text-primary truncate">{g.name}</div>
+          <div className="text-[12px] text-text-tertiary">
+            {isPay ? 'Pay down' : 'Save up'}
+            {g.accounts.length > 0 && <span> · {g.accounts.length} account{g.accounts.length === 1 ? '' : 's'}</span>}
+          </div>
+        </div>
+        <div className="flex gap-1 shrink-0">
+          <button type="button" onClick={onEdit} className="text-[12px] text-text-tertiary hover:text-text-primary px-1.5 py-0.5 rounded hover:bg-surface-2">Edit</button>
+          <button type="button" onClick={onDelete} className="text-[12px] text-text-muted hover:text-negative px-1.5 py-0.5 rounded hover:bg-negative/10">Delete</button>
+        </div>
+      </div>
+
+      {/* Headline number */}
+      <div className="flex items-baseline justify-between">
+        <span className="text-[22px] font-semibold tabular-nums tracking-[-0.01em]">{fmtMoney0(g.current)}</span>
+        {!isPay && g.targetAmount != null && (
+          <span className="text-[13px] text-text-tertiary tabular-nums">of {fmtMoney0(g.targetAmount)}</span>
+        )}
+        {isPay && <span className="text-[13px] text-text-tertiary">owed</span>}
+      </div>
+
+      {/* Progress bar */}
+      {pct != null ? (
+        <div>
+          <div className="h-2 rounded-full bg-surface-3 overflow-hidden">
+            <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+          </div>
+          <div className="text-[11.5px] text-text-muted mt-1">{fmtPct(pct)} {isPay ? 'paid off' : 'of target'}</div>
+        </div>
+      ) : (
+        <div className="text-[11.5px] text-text-muted">{isPay ? 'Add original loan amounts to track payoff %' : 'Set a target to track progress'}</div>
+      )}
+
+      {/* Status / projection footer */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] pt-1 border-t border-border-subtle mt-1">
+        {!isPay && g.status && <span className={`font-medium ${STATUS[g.status].cls}`}>{STATUS[g.status].label}</span>}
+        {!isPay && g.projectedDate && <span className="text-text-tertiary">on track for {fmtDate(g.projectedDate)}</span>}
+        {!isPay && g.status === 'at_risk' && g.requiredMonthly != null && (
+          <span className="text-text-tertiary">needs {fmtMoney0(g.requiredMonthly)}/mo</span>
+        )}
+        {isPay && g.debtFreeDate && (
+          <span className="font-medium text-positive">Debt-free {fmtDate(g.debtFreeDate)}</span>
+        )}
+        {isPay && g.payoffMonths != null && <span className="text-text-tertiary">{monthsLabel(g.payoffMonths)} left</span>}
+        {isPay && g.totalInterest != null && <span className="text-text-tertiary">~{fmtMoney0(g.totalInterest)} interest</span>}
+        {isPay && g.payoffMonths == null && <span className="text-text-tertiary">Set APR + payment on the linked accounts</span>}
+      </div>
+    </section>
+  );
+}
+
+export function GoalsClient({ goals, accountOptions }: { goals: GoalView[]; accountOptions: AccountOption[] }) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<GoalView | null>(null);
+
+  const saveUps = goals.filter((g) => g.type === 'save_up');
+  const payDowns = goals.filter((g) => g.type === 'pay_down');
+  const totalSaved = saveUps.reduce((s, g) => s + g.current, 0);
+  const totalDebt = payDowns.reduce((s, g) => s + g.current, 0);
+
+  async function del(g: GoalView) {
+    if (!confirm(`Delete the goal "${g.name}"? (Your accounts and balances are untouched.)`)) return;
+    const res = await fetch(`/api/goals/${g.id}`, { method: 'DELETE' });
+    if (res.ok) router.refresh();
+    else alert('Could not delete goal.');
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Goals"
+        subtitle="Save up for what's next and track your path to debt-free."
+        actions={
+          <button type="button" onClick={() => setAdding(true)} className="rounded-lg bg-accent-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-500/90">
+            + New goal
+          </button>
+        }
+      />
+
+      {goals.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-20 text-center">
+          <h2 className="text-[16px] font-semibold mb-1">No goals yet</h2>
+          <p className="text-[13px] text-text-tertiary max-w-md mx-auto mb-5">
+            Create a savings goal (emergency fund, down payment) or a debt-payoff goal — assign accounts and Vault tracks the progress automatically.
+          </p>
+          <button type="button" onClick={() => setAdding(true)} className="rounded-lg bg-accent-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-500/90">
+            + Create your first goal
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <StatTile size="lg" label="Saved toward goals" value={fmtMoney0(totalSaved)} tone="pos" sub={`${saveUps.length} save-up goal${saveUps.length === 1 ? '' : 's'}`} />
+            <StatTile size="lg" label="Debt in payoff" value={fmtMoney0(totalDebt)} tone={totalDebt > 0 ? 'neg' : 'default'} sub={`${payDowns.length} pay-down goal${payDowns.length === 1 ? '' : 's'}`} />
+            <StatTile size="lg" label="Goals" value={String(goals.length)} sub="Active" />
+          </div>
+
+          {saveUps.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-[14px] font-semibold mb-3">Save up</h2>
+              <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+                {saveUps.map((g) => <GoalCard key={g.id} g={g} onEdit={() => setEditing(g)} onDelete={() => del(g)} />)}
+              </div>
+            </div>
+          )}
+
+          {payDowns.length > 0 && (
+            <div>
+              <h2 className="text-[14px] font-semibold mb-3">Pay down debt</h2>
+              <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+                {payDowns.map((g) => <GoalCard key={g.id} g={g} onEdit={() => setEditing(g)} onDelete={() => del(g)} />)}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {adding && <GoalForm accountOptions={accountOptions} onClose={() => setAdding(false)} />}
+      {editing && <GoalForm goal={editing} accountOptions={accountOptions} onClose={() => setEditing(null)} />}
+    </>
+  );
+}

@@ -23,6 +23,7 @@ import {
   IconDashboard,
   IconFiles,
   IconForecasting,
+  IconGoals,
   IconInvestments,
   IconNetWorth,
   IconPanelLeft,
@@ -55,7 +56,8 @@ type NavHref =
   | '/categories'
   | '/upload'
   | '/files'
-  | '/transfers';
+  | '/transfers'
+  | '/goals';
 
 type NavItem = {
   href: NavHref;
@@ -85,6 +87,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: '/transfers', label: 'Transfers', Icon: IconTransfers },
       { href: '/rentals', label: 'Real Estate', Icon: IconRentals },
       { href: '/investments', label: 'Investments', Icon: IconInvestments },
+      { href: '/goals', label: 'Goals', Icon: IconGoals },
     ],
   },
   {

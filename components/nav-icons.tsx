@@ -26,6 +26,16 @@ export function IconDashboard({ className, size = 18 }: IconProps) {
   );
 }
 
+export function IconGoals({ className, size = 18 }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1.2" />
+    </svg>
+  );
+}
+
 export function IconAccounts({ className, size = 18 }: IconProps) {
   return (
     <svg {...base(size, className)}>

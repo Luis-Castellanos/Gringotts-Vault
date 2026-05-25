@@ -2,6 +2,20 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Goals (Monarch-style, first pass).** New `/goals` page with two goal
+  kinds, copied from Monarch's Goals 3.0:
+  - **Save up** — target amount + date + monthly contribution; assign asset
+    accounts; progress bar + **on-track / ahead / at-risk / reached** status and a
+    projected completion date (or required monthly to hit the date).
+  - **Pay down** — assign debt accounts; payoff **projection from APR + monthly
+    payment** → estimated **debt-free date**, months left, total interest, and
+    paid-off % (when original loan amounts are known).
+  Balances are derived from the ledger, so goals update automatically. Schema:
+  `goals` + `goal_accounts`; API: POST /api/goals, PATCH+DELETE /api/goals/[id]
+  (PATCH replaces assigned accounts). `lib/goals/{calc,load,validation}.ts`. Nav:
+  **Goals** added under "Under development". _Deferred (Monarch also has):_
+  avalanche/snowball + lump-sum payoff scenarios, per-account allocation portions,
+  and save-up growth rates.
 - 2026-05-25 — **Investments groundwork: holdings schema + market-data seam.** Data
   strategy locked: holdings come from the brokerage-statement **parser**; market
   value + index benchmarks come from a **live feed**. Added the `holdings` table
