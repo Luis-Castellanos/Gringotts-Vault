@@ -68,6 +68,28 @@
   --radius-pill: 9999px;
 }
 
+/* Loading skeletons — a soft shimmer between two surface layers, so it reads as
+   "content arriving" without a jarring gray block. Theme-aware via the surface
+   tokens; respects reduced-motion. Used by the per-route loading.tsx files. */
+@keyframes vault-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-surface-3) 50%,
+    var(--color-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: vault-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
 /* Base styles — lock body background and prevent any default light flash */
 html,
 body {

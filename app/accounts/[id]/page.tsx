@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 
 import { db } from '@/lib/db/client';
 import { categories } from '@/lib/db/schema';
-import { Sidebar } from '@/components/Sidebar';
 import { TransactionsClient, type CatLite } from '@/app/transactions/TransactionsClient';
 import { countTransactions, loadMerchants, loadTransactions } from '@/lib/transactions/load';
 import { loadAccountBalanceSeries, loadAccountDetail } from '@/lib/accounts/detail';
@@ -31,26 +30,25 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   if (!account) notFound();
 
   const filters = { accountIds: [id] };
-  const [txns, total, merchants, series] = await Promise.all([
+  const parentCat = alias(categories, 'parent_cat');
+  const [txns, total, merchants, series, catList] = await Promise.all([
     loadTransactions(null, 0, filters), // preload all of this account's transactions
     countTransactions(filters),
     loadMerchants(),
     loadAccountBalanceSeries(id),
+    db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        color: categories.color,
+        parentId: categories.parentId,
+        parentName: parentCat.name,
+      })
+      .from(categories)
+      .leftJoin(parentCat, eq(categories.parentId, parentCat.id))
+      .where(eq(categories.isArchived, false))
+      .orderBy(asc(categories.sortOrder), asc(categories.name)),
   ]);
-
-  const parentCat = alias(categories, 'parent_cat');
-  const catList = await db
-    .select({
-      id: categories.id,
-      name: categories.name,
-      color: categories.color,
-      parentId: categories.parentId,
-      parentName: parentCat.name,
-    })
-    .from(categories)
-    .leftJoin(parentCat, eq(categories.parentId, parentCat.id))
-    .where(eq(categories.isArchived, false))
-    .orderBy(asc(categories.sortOrder), asc(categories.name));
   const catLites: CatLite[] = catList.map((c) => ({
     id: c.id,
     name: c.name,
@@ -88,54 +86,49 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   rows.push({ label: 'Total transactions', value: total.toLocaleString() });
 
   return (
-    <div className="flex min-h-[calc(100vh_-_44px)]">
-      <Sidebar />
-      <div className="flex-1 flex justify-center">
-        <main className="account-detail-page w-full max-w-[1500px] px-6 pt-6 pb-20">
-          <AccountDetailHeader account={account} series={series} />
+    <main className="account-detail-page w-full max-w-[1500px] px-6 pt-6 pb-20">
+      <AccountDetailHeader account={account} series={series} />
 
-          <div className="ad-body">
-            <section className="ad-transactions transactions-page">
-              <TransactionsClient
-                txns={txns}
-                total={total}
-                accounts={[]}
-                categories={catLites}
-                merchants={merchants}
-                lockAccountId={id}
-              />
-            </section>
+      <div className="ad-body">
+        <section className="ad-transactions transactions-page">
+          <TransactionsClient
+            txns={txns}
+            total={total}
+            accounts={[]}
+            categories={catLites}
+            merchants={merchants}
+            lockAccountId={id}
+          />
+        </section>
 
-            <aside className="ad-summary">
-              <div className="ad-card">
-                <h3>Summary</h3>
-                {utilization != null && (
-                  <div className="ad-util">
-                    <div className="ad-util-top">
-                      <span>Credit utilization</span>
-                      <strong>{utilization.toFixed(0)}%</strong>
-                    </div>
-                    <div className="ad-util-bar">
-                      <div
-                        className={'ad-util-fill' + (utilization >= 70 ? ' high' : utilization >= 30 ? ' mid' : '')}
-                        style={{ width: `${utilization}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-                <dl className="ad-stats">
-                  {rows.map((r) => (
-                    <div key={r.label} className="ad-stat">
-                      <dt>{r.label}</dt>
-                      <dd>{r.value}</dd>
-                    </div>
-                  ))}
-                </dl>
+        <aside className="ad-summary">
+          <div className="ad-card">
+            <h3>Summary</h3>
+            {utilization != null && (
+              <div className="ad-util">
+                <div className="ad-util-top">
+                  <span>Credit utilization</span>
+                  <strong>{utilization.toFixed(0)}%</strong>
+                </div>
+                <div className="ad-util-bar">
+                  <div
+                    className={'ad-util-fill' + (utilization >= 70 ? ' high' : utilization >= 30 ? ' mid' : '')}
+                    style={{ width: `${utilization}%` }}
+                  />
+                </div>
               </div>
-            </aside>
+            )}
+            <dl className="ad-stats">
+              {rows.map((r) => (
+                <div key={r.label} className="ad-stat">
+                  <dt>{r.label}</dt>
+                  <dd>{r.value}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
-        </main>
+        </aside>
       </div>
-    </div>
+    </main>
   );
 }

@@ -3,7 +3,6 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db/client';
 import { accounts, categories } from '@/lib/db/schema';
-import { Sidebar } from '@/components/Sidebar';
 import { TransactionsClient, type AcctLite, type CatLite } from './TransactionsClient';
 import { countTransactions, loadMerchants, loadTransactions } from '@/lib/transactions/load';
 import './transactions.css';
@@ -12,28 +11,30 @@ export const metadata = { title: 'Transactions · Vault' };
 export const dynamic = 'force-dynamic';
 
 export default async function TransactionsPage() {
-  const txns = await loadTransactions(null, 0); // preload all; rendered incrementally
-  const total = await countTransactions();
-  const merchants = await loadMerchants();
-
-  const acctList = await db
-    .select({ id: accounts.id, name: accounts.name, institution: accounts.institution })
-    .from(accounts)
-    .orderBy(asc(accounts.name));
-
   const parentCat = alias(categories, 'parent_cat');
-  const catList = await db
-    .select({
-      id: categories.id,
-      name: categories.name,
-      color: categories.color,
-      parentId: categories.parentId,
-      parentName: parentCat.name,
-    })
-    .from(categories)
-    .leftJoin(parentCat, eq(categories.parentId, parentCat.id))
-    .where(eq(categories.isArchived, false))
-    .orderBy(asc(categories.sortOrder), asc(categories.name));
+  // All five reads are independent — fire them together so the page waits on
+  // one round-trip's worth of latency, not five stacked end to end.
+  const [txns, total, merchants, acctList, catList] = await Promise.all([
+    loadTransactions(null, 0), // preload all; rendered incrementally
+    countTransactions(),
+    loadMerchants(),
+    db
+      .select({ id: accounts.id, name: accounts.name, institution: accounts.institution })
+      .from(accounts)
+      .orderBy(asc(accounts.name)),
+    db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        color: categories.color,
+        parentId: categories.parentId,
+        parentName: parentCat.name,
+      })
+      .from(categories)
+      .leftJoin(parentCat, eq(categories.parentId, parentCat.id))
+      .where(eq(categories.isArchived, false))
+      .orderBy(asc(categories.sortOrder), asc(categories.name)),
+  ]);
 
   const acctLites: AcctLite[] = acctList.map((a) => ({ id: a.id, name: a.name, institution: a.institution ?? '' }));
   const catLites: CatLite[] = catList.map((c) => ({
@@ -45,13 +46,8 @@ export default async function TransactionsPage() {
   }));
 
   return (
-    <div className="flex min-h-[calc(100vh_-_44px)]">
-      <Sidebar />
-      <div className="flex-1 flex justify-center">
-        <main className="transactions-page w-full max-w-[1600px] px-6 pt-6 pb-20">
-          <TransactionsClient txns={txns} total={total} accounts={acctLites} categories={catLites} merchants={merchants} />
-        </main>
-      </div>
-    </div>
+    <main className="transactions-page w-full max-w-[1600px] px-6 pt-6 pb-20">
+      <TransactionsClient txns={txns} total={total} accounts={acctLites} categories={catLites} merchants={merchants} />
+    </main>
   );
 }

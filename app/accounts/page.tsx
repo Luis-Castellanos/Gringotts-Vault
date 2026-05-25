@@ -2,7 +2,6 @@ import { asc, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accounts, transactions } from '@/lib/db/schema';
-import { Sidebar } from '@/components/Sidebar';
 import { loadTaxonomyStyle } from '@/lib/taxonomy-style';
 import { AccountsSettingsClient, type AcctRow } from './AccountsSettingsClient';
 import './accounts-settings.css';
@@ -11,17 +10,18 @@ export const metadata = { title: 'Accounts · Vault' };
 export const dynamic = 'force-dynamic';
 
 export default async function AccountsPage() {
-  const acctRows = await db.select().from(accounts).orderBy(asc(accounts.name));
-  const style = await loadTaxonomyStyle();
-
-  const stats = await db
-    .select({
-      accountId: transactions.accountId,
-      count: sql<number>`count(*)::int`,
-      balance: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
-    })
-    .from(transactions)
-    .groupBy(transactions.accountId);
+  const [acctRows, style, stats] = await Promise.all([
+    db.select().from(accounts).orderBy(asc(accounts.name)),
+    loadTaxonomyStyle(),
+    db
+      .select({
+        accountId: transactions.accountId,
+        count: sql<number>`count(*)::int`,
+        balance: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
+      })
+      .from(transactions)
+      .groupBy(transactions.accountId),
+  ]);
   const statById = new Map(stats.map((s) => [s.accountId, s]));
 
   const rows: AcctRow[] = acctRows.map((a) => {
@@ -50,13 +50,8 @@ export default async function AccountsPage() {
   });
 
   return (
-    <div className="flex min-h-[calc(100vh_-_44px)]">
-      <Sidebar />
-      <div className="flex-1 flex justify-center">
-        <main className="acctset-page w-full max-w-[1600px] px-12 pt-8 pb-24">
-          <AccountsSettingsClient accounts={rows} />
-        </main>
-      </div>
-    </div>
+    <main className="acctset-page w-full max-w-[1600px] px-12 pt-8 pb-24">
+      <AccountsSettingsClient accounts={rows} />
+    </main>
   );
 }

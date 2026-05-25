@@ -1,6 +1,6 @@
 # Vault Roadmap
 
-> Last updated: 2026-05-24
+> Last updated: 2026-05-25
 
 ## Vision
 
@@ -238,20 +238,27 @@ Make Vault accessible from any device, with reasonable security. Polish the expe
 - [ ] Read-on-phone, edit-on-desktop optimization
 - [ ] **PWA support** — manifest, service worker, installable to iOS home screen
 - [ ] **Mobile-first review experience** — the iPhone-sized review queue, optimized for thumbs not mice
-- [ ] **Performance pass — page responsiveness** (diagnosed 2026-05-24). Every
-  page is `force-dynamic` and fetches data serially with no loading UI, so each
-  navigation freezes the current page until the new page's queries finish (worse
-  in `next dev`: per-route compile + no `<Link>` prefetch — verify real cost via
-  `next build && next start`). Planned:
-  - **App-shell layout** — lift TopBar+Sidebar into a shared layout so navigation
-    swaps only the content (today each page renders its own `<Sidebar/>`, so the
-    whole view is replaced per nav and a `loading.tsx` would blank the sidebar).
-  - **`loading.tsx` skeletons** — instant content placeholder while a page's
-    server data loads; sidebar stays put. Biggest perceived win.
-  - **Parallelize per-page queries** with `Promise.all` — Transactions does ~5
-    serial Neon round-trips, Net Worth 3; Cashflow is already 1 (why it feels the
-    snappiest today).
-  - General query optimization + `revalidate`/caching for semi-static data.
+- [x] **Performance pass — page responsiveness** — diagnosed 2026-05-24,
+  **shipped 2026-05-25**. Navigation used to freeze the whole view (every page was
+  `force-dynamic`, rendered its own `<Sidebar/>`, and fetched serially with no
+  loading UI). Done:
+  - [x] **App-shell layout** — `TopBar` + `Sidebar` + the centering wrapper now
+    live in `app/layout.tsx`, so navigation swaps only the content and the rails
+    stay mounted. All 19 pages dropped their wrapper and return just their
+    `<main>`. (`reviewCount` was never threaded, so the Sidebar is a pure client
+    component — nothing to lift but the markup.)
+  - [x] **`loading.tsx` skeletons** — 11 routes show an instant content
+    placeholder while server data loads (sidebar stays put). Tailored for
+    Transactions / Net Worth / Cashflow; generic (`components/Skeleton.tsx`) for
+    the lighter data pages; the 8 static pages render instantly and get none.
+    Theme-aware `.skeleton` shimmer added to `globals.css`.
+  - [x] **Parallelize per-page queries** with `Promise.all` — Transactions 5→1,
+    Credit Cards 4→1, Net Worth / Accounts 3→1, Settings 6→1, Categories 2→1,
+    Files 3-of-4, Account detail folded in. Cashflow / Payroll / Transfers were
+    already single-query.
+  - [ ] _Still open:_ general query optimization + `revalidate`/caching for
+    semi-static data. (Separate Phase 4a "Faster upload/ingest" work is still
+    pending too.)
 
 ### Phase 4a: Import polish
 

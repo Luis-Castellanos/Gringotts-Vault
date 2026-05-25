@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { themeInitScript } from '@/lib/theme';
 import { TopBar } from '@/components/TopBar';
+import { Sidebar } from '@/components/Sidebar';
 
 export const metadata: Metadata = {
   title: 'Vault',
@@ -24,7 +25,12 @@ export default function RootLayout({
       </head>
       <body>
         <TopBar />
-        {children}
+        <div className="flex min-h-[calc(100vh_-_44px)]">
+          <Sidebar />
+          <div className="flex-1 flex justify-center">
+            {children}
+          </div>
+        </div>
       </body>
     </html>
   );

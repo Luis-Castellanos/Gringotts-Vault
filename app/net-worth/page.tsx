@@ -2,7 +2,6 @@ import { asc, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accounts, transactions } from '@/lib/db/schema';
-import { Sidebar } from '@/components/Sidebar';
 import { loadTaxonomyStyle } from '@/lib/taxonomy-style';
 import { NetWorthClient, type AccountRow, type NWPoint } from './NetWorthClient';
 import './net-worth.css';
@@ -20,21 +19,21 @@ function daysAgo(n: number): string {
 }
 
 export default async function NetWorthPage() {
-  // All accounts with metadata
-  const acctRows = await db.select().from(accounts).orderBy(asc(accounts.name));
-  const style = await loadTaxonomyStyle();
-
-  // Per-account, per-date net sums — fuels balances, deltas, sparklines, and the
-  // global net-worth daily series.
-  const txnRows = await db
-    .select({
-      accountId: transactions.accountId,
-      date: transactions.date,
-      net: sql<string>`SUM(${transactions.amount})::text`,
-    })
-    .from(transactions)
-    .groupBy(transactions.accountId, transactions.date)
-    .orderBy(asc(transactions.date));
+  // All three reads are independent — run them together. txnRows fuels balances,
+  // deltas, sparklines, and the global net-worth daily series.
+  const [acctRows, style, txnRows] = await Promise.all([
+    db.select().from(accounts).orderBy(asc(accounts.name)),
+    loadTaxonomyStyle(),
+    db
+      .select({
+        accountId: transactions.accountId,
+        date: transactions.date,
+        net: sql<string>`SUM(${transactions.amount})::text`,
+      })
+      .from(transactions)
+      .groupBy(transactions.accountId, transactions.date)
+      .orderBy(asc(transactions.date)),
+  ]);
 
   const byAccount = new Map<string, { date: string; net: number }[]>();
   for (const r of txnRows) {
@@ -115,19 +114,14 @@ export default async function NetWorthPage() {
   });
 
   return (
-    <div className="flex min-h-[calc(100vh_-_44px)]">
-      <Sidebar />
-      <div className="flex-1 flex justify-center">
-        <main className="accounts-page w-full max-w-[1600px] px-12 pt-10 pb-20">
-          <NetWorthClient
-            accounts={allRows}
-            nwSeries={nwSeries}
-            groupColors={style.groupColor}
-            groupLabels={style.groupLabel}
-            readOnly
-          />
-        </main>
-      </div>
-    </div>
+    <main className="accounts-page w-full max-w-[1600px] px-12 pt-10 pb-20">
+      <NetWorthClient
+        accounts={allRows}
+        nwSeries={nwSeries}
+        groupColors={style.groupColor}
+        groupLabels={style.groupLabel}
+        readOnly
+      />
+    </main>
   );
 }

@@ -2,6 +2,25 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Page-responsiveness perf pass (app-shell + skeletons + parallel
+  queries).** Navigation used to freeze the whole view: every page rendered its
+  own `<Sidebar/>` inside a `force-dynamic` route that fetched serially with no
+  loading UI, so each click tore down the sidebar and waited on the next page's
+  queries before painting. Three fixes: (1) **App-shell layout** — `TopBar` +
+  `Sidebar` + the centering wrapper moved into `app/layout.tsx`, so navigation
+  swaps only the content and the rails stay mounted (no `reviewCount` threading
+  needed — the prop was unused, so the Sidebar is a pure client component). All 19
+  pages dropped their wrapper and now return just their `<main>`. (2) **`loading.tsx`
+  skeletons** — 11 routes get an instant content placeholder while server data
+  loads (sidebar stays put): tailored skeletons for Transactions / Net Worth /
+  Cashflow that mirror their real toolbar/chart/row layout, generic for the
+  lighter data pages; the 8 static pages render instantly and get none. New
+  theme-aware `.skeleton` shimmer + `components/Skeleton.tsx`. (3) **Parallelized
+  queries** with `Promise.all` — Transactions 5→1, Credit Cards 4→1, Net Worth /
+  Accounts 3→1, Settings 6→1, Categories 2→1, Files 3-of-4, Account detail folds
+  its category list into the existing batch. Still open (deferred): general
+  `revalidate`/caching for semi-static data, and the separate Phase 4a ingest-speed
+  work.
 - 2026-05-24 — **Durable categorization: rule tier at ingest + smarter merchant
   cleaner.** Added a shared rule set (`lib/categorize/rules.ts`) that classifies
   the raw statement text — transfers (credit-card payments, account/investment

@@ -3,7 +3,6 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db/client';
 import { accounts, categories, transactions } from '@/lib/db/schema';
-import { Sidebar } from '@/components/Sidebar';
 import { CashflowClient, type AcctLite, type CatAgg } from './CashflowClient';
 import './cashflow.css';
 
@@ -90,14 +89,9 @@ export default async function CashflowPage() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="flex min-h-[calc(100vh_-_44px)]">
-      <Sidebar />
-      <div className="flex-1 flex justify-center">
-        <main className="cashflow-page w-full max-w-[1400px] px-10 pt-9 pb-20">
-          <CashflowClient cats={cats} accounts={accountsList} />
-        </main>
-      </div>
-    </div>
+    <main className="cashflow-page w-full max-w-[1400px] px-10 pt-9 pb-20">
+      <CashflowClient cats={cats} accounts={accountsList} />
+    </main>
   );
 }
 
