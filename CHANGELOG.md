@@ -2,6 +2,21 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-24 — **Durable categorization: rule tier at ingest + smarter merchant
+  cleaner.** Added a shared rule set (`lib/categorize/rules.ts`) that classifies
+  the raw statement text — transfers (credit-card payments, account/investment
+  moves, Zelle, student loan), ATM, income, and fees deterministically; common
+  spend by keyword — with transfer direction taken from the amount sign. Wired
+  into ingest as **tier 2** (after the vendor-map exact match, before
+  Uncategorized): high-confidence hits auto-confirm, spend guesses are suggested,
+  and vendor-map hits now also set `is_transfer` correctly. `cleanMerchant` now
+  strips the leading `MM/DD(/YYYY)` date, `Card Purchase` / `Payment Sent|Received`
+  wrappers, trailing `Web ID:` / `PPD ID:` / `Transaction#:` processor IDs, and the
+  PayPal wrapper (`Paypal Inst Xfer <merchant>` → `<merchant>`) — collapsing the
+  fragmentation that had pinned the vendor-map hit rate at ~49%. A one-time bulk
+  pass (`scripts/categorize-vault.ts`) took the loaded Chase ledger from **49% →
+  94%** categorized (review backlog 1,809 → 228). New read-only tooling:
+  `categorization-audit.ts`, `cat-export.ts`.
 - 2026-05-24 — **Chase parser balance-chain rewrite + Files page filtering/bulk-
   delete.** `parse_chase_checking` now derives each amount from the printed
   **running balance** (`amount[i] = balance[i] - balance[i-1]`), bounded by
