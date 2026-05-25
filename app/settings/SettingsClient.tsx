@@ -4,6 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 
 import { ICON_CHOICES } from '@/lib/account-types';
+import { Select } from '@/components/Select';
+
+const ASSET_OPTIONS = [
+  { value: 'asset', label: 'Asset' },
+  { value: 'liability', label: 'Liability' },
+];
 
 export type GroupRow = { key: string; label: string; color: string };
 export type TypeRow = {
@@ -146,13 +152,8 @@ export function SettingsClient({ groups: initialGroups, rows: initialRows }: { g
             className="rounded-lg border border-border-subtle bg-surface-base px-3 py-2 text-[13px] focus:outline-none focus:border-border-strong"
           />
         </label>
-        <select value={newGroup} onChange={(e) => setNewGroup(e.target.value)} className="rounded-lg border border-border-subtle bg-surface-base px-3 py-2 text-[13px] focus:outline-none focus:border-border-strong">
-          {groups.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
-        </select>
-        <select value={newAsset} onChange={(e) => setNewAsset(e.target.value as 'asset' | 'liability')} className="rounded-lg border border-border-subtle bg-surface-base px-3 py-2 text-[13px] focus:outline-none focus:border-border-strong">
-          <option value="asset">Asset</option>
-          <option value="liability">Liability</option>
-        </select>
+        <Select value={newGroup} onChange={setNewGroup} options={groups.map((g) => ({ value: g.key, label: g.label }))} ariaLabel="Group" />
+        <Select value={newAsset} onChange={(v) => setNewAsset(v as 'asset' | 'liability')} options={ASSET_OPTIONS} ariaLabel="Asset class" />
         <button type="button" onClick={addType} disabled={busy || !newLabel.trim()} className="rounded-lg bg-accent-500 hover:brightness-110 disabled:opacity-50 text-white text-[13px] font-medium px-4 py-2 transition-colors">
           Add
         </button>
@@ -246,14 +247,13 @@ export function SettingsClient({ groups: initialGroups, rows: initialRows }: { g
                           className="flex-1 min-w-0 bg-transparent text-[14px] font-medium focus:outline-none focus:bg-surface-2 rounded px-1.5 py-1 -ml-1.5"
                         />
 
-                        <select
+                        <Select
                           value={t.assetClass}
-                          onChange={(e) => patchType(t.slug, { assetClass: e.target.value })}
-                          className="rounded-md border border-border-subtle bg-surface-2 text-text-secondary px-2 py-1 text-[12px] focus:outline-none shrink-0"
-                        >
-                          <option value="asset">Asset</option>
-                          <option value="liability">Liability</option>
-                        </select>
+                          onChange={(v) => patchType(t.slug, { assetClass: v })}
+                          options={ASSET_OPTIONS}
+                          className="vsel-sm shrink-0"
+                          ariaLabel="Asset class"
+                        />
 
                         {/* Right cluster — prominent, comfortable */}
                         <div className="flex items-center gap-3 shrink-0">
