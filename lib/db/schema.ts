@@ -35,6 +35,8 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
+import type { ReportQueryDef } from '@/lib/reports/query-types';
+
 // Postgres bytea <-> Node Buffer. Drizzle has no built-in bytea helper.
 export const bytea = customType<{ data: Buffer; default: false }>({
   dataType() {
@@ -349,6 +351,18 @@ export const imports = pgTable(
     importedAtIdx: index('imports_imported_at_idx').on(t.importedAt),
   }),
 );
+
+// ---------------------------------------------------------------------------
+// report_queries — saved definitions for the custom report builder (Reports →
+// Custom tab). The definition (group-by dimension + filters) is stored as jsonb.
+// ---------------------------------------------------------------------------
+
+export const reportQueries = pgTable('report_queries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  definition: jsonb('definition').$type<ReportQueryDef>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 // ---------------------------------------------------------------------------
 // documents — uploaded statement PDFs and their parse lifecycle.

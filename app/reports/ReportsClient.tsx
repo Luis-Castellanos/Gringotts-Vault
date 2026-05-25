@@ -8,14 +8,15 @@ import type { RecurringReport, Cadence } from '@/lib/reports/recurring';
 import type { AnomalyReport } from '@/lib/reports/anomalies';
 import { PageHeader } from '@/components/PageHeader';
 import { StatTile } from '@/components/StatTile';
-import { fmtMoney0 as money0, fmtDate, fmtPct } from '@/lib/format';
+import { fmtMoney0 as money0, fmtDate } from '@/lib/format';
+import { CustomPanel } from './CustomPanel';
 
 const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 const CADENCE_LABEL: Record<Cadence, string> = {
   weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly',
 };
 
-type Tab = 'summary' | 'recurring' | 'anomalies';
+type Tab = 'summary' | 'recurring' | 'anomalies' | 'custom';
 
 function Breakdown({ title, cats, tone }: { title: string; cats: ReportCategory[]; tone: 'pos' | 'neg' }) {
   const max = cats.length ? Math.max(...cats.map((c) => c.amount)) : 1;
@@ -188,6 +189,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'summary', label: 'Summary' },
   { id: 'recurring', label: 'Recurring' },
   { id: 'anomalies', label: 'Anomalies' },
+  { id: 'custom', label: 'Custom' },
 ];
 
 export function ReportsClient({
@@ -251,6 +253,7 @@ export function ReportsClient({
       {tab === 'summary' && <SummaryPanel report={report} />}
       {tab === 'recurring' && <RecurringPanel data={recurring} />}
       {tab === 'anomalies' && <AnomaliesPanel data={anomalies} />}
+      {tab === 'custom' && <CustomPanel />}
     </>
   );
 }

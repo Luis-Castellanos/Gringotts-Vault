@@ -2,6 +2,16 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Reports → multi-view hub.** Reports gains tabs:
+  **Recurring** (subscription detection — per-merchant cadence weekly→yearly with
+  stable amounts → monthly-equivalent burn, next expected charge, possibly-canceled
+  flag; `lib/reports/recurring.ts`), **Anomalies** (categories ≥2× their trailing
+  6-month average in the latest month, plus brand-new large categories — purely
+  informational; `lib/reports/anomalies.ts`), and **Custom** — a parameterized
+  query builder (group by category/merchant/account/month · flow filter · date +
+  amount range) with **saved queries** (`report_queries` table, `/api/reports/run`
+  + `/api/reports/queries`; `lib/reports/query.ts`). The annual summary moves under
+  the Summary tab.
 - 2026-05-25 — **Statement Audit page (Phase 4a).** New `/audit` (Data nav) — the
   data-integrity view. Reconciles each imported statement's PDF-stated control
   totals (beginning/ending balance, stated deposit/withdrawal totals on `imports`)
