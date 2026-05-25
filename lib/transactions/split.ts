@@ -151,6 +151,7 @@ export type SplitContribution = {
   parentColor: string | null;
   accountId: string | null;
   accountName: string | null;
+  merchant: string | null;
 };
 
 export async function loadSplitContributions(
@@ -175,6 +176,7 @@ export async function loadSplitContributions(
       parentColor: parent.color,
       accountId: transactions.accountId,
       accountName: accounts.name,
+      merchant: transactions.merchant,
     })
     .from(transactionSplits)
     .innerJoin(transactions, eq(transactionSplits.transactionId, transactions.id))
@@ -196,6 +198,7 @@ export async function loadSplitContributions(
     parentColor: r.parentColor,
     accountId: r.accountId,
     accountName: r.accountName,
+    merchant: r.merchant,
   }));
 }
 

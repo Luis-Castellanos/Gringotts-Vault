@@ -4,7 +4,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db/client';
 import { accounts, categories, transactions } from '@/lib/db/schema';
 import { loadSplitContributions } from '@/lib/transactions/split';
-import { CashflowClient, type AcctLite, type CatAgg } from './CashflowClient';
+import { CashflowClient, type AcctLite, type CatAgg, type MerchAgg } from './CashflowClient';
 import './cashflow.css';
 
 export const metadata = { title: 'Cashflow · Vault' };
@@ -33,6 +33,7 @@ export default async function CashflowPage() {
       parentColor: parent.color,
       accountId: transactions.accountId,
       accountName: accounts.name,
+      merchant: transactions.merchant,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -50,6 +51,7 @@ export default async function CashflowPage() {
   // Aggregate per (month, account, category) so the client can re-derive the
   // chart series + breakdown for any account selection without a round-trip.
   const catMap = new Map<string, CatAgg>();
+  const merchMap = new Map<string, MerchAgg>();
   const acctNames = new Map<string, string>();
 
   for (const r of [...rows, ...splitContribs]) {
@@ -90,16 +92,24 @@ export default async function CashflowPage() {
         signed: amt,
       });
     }
+
+    // Parallel aggregation keyed by merchant, for the Merchant breakdown dimension.
+    const merchant = (r.merchant ?? '').trim() || '(no merchant)';
+    const mKey = `${ym}|${accountId}|${merchant}`;
+    const mExisting = merchMap.get(mKey);
+    if (mExisting) mExisting.signed += amt;
+    else merchMap.set(mKey, { ym, flow, merchant, accountId, signed: amt });
   }
 
   const cats: CatAgg[] = [...catMap.values()].map((c) => ({ ...c, signed: round2(c.signed) }));
+  const merchants: MerchAgg[] = [...merchMap.values()].map((m) => ({ ...m, signed: round2(m.signed) }));
   const accountsList: AcctLite[] = [...acctNames.entries()]
     .map(([id, name]) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <main className="cashflow-page w-full max-w-[1400px] px-10 pt-9 pb-20">
-      <CashflowClient cats={cats} accounts={accountsList} />
+      <CashflowClient cats={cats} merchants={merchants} accounts={accountsList} />
     </main>
   );
 }

@@ -2,6 +2,12 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Cashflow: merchant breakdown + year-over-year.** The breakdown
+  grouping gains a **Merchant** dimension (alongside Category / Sub category),
+  backed by a per-(month·account·merchant) aggregation; rows drill into the
+  Transactions ledger filtered by merchant + period. The headline now also shows a
+  **year-over-year** net delta (vs. the same period last year) next to the
+  prior-period delta. (Account filters were already present.)
 - 2026-05-25 — **Reports → multi-view hub.** Reports gains tabs:
   **Recurring** (subscription detection — per-merchant cadence weekly→yearly with
   stable amounts → monthly-equivalent burn, next expected charge, possibly-canceled

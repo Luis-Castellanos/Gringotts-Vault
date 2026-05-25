@@ -20,9 +20,16 @@ export type CatAgg = {
   accountName: string;
   signed: number; // signed sum of amounts for that (month, account, category)
 };
+export type MerchAgg = {
+  ym: string;
+  flow: Flow;
+  merchant: string;
+  accountId: string;
+  signed: number; // signed sum for that (month, account, merchant)
+};
 
 type Gran = 'month' | 'quarter' | 'year';
-type Dim = 'category' | 'group';
+type Dim = 'category' | 'group' | 'merchant';
 type Tone = 'blue' | 'red' | 'green' | 'neutral';
 type Bucket = { key: string; income: number; expense: number };
 type Row = { key: string; name: string; color: string | null; amount: number };
@@ -47,6 +54,17 @@ function periodLabel(key: string, g: Gran, short = false): string {
   return short
     ? d.toLocaleString('en-US', { month: 'short' })
     : d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+}
+
+// Same period one year earlier, for the YoY comparison.
+function priorYearKey(key: string, g: Gran): string {
+  if (g === 'year') return String(Number(key) - 1);
+  if (g === 'quarter') {
+    const [y, q] = key.split('-Q');
+    return `${Number(y) - 1}-Q${q}`;
+  }
+  const [y, m] = key.split('-');
+  return `${Number(y) - 1}-${m}`;
 }
 
 function lastDay(y: number, m: number): string {
@@ -109,7 +127,7 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] 
 
 const DEFAULT_RANGE: Record<Gran, number | 'all'> = { month: 12, quarter: 8, year: 'all' };
 
-export function CashflowClient({ cats, accounts }: { cats: CatAgg[]; accounts: AcctLite[] }) {
+export function CashflowClient({ cats, merchants, accounts }: { cats: CatAgg[]; merchants: MerchAgg[]; accounts: AcctLite[] }) {
   const router = useRouter();
   const [gran, setGran] = useState<Gran>('month');
   const [dim, setDim] = useState<Dim>('group');
@@ -126,6 +144,10 @@ export function CashflowClient({ cats, accounts }: { cats: CatAgg[]; accounts: A
   const fcats = useMemo(
     () => (allSelected ? cats : cats.filter((c) => acctSel.has(c.accountId))),
     [cats, acctSel, allSelected],
+  );
+  const fmerch = useMemo(
+    () => (allSelected ? merchants : merchants.filter((m) => acctSel.has(m.accountId))),
+    [merchants, acctSel, allSelected],
   );
 
   // Stable, continuous timeline derived from the full (unfiltered) data set.
@@ -189,6 +211,24 @@ export function CashflowClient({ cats, accounts }: { cats: CatAgg[]; accounts: A
   const netDelta = prevNet != null ? net - prevNet : null;
   const netDeltaPct = prevNet ? (netDelta! / Math.abs(prevNet)) * 100 : null;
 
+  // Year-over-year: same period one year earlier.
+  const yoy = useMemo(() => {
+    if (!selected) return null;
+    const yk = priorYearKey(selected, gran);
+    const b = buckets.find((x) => x.key === yk);
+    if (!b) return null;
+    const yNet = b.income - b.expense;
+    return {
+      key: yk,
+      income: b.income,
+      expense: b.expense,
+      net: yNet,
+      incomeDelta: income - b.income,
+      expenseDelta: expense - b.expense,
+      netDelta: net - yNet,
+    };
+  }, [selected, gran, buckets, income, expense, net]);
+
   // Breakdown for the selected period, grouped by category or parent group, and
   // split into the three flow buckets.
   const breakdown = useMemo(() => {
@@ -196,12 +236,24 @@ export function CashflowClient({ cats, accounts }: { cats: CatAgg[]; accounts: A
     const inflow = make();
     const outflow = make();
     const transfer = make();
-    for (const c of fcats) {
+    // Normalize the active dimension to a common shape so the bucketing below is
+    // identical for category / group / merchant.
+    const items: { flow: Flow; ym: string; key: string; name: string; color: string | null; signed: number }[] =
+      dim === 'merchant'
+        ? fmerch.map((m) => ({ flow: m.flow, ym: m.ym, key: m.merchant, name: m.merchant, color: null, signed: m.signed }))
+        : fcats.map((c) => ({
+            flow: c.flow,
+            ym: c.ym,
+            key: dim === 'group' ? c.groupId : c.catId,
+            name: dim === 'group' ? c.groupName : c.catName,
+            color: dim === 'group' ? c.groupColor : c.catColor,
+            signed: c.signed,
+          }));
+    for (const c of items) {
       if (periodKey(c.ym, gran) !== selected) continue;
-      const useGroup = dim === 'group';
-      const k = useGroup ? c.groupId : c.catId;
-      const name = useGroup ? c.groupName : c.catName;
-      const color = useGroup ? c.groupColor : c.catColor;
+      const k = c.key;
+      const name = c.name;
+      const color = c.color;
       const target = c.flow === 'inflow' ? inflow : c.flow === 'transfer' ? transfer : outflow;
       // Inflows display their (positive) signed amount. Outflows and transfers
       // both show money leaving the account as a positive figure — for transfers
@@ -228,7 +280,7 @@ export function CashflowClient({ cats, accounts }: { cats: CatAgg[]; accounts: A
       return arr;
     };
     return { income: prep(inflow), expense: prep(outflow), transfer: prep(transfer) };
-  }, [fcats, gran, selected, dim, filter, sortKey]);
+  }, [fcats, fmerch, gran, selected, dim, filter, sortKey]);
 
   const transferTotal = breakdown.transfer.reduce((s, r) => s + r.amount, 0);
 
@@ -236,14 +288,18 @@ export function CashflowClient({ cats, accounts }: { cats: CatAgg[]; accounts: A
   // that category (or all children of a group) and the selected period.
   const drill = (rowKey: string) => {
     if (!selected) return;
-    const ids =
-      dim === 'category'
-        ? [rowKey]
-        : [...new Set(fcats.filter((c) => c.groupId === rowKey).map((c) => c.catId))];
-    const cat = ids.map((id) => (id === 'uncategorized' ? '__uncategorized__' : id)).join(',');
     const { from, to } = periodRange(selected, gran);
     const qs = new URLSearchParams({ from, to });
-    if (cat) qs.set('cats', cat);
+    if (dim === 'merchant') {
+      if (rowKey && rowKey !== '(no merchant)') qs.set('merchant', rowKey);
+    } else {
+      const ids =
+        dim === 'category'
+          ? [rowKey]
+          : [...new Set(fcats.filter((c) => c.groupId === rowKey).map((c) => c.catId))];
+      const cat = ids.map((id) => (id === 'uncategorized' ? '__uncategorized__' : id)).join(',');
+      if (cat) qs.set('cats', cat);
+    }
     router.push(`/transactions?${qs.toString()}`);
   };
 
@@ -279,6 +335,13 @@ export function CashflowClient({ cats, accounts }: { cats: CatAgg[]; accounts: A
                 {signedUsd2(netDelta)}
                 {netDeltaPct != null && ` (${netDeltaPct >= 0 ? '+' : ''}${netDeltaPct.toFixed(1)}%)`}
                 <span className="vs">vs. prior {gran}</span>
+              </span>
+            )}
+            {yoy && (
+              <span className={`delta ${yoy.netDelta > 0 ? 'pos' : yoy.netDelta < 0 ? 'neg' : ''}`}>
+                <span className="arrow">{yoy.netDelta > 0 ? '↗' : yoy.netDelta < 0 ? '↘' : '·'}</span>
+                {signedUsd2(yoy.netDelta)}
+                <span className="vs">vs. {periodLabel(yoy.key, gran)}</span>
               </span>
             )}
           </div>
@@ -338,9 +401,9 @@ export function CashflowClient({ cats, accounts }: { cats: CatAgg[]; accounts: A
             <option value="name">Name A–Z</option>
           </select>
           <div className="cf-pills sm" role="tablist" aria-label="Breakdown grouping">
-            {(['group', 'category'] as Dim[]).map((d) => (
+            {(['group', 'category', 'merchant'] as Dim[]).map((d) => (
               <button key={d} role="tab" aria-selected={dim === d} className={dim === d ? 'active' : ''} onClick={() => setDim(d)}>
-                {d === 'category' ? 'Sub category' : 'Category'}
+                {d === 'category' ? 'Sub category' : d === 'merchant' ? 'Merchant' : 'Category'}
               </button>
             ))}
           </div>
