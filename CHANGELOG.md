@@ -2,6 +2,40 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-24 — **Statement audit-field capture + parser robustness.** The parser
+  now reconstructs *and self-verifies*: `extract_statement_summary` captures each
+  statement's stated control totals (period start/end, beginning/ending balance,
+  deposit/withdrawal totals) and the per-row **running balance** is persisted —
+  stored on `imports` + `transactions.balance` (migration
+  `scripts/migrate-audit-fields.ts`). Fixed two detection/parse bugs surfaced by a
+  real 77-statement Chase import: (1) Chase's **2025 layout** pushes
+  `TRANSACTION DETAIL`/`CHECKING SUMMARY` past the 5000-char head window, so
+  `detect_issuer` now scans the full body (one statement had silently deferred);
+  (2) the summary money regex now handles the `-$146.88` sign/symbol ordering, so
+  **overdrawn (negative) balances** extract. New read-only tooling:
+  `audit-preview.ts` (per-statement stated-vs-derived reconciliation + coverage
+  gaps), `doc-status.ts`, `diagnose-doc.ts`, `dump-doc-text.ts`, and
+  `reprocess-deferred.ts` (re-parse stored deferred/failed docs after a parser
+  fix). Audit preview over the 77 statements: continuous **2019→2026** coverage, 0
+  gaps, 63 reconcile — and it flagged 5 statements where deposit rows were dropped
+  (amounts detached onto separate lines by pdftotext reflow; fix pending — derive
+  amounts from the balance chain). See ROADMAP "Statement audit page".
+- 2026-05-24 — **Cashflow redesign (Fidelity-style).** Rebuilt `/cashflow`:
+  income recolored **blue**, net savings **green**; the separate savings /
+  debt-paydown rates collapsed into one **Savings rate** (`net/income` — the flow
+  taxonomy already nets debt paydown out); **Transfers** now load and show as a
+  third breakdown section under Outflows (gross out-leg); removed the page title
+  and the bars/lines/net toggle. Layout follows the saved Fidelity reference —
+  granularity pills + an **account multi-select** filter, one chart card with a
+  Net-savings headline (+ vs-prior-period delta), an inline metric row, recolored
+  diverging bars + green net line, and a legend. Data layer now aggregates per
+  (month, account, category) so the chart + breakdown re-derive client-side for
+  any account selection.
+- 2026-05-24 — **Accounts (assets) page polish.** Section / sub-group collapse
+  carets moved to the right of the label (fixed the Tailwind-preflight
+  `svg{display:block}` wrap); dropped the per-account emoji icons and the row
+  sub-line, showing just the last-4 next to the name; the institution logo is now
+  a prominent **40px** circle for more color.
 - 2026-05-24 — **Paystubs end-to-end + Payroll driven from the DB.** Rewrote the
   paystub parser to be **coordinate-based** (`pdftotext -tsv` word boxes) so it's
   robust across the CBIZ template's content-driven reflow — flat-text anchors had

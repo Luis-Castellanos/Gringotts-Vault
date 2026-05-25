@@ -8,11 +8,17 @@ Personal finance app. Audience of one. Long-term build, not a sprint.
 - ✅ **In-app ingestion pipeline** — the parser lives in `parser/`, uploads parse
   and write straight to Neon, original PDFs stored as `bytea`. `master.xlsx` is
   retired as the source of truth (export-only). See ROADMAP "Data pipeline".
+- ✅ **Statement audit capture** — the parser also extracts each statement's stated
+  control totals (begin/end balance, deposit/withdrawal totals) + per-row running
+  balance, so statements can be reconciled stated-vs-derived (`imports` +
+  `transactions.balance`).
 - ✅ Pages shipped: Review Queue, Transactions, Cashflow, Net Worth, Accounts,
   Credit Cards, Categories, **Payroll** (paystub-driven), **Upload**, **Files**,
   **Settings**, **Transfers** (recon)
 - ✅ Vendor-map + Claude (Anthropic API) categorization; customizable Excel export
 - 🟡 Dashboard, deeper reporting, investment/holdings model — todo
+- 🟡 **Statement audit page** (Valid8-style timeline + reconciliation) — data
+  captured, page todo
 - 🟡 Auth — none yet, audience of one
 
 ## Stack

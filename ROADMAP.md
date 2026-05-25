@@ -238,7 +238,20 @@ Make Vault accessible from any device, with reasonable security. Polish the expe
 - [ ] Read-on-phone, edit-on-desktop optimization
 - [ ] **PWA support** — manifest, service worker, installable to iOS home screen
 - [ ] **Mobile-first review experience** — the iPhone-sized review queue, optimized for thumbs not mice
-- [ ] Performance pass (query optimization, caching, response times)
+- [ ] **Performance pass — page responsiveness** (diagnosed 2026-05-24). Every
+  page is `force-dynamic` and fetches data serially with no loading UI, so each
+  navigation freezes the current page until the new page's queries finish (worse
+  in `next dev`: per-route compile + no `<Link>` prefetch — verify real cost via
+  `next build && next start`). Planned:
+  - **App-shell layout** — lift TopBar+Sidebar into a shared layout so navigation
+    swaps only the content (today each page renders its own `<Sidebar/>`, so the
+    whole view is replaced per nav and a `loading.tsx` would blank the sidebar).
+  - **`loading.tsx` skeletons** — instant content placeholder while a page's
+    server data loads; sidebar stays put. Biggest perceived win.
+  - **Parallelize per-page queries** with `Promise.all` — Transactions does ~5
+    serial Neon round-trips, Net Worth 3; Cashflow is already 1 (why it feels the
+    snappiest today).
+  - General query optimization + `revalidate`/caching for semi-static data.
 
 ### Phase 4a: Import polish
 
@@ -246,10 +259,31 @@ Make the manual import workflow fast enough that monthly maintenance is a 5-minu
 not a 1-hour ordeal.
 
 - [ ] Better merchant cleaner (handle international addresses, more processor prefixes)
-- [ ] Statement-period reconciliation view ("statements imported: ✓ Apr 2024 ✓ May 2024 ✗ Jun 2024")
+- [ ] **Statement audit page** (Valid8-style) — accounts × statements on a
+  timeline, green = fully loaded / yellow = coverage gap, with per-statement
+  total inflows/outflows, transaction count, and a **stated-vs-derived balance
+  reconciliation** (begin → end, with the exact row where the running-balance
+  chain breaks). Audit one suspect statement or all at once.
+  - [x] **Data capture (2026-05-24)** — parser now extracts statement **audit
+    control totals** (`extract_statement_summary`: period start/end, stated
+    beginning/ending balance, stated deposit/withdrawal totals) + per-row running
+    balance. Stored on `imports` (control totals) and `transactions.balance`.
+    Chase Checking done; Gain FCU partial; credit cards emit null until samples
+    arrive (different recon model — see parser/references/bank_formats.md). The
+    page itself is still to build.
 - [ ] Duplicate detection improvements
 - [ ] Import dry-run / preview before committing
 - [ ] Re-clean script as a UI button, not a CLI command
+- [ ] **Faster upload/ingest** (diagnosed 2026-05-24; ~20s for 77 statements,
+  strictly sequential in the upload route). Planned:
+  - **Parse in parallel** (bounded pool, ~4–8) — the per-file Python + `pdftotext`
+    spawns are the bottleneck and are independent per file. Keep **ingest serial**
+    (or make account-resolution concurrency-safe) so concurrent files don't race
+    in `getOrCreateAccount` and spawn duplicate accounts.
+  - **Load the vendor map once per batch** — today `loadVendorMap()` reloads all
+    ~3,994 `vendor_rules` from the DB on every single file.
+  - Optional: batch all PDFs into one Python invocation to amortize interpreter
+    startup, if parallelism alone isn't enough.
 
 ### Phase 4b: Live data layer (deferred, decision pending)
 
