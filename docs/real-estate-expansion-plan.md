@@ -79,7 +79,10 @@ Schedule E worksheet (income, each expense line, depreciation) as Excel/PDF.
    deposit · term · status) + CRUD API (`/api/leases`). Per-property **Rent roll**
    section on the detail page (list + add/edit/delete leases) and a portfolio
    **Monthly rent** tile (sum of active leases). `lib/properties/leases.ts`.
-4. **Maintenance** — `maintenance` model + a per-property + portfolio list/board.
+4. ✅ **Maintenance — shipped 2026-05-25.** `maintenance` table (title · status ·
+   category · vendor · cost · opened/completed dates) + CRUD API
+   (`/api/maintenance`). Per-property **Maintenance** work-order log (status,
+   add/edit/delete, open count). `lib/properties/maintenance.ts`.
 5. **Reports + Schedule E export** — a Reports surface for `/rentals` (Net Cash Flow,
    Income Statement, Schedule E) with Excel export (reuse the xlsx export pattern),
    filterable by property/date/interval.

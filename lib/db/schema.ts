@@ -229,6 +229,31 @@ export const leases = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// maintenance — per-property work-order log (Real Estate Phase 4): title,
+// status, category, vendor, cost, and open/complete dates. Cost is the recorded
+// estimate/actual; real cash flow still comes from tagged transactions.
+// ---------------------------------------------------------------------------
+
+export const maintenance = pgTable(
+  'maintenance',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    propertyId: uuid('property_id').notNull().references(() => properties.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    status: text('status').notNull().default('open'), // open | in_progress | done
+    category: text('category'), // repair / turnover / inspection / …
+    vendor: text('vendor'),
+    cost: numeric('cost', { precision: 14, scale: 2 }),
+    openedAt: date('opened_at'),
+    completedAt: date('completed_at'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ propertyIdx: index('maintenance_property_idx').on(t.propertyId) }),
+);
+
+// ---------------------------------------------------------------------------
 // categories — hierarchical via parent_id
 // ---------------------------------------------------------------------------
 

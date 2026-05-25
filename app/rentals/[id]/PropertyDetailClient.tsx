@@ -8,10 +8,67 @@ import type { AmortResult } from '@/lib/properties/amortization';
 import type { MortgageAccountOption, PropertyRow } from '@/lib/properties/load';
 import type { FinCategory, PropertyFinancials, TTM } from '@/lib/properties/financials';
 import type { LeaseRow } from '@/lib/properties/leases';
+import type { MaintenanceRow } from '@/lib/properties/maintenance';
 import { StatTile } from '@/components/StatTile';
 import { PropertyForm, propertyTypeLabel } from '../PropertyForm';
 import { addressLine, fmtDate, fmtMoney, fmtMoney0, fmtPct, specLine } from '../format';
 import { LeaseForm } from './LeaseForm';
+import { MaintenanceForm } from './MaintenanceForm';
+
+const MAINT_STATUS: Record<string, { label: string; cls: string }> = {
+  open: { label: 'Open', cls: 'text-amber-400' },
+  in_progress: { label: 'In progress', cls: 'text-cat-blue' },
+  done: { label: 'Done', cls: 'text-positive' },
+};
+
+function MaintenanceSection({ propertyId, items }: { propertyId: string; items: MaintenanceRow[] }) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<MaintenanceRow | null>(null);
+  const openCount = items.filter((i) => i.status !== 'done').length;
+
+  async function del(i: MaintenanceRow) {
+    if (!confirm(`Delete the work order "${i.title}"?`)) return;
+    const res = await fetch(`/api/maintenance/${i.id}`, { method: 'DELETE' });
+    if (res.ok) router.refresh();
+    else alert('Could not delete work order.');
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[15px] font-semibold">Maintenance {openCount > 0 && <span className="text-[12px] font-normal text-text-tertiary">· {openCount} open</span>}</h2>
+        <button type="button" onClick={() => setAdding(true)} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">+ Add work order</button>
+      </div>
+      {items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-8 text-[13px] text-text-tertiary">
+          No work orders yet. Log repairs, turnovers, and inspections here.
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden">
+          {items.map((i) => (
+            <div key={i.id} className="grid grid-cols-[1.6fr_100px_110px_60px] gap-3 px-4 py-2.5 border-t border-border-subtle text-[13px] items-center first:border-t-0">
+              <div className="min-w-0">
+                <div className="text-text-primary truncate">{i.title}</div>
+                {(i.category || i.vendor || i.openedAt) && (
+                  <div className="text-[11.5px] text-text-tertiary truncate">{[i.category, i.vendor, i.openedAt ? fmtDate(i.openedAt) : null].filter(Boolean).join(' · ')}</div>
+                )}
+              </div>
+              <div className="text-right tabular-nums">{i.cost != null ? fmtMoney0(i.cost) : '—'}</div>
+              <div className={`${MAINT_STATUS[i.status]?.cls ?? 'text-text-tertiary'}`}>{MAINT_STATUS[i.status]?.label ?? i.status}</div>
+              <div className="flex gap-1 justify-end text-[12px]">
+                <button type="button" onClick={() => setEditing(i)} className="text-text-tertiary hover:text-text-primary">Edit</button>
+                <button type="button" onClick={() => del(i)} className="text-text-muted hover:text-negative">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {adding && <MaintenanceForm propertyId={propertyId} onClose={() => setAdding(false)} />}
+      {editing && <MaintenanceForm propertyId={propertyId} item={editing} onClose={() => setEditing(null)} />}
+    </div>
+  );
+}
 
 const LEASE_STATUS_CLS: Record<string, string> = {
   active: 'text-positive',
@@ -337,12 +394,14 @@ export function PropertyDetailClient({
   schedule,
   financials,
   leases,
+  maintenance,
   mortgageOptions,
 }: {
   property: PropertyRow;
   schedule: AmortResult | null;
   financials: PropertyFinancials;
   leases: LeaseRow[];
+  maintenance: MaintenanceRow[];
   mortgageOptions: MortgageAccountOption[];
 }) {
   const router = useRouter();
@@ -483,6 +542,11 @@ export function PropertyDetailClient({
         <RentRollSection propertyId={property.id} leases={leases} />
       </div>
 
+      {/* Maintenance */}
+      <div className="mb-8">
+        <MaintenanceSection propertyId={property.id} items={maintenance} />
+      </div>
+
       {/* Mortgage / amortization */}
       <h2 className="text-[15px] font-semibold mb-3">Mortgage</h2>
       {property.mortgage ? (
@@ -497,7 +561,7 @@ export function PropertyDetailClient({
 
       {/* Roadmap: the rest of the Stessa-parity module. */}
       <div className="mt-8 rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-5 text-[12.5px] text-text-muted">
-        Coming next: maintenance log and a Schedule E tax export.
+        Coming next: a Schedule E tax export + capital-expense / depreciation tracking.
       </div>
 
       {editing && <PropertyForm property={property} mortgageOptions={mortgageOptions} onClose={() => setEditing(false)} />}

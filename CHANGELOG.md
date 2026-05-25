@@ -2,6 +2,12 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Real Estate Phase 4: maintenance.** New `maintenance` table (title ·
+  status · category · vendor · cost · opened/completed dates) + CRUD API
+  (`/api/maintenance`). The property detail page gains a **Maintenance** work-order
+  log — add/edit/delete with a status pill (open / in progress / done) and an open
+  count, ordered open-first. `lib/properties/maintenance.ts`. Remaining in the Real
+  Estate plan: Schedule E export, then capex/depreciation.
 - 2026-05-25 — **Real Estate Phase 3: rent roll.** New `leases` table (unit · tenant ·
   contact · rent · deposit · term · status) + CRUD API (`/api/leases`). The property
   detail page gains a **Rent roll** section — list leases with add/edit/delete and a
