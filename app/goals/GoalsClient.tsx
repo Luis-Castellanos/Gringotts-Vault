@@ -28,12 +28,30 @@ function monthsLabel(n: number): string {
   return m ? `${y}y ${m}m` : `${y} yr`;
 }
 
-function GoalCard({ g, onEdit, onDelete }: { g: GoalView; onEdit: () => void; onDelete: () => void }) {
+type Dnd = {
+  dragging: boolean;
+  dropTarget: boolean;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
+};
+
+function GoalCard({ g, dnd, onEdit, onDelete }: { g: GoalView; dnd: Dnd; onEdit: () => void; onDelete: () => void }) {
   const pct = g.progressPct;
   const isPay = g.type === 'pay_down';
   const barColor = isPay ? 'bg-negative' : 'bg-positive';
   return (
-    <section className="flex flex-col gap-3 rounded-2xl bg-surface-1 border border-border-subtle p-5">
+    <section
+      draggable
+      onDragStart={dnd.onDragStart}
+      onDragOver={dnd.onDragOver}
+      onDrop={(e) => { e.preventDefault(); dnd.onDrop(); }}
+      onDragEnd={dnd.onDragEnd}
+      className={`group flex flex-col gap-3 rounded-2xl bg-surface-1 border p-5 transition-colors ${
+        dnd.dropTarget ? 'border-accent-500 ring-2 ring-accent-500/40' : 'border-border-subtle'
+      } ${dnd.dragging ? 'opacity-40' : ''}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[15px] font-semibold text-text-primary truncate">{g.name}</div>
@@ -42,7 +60,10 @@ function GoalCard({ g, onEdit, onDelete }: { g: GoalView; onEdit: () => void; on
             {g.accounts.length > 0 && <span> · {g.accounts.length} account{g.accounts.length === 1 ? '' : 's'}</span>}
           </div>
         </div>
-        <div className="flex gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="cursor-grab text-text-muted opacity-0 group-hover:opacity-100 px-0.5" title="Drag to reorder" aria-hidden>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="3" r="1.3" /><circle cx="11" cy="3" r="1.3" /><circle cx="5" cy="8" r="1.3" /><circle cx="11" cy="8" r="1.3" /><circle cx="5" cy="13" r="1.3" /><circle cx="11" cy="13" r="1.3" /></svg>
+          </span>
           <button type="button" onClick={onEdit} className="text-[12px] text-text-tertiary hover:text-text-primary px-1.5 py-0.5 rounded hover:bg-surface-2">Edit</button>
           <button type="button" onClick={onDelete} className="text-[12px] text-text-muted hover:text-negative px-1.5 py-0.5 rounded hover:bg-negative/10">Delete</button>
         </div>
@@ -91,11 +112,43 @@ export function GoalsClient({ goals, accountOptions, debts }: { goals: GoalView[
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<GoalView | null>(null);
+  const [order, setOrder] = useState<string[]>(() => goals.map((g) => g.id));
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropId, setDropId] = useState<string | null>(null);
 
-  const saveUps = goals.filter((g) => g.type === 'save_up');
-  const payDowns = goals.filter((g) => g.type === 'pay_down');
+  const idx = new Map(order.map((id, i) => [id, i]));
+  const byOrder = (arr: GoalView[]) => [...arr].sort((a, b) => (idx.get(a.id) ?? 1e9) - (idx.get(b.id) ?? 1e9));
+  const saveUps = byOrder(goals.filter((g) => g.type === 'save_up'));
+  const payDowns = byOrder(goals.filter((g) => g.type === 'pay_down'));
   const totalSaved = saveUps.reduce((s, g) => s + g.current, 0);
   const totalDebt = payDowns.reduce((s, g) => s + g.current, 0);
+
+  function persistOrder(ids: string[]) {
+    void Promise.all(
+      ids.map((id, i) =>
+        fetch(`/api/goals/${id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sortOrder: i }) }),
+      ),
+    );
+  }
+  function reorder(dragId: string, targetId: string) {
+    if (dragId === targetId) return;
+    setOrder((cur) => {
+      const next = cur.filter((x) => x !== dragId);
+      const ti = next.indexOf(targetId);
+      if (ti < 0) return cur;
+      next.splice(ti, 0, dragId);
+      persistOrder(next);
+      return next;
+    });
+  }
+  const dndFor = (g: GoalView): Dnd => ({
+    dragging: draggingId === g.id,
+    dropTarget: dropId === g.id && draggingId !== g.id,
+    onDragStart: () => setDraggingId(g.id),
+    onDragOver: (e) => { e.preventDefault(); if (draggingId && draggingId !== g.id) setDropId(g.id); },
+    onDrop: () => { if (draggingId) reorder(draggingId, g.id); setDraggingId(null); setDropId(null); },
+    onDragEnd: () => { setDraggingId(null); setDropId(null); },
+  });
 
   async function del(g: GoalView) {
     if (!confirm(`Delete the goal "${g.name}"? (Your accounts and balances are untouched.)`)) return;
@@ -138,7 +191,7 @@ export function GoalsClient({ goals, accountOptions, debts }: { goals: GoalView[
             <div className="mb-8">
               <h2 className="text-[14px] font-semibold mb-3">Save up</h2>
               <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-                {saveUps.map((g) => <GoalCard key={g.id} g={g} onEdit={() => setEditing(g)} onDelete={() => del(g)} />)}
+                {saveUps.map((g) => <GoalCard key={g.id} g={g} dnd={dndFor(g)} onEdit={() => setEditing(g)} onDelete={() => del(g)} />)}
               </div>
             </div>
           )}
@@ -147,7 +200,7 @@ export function GoalsClient({ goals, accountOptions, debts }: { goals: GoalView[
             <div>
               <h2 className="text-[14px] font-semibold mb-3">Pay down debt</h2>
               <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-                {payDowns.map((g) => <GoalCard key={g.id} g={g} onEdit={() => setEditing(g)} onDelete={() => del(g)} />)}
+                {payDowns.map((g) => <GoalCard key={g.id} g={g} dnd={dndFor(g)} onEdit={() => setEditing(g)} onDelete={() => del(g)} />)}
               </div>
             </div>
           )}

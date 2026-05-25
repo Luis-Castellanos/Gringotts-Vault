@@ -2,6 +2,14 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Goals: full Monarch parity.** Built out the deferred Goals 3.0
+  features: **debt-payoff scenarios** (avalanche/snowball + extra-monthly + lump-sum
+  what-ifs → debt-free date, total interest, "X sooner / $Y saved" vs minimums, and
+  per-debt payoff order — a constant-budget rollover simulator, interactive
+  client-side); **save-up growth rates** (assumed annual return compounds the
+  balance + contributions in the projection + required-monthly); **per-account
+  allocation** (split one account across goals via a fixed amount, or use its whole
+  balance); and **priority drag-to-reorder** of goal cards (persists sort order).
 - 2026-05-25 — **Goals (Monarch-style, first pass).** New `/goals` page with two goal
   kinds, copied from Monarch's Goals 3.0:
   - **Save up** — target amount + date + monthly contribution; assign asset
