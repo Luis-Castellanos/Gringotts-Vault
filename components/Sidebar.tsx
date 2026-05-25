@@ -81,17 +81,6 @@ const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
-    label: 'Not started',
-    items: [
-      { href: '/', label: 'Dashboard', Icon: IconDashboard },
-      { href: '/reports', label: 'Reports', Icon: IconReports },
-      { href: '/rentals', label: 'Real Estate', Icon: IconRentals },
-      { href: '/investments', label: 'Investments', Icon: IconInvestments },
-      { href: '/tax', label: 'Tax', Icon: IconTax },
-      { href: '/forecasting', label: 'Forecasting', Icon: IconForecasting },
-    ],
-  },
-  {
     label: 'Data',
     items: [
       { href: '/upload', label: 'Upload', Icon: IconUpload },
@@ -103,6 +92,17 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: '/accounts', label: 'Accounts', Icon: IconAccounts },
       { href: '/categories', label: 'Categories', Icon: IconCategories },
+    ],
+  },
+  {
+    label: 'Not started',
+    items: [
+      { href: '/', label: 'Dashboard', Icon: IconDashboard },
+      { href: '/reports', label: 'Reports', Icon: IconReports },
+      { href: '/rentals', label: 'Real Estate', Icon: IconRentals },
+      { href: '/investments', label: 'Investments', Icon: IconInvestments },
+      { href: '/tax', label: 'Tax', Icon: IconTax },
+      { href: '/forecasting', label: 'Forecasting', Icon: IconForecasting },
     ],
   },
 ];
