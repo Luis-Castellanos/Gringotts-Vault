@@ -20,16 +20,32 @@ export type ExtractedTxn = {
   balance: number | null;
 };
 
+export type ExtractedPaystub = {
+  pay_date: string | null;
+  pay_period: string | null;
+  voucher: string | null;
+  base_comp: number | null;
+  gross: number | null;
+  net: number | null;
+  hours: number | null;
+  employer_total: number | null;
+  deductions_total: number | null;
+  taxes_total: number | null;
+  employer: string | null;
+  deposits: { bank: string; last4: string; amount: number }[];
+};
+
 export type ExtractResult =
   | {
       ok: true;
       issuer: string;
-      type: string; // 'credit_card' | 'bank' | 'investment' | 'unknown'
+      type: string; // 'credit_card' | 'bank' | 'investment' | 'paystub' | 'unknown'
       deferred: boolean;
       account: string | null;
       accountNumber: string | null;
       statementPeriod: string | null;
       transactions: ExtractedTxn[];
+      paystub?: ExtractedPaystub;
     }
   | { ok: false; error: string };
 

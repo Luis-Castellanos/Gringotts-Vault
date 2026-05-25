@@ -832,6 +832,77 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
     return txns, stmt_str, issuer
 
 
+# ---------- Paystubs ----------
+def detect_paystub(text: str) -> bool:
+    """CBIZ-style paystub: has Pay Date + Gross/Net Pay + Pay Period/Voucher."""
+    return (
+        "Pay Date" in text
+        and "Net Pay" in text
+        and "Gross Pay" in text
+        and ("Pay Period" in text or "Voucher" in text)
+    )
+
+
+def parse_paystub(text: str) -> dict:
+    """Extract the headline paystub fields from the pdftotext -layout output.
+    The grid is interleaved, so we rely on uniquely-labeled rows + ordered totals.
+    """
+    def money(s):
+        return round(float(s.replace(",", "")), 2)
+
+    def find(pat, group=1):
+        m = re.search(pat, text)
+        return m.group(group) if m else None
+
+    pay_date_raw = find(r"Pay Date:\s*(\d{2}/\d{2}/\d{4})")
+    pay_date = None
+    if pay_date_raw:
+        mm, dd, yy = pay_date_raw.split("/")
+        pay_date = f"{yy}-{mm}-{dd}"
+    period = find(r"Pay Period:\s*(\d{2}/\d{2}/\d{4}\s*-\s*\d{2}/\d{2}/\d{4})")
+    voucher = find(r"Voucher\s*#?\(?(\d+)\)?")
+    base = find(r"Base Comp:\s*\$([\d,]+\.\d{2})")
+    gross = find(r"Gross Pay\s+([\d,]+\.\d{2})")
+    net = find(r"Net Pay\s+([\d,]+\.\d{2})")
+    hours = find(r"Hours Paid\s+([\d.]+)")
+    employer = find(r"([A-Z][A-Z&'.\- ]+(?:LLC|INC|CORP|GROUP|COMPANY))")
+
+    # Section totals — the grid interleaves a "Tax Allowance Settings" column,
+    # so anchor each total rather than relying on order.
+    totals = re.findall(r"Total\s+([\d,]+\.\d{2})", text)
+    employer_total = money(totals[0]) if totals else None  # first Total = Company Paid Benefits
+    # Deductions total: last "X.XX  X.XX" pair in the Deductions→Taxes region.
+    deductions_total = None
+    if "Deductions" in text and "Taxes Withheld" in text:
+        region = text.split("Taxes Withheld")[0].rsplit("Deductions", 1)[-1]
+        pairs = re.findall(r"([\d,]+\.\d{2})\s+\1", region)
+        if pairs:
+            deductions_total = money(pairs[-1])
+    # Taxes total: the Total immediately preceding "Net Pay".
+    mt = re.search(r"Total\s+([\d,]+\.\d{2})\s+[\d,]+\.\d{2}\s+Net Pay", text)
+    taxes_total = money(mt.group(1)) if mt else None
+
+    # Deposits: "<Bank> (1234) ... <amount>" (4-digit acct in parens, not the voucher).
+    deposits = []
+    for m in re.finditer(r"([A-Za-z][A-Za-z .&/]+?)\s*\((\d{4})\)\s+([\d,]+\.\d{2})", text):
+        deposits.append({"bank": m.group(1).strip(), "last4": m.group(2), "amount": money(m.group(3))})
+
+    return {
+        "pay_date": pay_date,
+        "pay_period": period.replace(" ", "") if period else None,
+        "voucher": voucher,
+        "base_comp": money(base) if base else None,
+        "gross": money(gross) if gross else None,
+        "net": money(net) if net else None,
+        "hours": float(hours) if hours else None,
+        "employer_total": employer_total,
+        "deductions_total": deductions_total,
+        "taxes_total": taxes_total,
+        "employer": employer.strip() if employer else None,
+        "deposits": deposits,
+    }
+
+
 # ---------- Main ----------
 if __name__ == "__main__":
     # Demo: parse all .txt files in /tmp and print summary.

@@ -37,7 +37,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from parse_statements import parse_one  # noqa: E402
+from parse_statements import parse_one, detect_paystub, parse_paystub  # noqa: E402
 
 # Coarse type the router reports for each issuer. The DB account *type* is
 # inferred separately during ingest; this is just metadata for the Files page.
@@ -83,6 +83,21 @@ def main():
             check=True,
             capture_output=True,
         )
+        text = Path(tmp_txt).read_text(encoding="utf-8", errors="replace")
+        if detect_paystub(text):
+            ps = parse_paystub(text)
+            print(json.dumps({
+                "ok": True,
+                "issuer": "paystub",
+                "type": "paystub",
+                "deferred": False,
+                "account": ps.get("employer"),
+                "accountNumber": None,
+                "statementPeriod": ps.get("pay_period"),
+                "paystub": ps,
+                "transactions": [],
+            }))
+            return
         txns, stmt_str, issuer = parse_one(
             tmp_txt, original_pdf_filename=original_name, pdf_path=pdf_path
         )

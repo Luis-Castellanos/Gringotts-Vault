@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { accounts, categories, imports, transactions, vendorRules } from '@/lib/db/schema';
+import { accounts, categories, imports, paystubs, transactions, vendorRules } from '@/lib/db/schema';
 import { cleanMerchant } from '@/lib/transactions/merchant';
 import { UNCATEGORIZED_SLUG } from '@/lib/transactions/taxonomy';
 import { assetClassForType } from '@/lib/account-types';
@@ -213,4 +213,48 @@ export async function ingestParsedStatement(args: {
     .where(eq(imports.id, importId));
 
   return { accountId, importId, inserted, skipped };
+}
+
+// ---------------------------------------------------------------------------
+// Paystubs
+// ---------------------------------------------------------------------------
+
+export type ParsedPaystub = {
+  pay_date: string | null;
+  pay_period: string | null;
+  voucher: string | null;
+  base_comp: number | null;
+  gross: number | null;
+  net: number | null;
+  hours: number | null;
+  employer_total: number | null;
+  deductions_total: number | null;
+  taxes_total: number | null;
+  employer: string | null;
+  deposits: { bank: string; last4: string; amount: number }[];
+};
+
+export async function ingestPaystub(documentId: string, ps: ParsedPaystub, sourceFile: string): Promise<{ id: string | null }> {
+  const num = (n: number | null | undefined) => (n == null ? null : n.toFixed(2));
+  const [row] = await db
+    .insert(paystubs)
+    .values({
+      documentId,
+      payDate: ps.pay_date,
+      payPeriod: ps.pay_period,
+      voucher: ps.voucher,
+      employer: ps.employer,
+      baseComp: num(ps.base_comp),
+      gross: num(ps.gross),
+      net: num(ps.net),
+      deductionsTotal: num(ps.deductions_total),
+      taxesTotal: num(ps.taxes_total),
+      employerTotal: num(ps.employer_total),
+      hours: ps.hours != null ? ps.hours.toFixed(2) : null,
+      deposits: ps.deposits ?? [],
+      sourceFile,
+    })
+    .onConflictDoNothing({ target: paystubs.voucher })
+    .returning({ id: paystubs.id });
+  return { id: row?.id ?? null };
 }

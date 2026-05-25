@@ -272,6 +272,37 @@ export const vendorRules = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// paystubs — parsed paychecks (different shape than bank transactions). Linked
+// to the source document. Feeds the Payroll page once wired.
+// ---------------------------------------------------------------------------
+
+export const paystubs = pgTable(
+  'paystubs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+    payDate: date('pay_date'),
+    payPeriod: text('pay_period'),
+    voucher: text('voucher'),
+    employer: text('employer'),
+    baseComp: numeric('base_comp', { precision: 14, scale: 2 }),
+    gross: numeric('gross', { precision: 14, scale: 2 }),
+    net: numeric('net', { precision: 14, scale: 2 }),
+    deductionsTotal: numeric('deductions_total', { precision: 14, scale: 2 }),
+    taxesTotal: numeric('taxes_total', { precision: 14, scale: 2 }),
+    employerTotal: numeric('employer_total', { precision: 14, scale: 2 }),
+    hours: numeric('hours', { precision: 8, scale: 2 }),
+    deposits: jsonb('deposits').$type<{ bank: string; last4: string; amount: number }[]>(),
+    sourceFile: text('source_file'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    voucherUnique: uniqueIndex('paystubs_voucher_unique').on(t.voucher),
+    payDateIdx: index('paystubs_pay_date_idx').on(t.payDate),
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // transactions — the core ledger
 // ---------------------------------------------------------------------------
 

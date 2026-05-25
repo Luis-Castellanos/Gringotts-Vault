@@ -17,7 +17,7 @@ import { db } from '@/lib/db/client';
 import { documents } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { runExtractor } from '@/lib/parser/extract';
-import { ingestParsedStatement } from '@/lib/ingest';
+import { ingestParsedStatement, ingestPaystub } from '@/lib/ingest';
 
 export const runtime = 'nodejs';
 
@@ -87,6 +87,25 @@ export const POST = handler(async (req: NextRequest) => {
           .set({ status: 'failed', parseError: res.error, parsedAt: new Date() })
           .where(eq(documents.id, documentId));
         results.push({ fileName, status: 'failed', error: res.error, documentId });
+        continue;
+      }
+
+      // Paystubs are a different shape (not bank transactions) → their own table.
+      if (res.type === 'paystub' && res.paystub) {
+        await ingestPaystub(documentId, res.paystub, fileName);
+        await db
+          .update(documents)
+          .set({
+            status: 'parsed',
+            detectedType: 'paystub',
+            detectedIssuer: 'paystub',
+            accountLabel: res.account,
+            statementPeriod: res.statementPeriod,
+            transactionCount: 0,
+            parsedAt: new Date(),
+          })
+          .where(eq(documents.id, documentId));
+        results.push({ fileName, status: 'parsed', type: 'paystub', account: res.account, statementPeriod: res.statementPeriod, documentId });
         continue;
       }
 
