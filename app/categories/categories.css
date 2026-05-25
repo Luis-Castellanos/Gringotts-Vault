@@ -201,8 +201,19 @@
 }
 .cat-children {
   list-style: none;
-  margin: 0 0 2px;
+  position: relative;
+  margin: 0 0 2px 28px; /* indent children further right, under the parent */
   padding: 0;
+}
+/* thin connector line running down from the parent to the last child */
+.cat-children::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -4px;
+  bottom: 34px; /* stop around the last child, above the "Add subcategory" row */
+  width: 1px;
+  background: var(--line-strong);
 }
 
 .cat-row {
@@ -235,8 +246,19 @@
 }
 .cat-row.child {
   grid-template-columns: 22px 1fr auto auto;
-  margin-left: 14px;
+  margin-left: 16px;
   padding: 5px 8px;
+  position: relative;
+}
+/* horizontal tick from the connector line to each child */
+.cat-row.child::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  width: 14px;
+  height: 1px;
+  background: var(--line-strong);
 }
 .cat-row.child .cat-name {
   font-size: 13.5px;
