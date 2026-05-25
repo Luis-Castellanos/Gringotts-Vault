@@ -52,8 +52,10 @@ def detect_issuer(text: str) -> str:
     if "EMPOWER" in head and ("HOW IS MY ACCOUNT INVESTED" in body
                               or "PLAN NUMBER" in head or "VESTED BALANCE" in body):
         return "empower"
-    if "OPTUM" in head and ("HSA" in head or "HEALTH SAVINGS" in body):
+    if "OPTUM" in body and ("HSA" in body or "HEALTH SAVINGS" in body):
         return "optum_hsa"
+    if "GREEN DOT" in body and "WEALTHFRONT" in body:
+        return "wealthfront"
     if "FIDELITY" in head and ("INVESTMENT REPORT" in body
                                or "NATIONAL FINANCIAL SERVICES" in body):
         return "fidelity"
@@ -1142,6 +1144,35 @@ def parse_ally(text: str):
     return _parse_balance_delta(text, r"(\d{2}/\d{2}/\d{4})", lambda m: _iso_mdy(m.group(1)), stmt_str)
 
 
+def parse_optum_hsa(text: str):
+    """Optum Bank HSA cash account. Rows: `M/D/YYYY <desc> <deposits$>
+    <withdrawals$> <balance$>` — amount = deposits − withdrawals (separate
+    columns, no inline minus; rows are newest-first but column math is
+    order-independent)."""
+    txns = []
+    pm = re.search(r"(\d{1,2}/\d{1,2}/\d{4})\s*-\s*(\d{1,2}/\d{1,2}/\d{4})", text)
+    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
+    amt_re = re.compile(r"\$[\d,]+\.\d{2}")
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(r"(\d{1,2})/(\d{1,2})/(\d{4})\s+(.+)", s)
+        if not m:
+            continue
+        rest = m.group(4)
+        low = rest.lower()
+        if "beginning balance" in low or "ending balance" in low:
+            continue
+        nums = amt_re.findall(rest)
+        if len(nums) < 3:
+            continue
+        dep, wd, bal = _smoney(nums[0]), _smoney(nums[1]), _smoney(nums[-1])
+        if dep is None or wd is None:
+            continue
+        desc = rest[: rest.find(nums[0])].strip().rstrip("-").strip()
+        txns.append({"date": f"{m.group(3)}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}", "source": desc, "amount": round(dep - wd, 2), "balance": round(bal, 2) if bal is not None else None})
+    return txns, stmt_str
+
+
 PARSERS = {
     "apple_card": parse_apple_card,
     "chase_checking": parse_chase_checking,
@@ -1157,6 +1188,7 @@ PARSERS = {
     "apple_savings": parse_apple_savings,
     "schwab_checking": parse_schwab_checking,
     "ally": parse_ally,
+    "optum_hsa": parse_optum_hsa,
 }
 
 
@@ -1292,6 +1324,10 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
         return [], s.pop("_stmt", ""), "chase_mortgage", s
     if issuer == "chase_auto":
         return [], "", "chase_auto", dict(_EMPTY_SUMMARY)
+    # Wealthfront's Green Dot statement is swept to a separate Wealthfront Cash
+    # Account daily, so it's structurally empty ("No Transactions"). Recognize it.
+    if issuer == "wealthfront":
+        return [], "", "wealthfront", dict(_EMPTY_SUMMARY)
 
     if issuer == "apple_card" and pdf_path:
         txns, stmt_str = parse_apple_card_pdfplumber(pdf_path)
@@ -1314,7 +1350,7 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
 # ---------- Investment holdings ----------
 # Investment/brokerage statements carry positions (the `holdings` table), not
 # bank transactions. extract.py routes these issuers to parse_holdings().
-INVESTMENT_ISSUERS = {"jpm_investment", "fidelity", "empower", "optum_hsa"}
+INVESTMENT_ISSUERS = {"jpm_investment", "fidelity", "empower"}
 
 _HOLD_NUM_RE = re.compile(r"^-?\$?[\d,]+(?:\.\d+)?%?$")
 

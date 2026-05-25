@@ -53,7 +53,7 @@ from parse_statements import (  # noqa: E402
 # discover/gain) are tuned to Xpdf and stay on it; only these re-extract via
 # poppler for parsing.
 POPPLER_LAYOUT_ISSUERS = {"amex_checking", "amex_hysa", "citi_card", "boa_card", "capital_one",
-                          "apple_savings", "boa_checking", "schwab_checking", "ally"}
+                          "apple_savings", "boa_checking", "schwab_checking", "ally", "optum_hsa"}
 
 
 def _poppler_candidates():
@@ -125,15 +125,17 @@ ISSUER_TYPE = {
     "jpm_investment": "investment",
     "fidelity": "investment",
     "empower": "investment",
-    "optum_hsa": "investment",
+    "optum_hsa": "bank",
+    "wealthfront": "bank",
     "chase_mortgage": "loan",
     "chase_auto": "loan",
     "unknown": "unknown",
 }
 
-# Recognized but not auto-ledgered yet (the money movement is captured on the
-# checking side; ledgering loan balances needs a balance-model decision).
-DEFERRED_ISSUERS = {"chase_mortgage", "chase_auto"}
+# Recognized but not auto-ledgered: loans (money movement captured on the
+# checking side; balance-model decision pending) + Wealthfront's Green Dot
+# statement (structurally empty — swept to a separate Wealthfront Cash Account).
+DEFERRED_ISSUERS = {"chase_mortgage", "chase_auto", "wealthfront"}
 
 
 def _iso(d):
