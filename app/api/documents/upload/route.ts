@@ -21,10 +21,10 @@ import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { documents } from '@/lib/db/schema';
+import { documents, imports } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { runExtractor, type ExtractResult } from '@/lib/parser/extract';
-import { ingestParsedStatement, ingestPaystub, loadIngestMaps } from '@/lib/ingest';
+import { ingestHoldings, ingestParsedStatement, ingestPaystub, loadIngestMaps } from '@/lib/ingest';
 
 export const runtime = 'nodejs';
 
@@ -190,6 +190,52 @@ export const POST = handler(async (req: NextRequest) => {
           })
           .where(eq(documents.id, documentId));
         results.push({ fileName, status: 'parsed', type: 'paystub', account: res.account, statementPeriod: res.statementPeriod, documentId });
+        continue;
+      }
+
+      // Investment statements carry holdings (positions), not bank transactions.
+      if (res.holdings && res.holdings.length > 0) {
+        const asOf = res.holdings.find((h) => h.asOf)?.asOf ?? null;
+        const [imp] = await db
+          .insert(imports)
+          .values({
+            sourceFile: fileName,
+            statementPeriod: res.statementPeriod,
+            documentId,
+            periodEnd: asOf,
+          })
+          .returning({ id: imports.id });
+        const ing = await ingestHoldings({
+          accountLabel: res.account ?? fileName,
+          accountNumber: res.accountNumber,
+          holdings: res.holdings,
+          importId: imp?.id,
+        });
+        if (imp) await db.update(imports).set({ accountId: ing.accountId }).where(eq(imports.id, imp.id));
+        await db
+          .update(documents)
+          .set({
+            status: 'parsed',
+            detectedType: res.type,
+            detectedIssuer: res.issuer,
+            accountIds: [ing.accountId],
+            accountLabel: res.account,
+            statementPeriod: res.statementPeriod,
+            transactionCount: ing.inserted,
+            parsedAt: new Date(),
+          })
+          .where(eq(documents.id, documentId));
+        results.push({
+          fileName,
+          status: 'parsed',
+          documentId,
+          type: res.type,
+          account: res.account,
+          statementPeriod: res.statementPeriod,
+          transactionCount: ing.inserted,
+          inserted: ing.inserted,
+          skipped: 0,
+        });
         continue;
       }
 

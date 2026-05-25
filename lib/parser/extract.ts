@@ -32,6 +32,19 @@ export type ExtractedSummary = {
   stated_debits: number | null;
 };
 
+// One investment position from a brokerage/retirement statement → the holdings
+// table. See parser/parse_statements.py:parse_holdings.
+export type ExtractedHolding = {
+  symbol: string | null;
+  name: string;
+  assetClass: string; // equity/etf/mutual_fund/bond/cash/crypto/option/other
+  quantity: number | null;
+  price: number | null;
+  value: number | null; // statement-reported market value
+  costBasis: number | null;
+  asOf: string | null; // YYYY-MM-DD (statement period end)
+};
+
 export type ExtractedPaystubLine = { label: string; amount: number };
 
 export type ExtractedPaystub = {
@@ -77,6 +90,7 @@ export type ExtractResult =
       statementPeriod: string | null;
       summary?: ExtractedSummary; // present for parsed statements (not paystubs)
       transactions: ExtractedTxn[];
+      holdings?: ExtractedHolding[]; // present for investment statements
       paystub?: ExtractedPaystub;
     }
   | { ok: false; error: string };

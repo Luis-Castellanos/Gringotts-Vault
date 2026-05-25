@@ -64,6 +64,19 @@ async function previewFile(file: File): Promise<PreviewResult> {
     if (res.type === 'paystub' && res.paystub) {
       return { fileName, status: 'paystub', account: res.account, statementPeriod: res.statementPeriod };
     }
+    if (res.holdings && res.holdings.length > 0) {
+      return {
+        fileName,
+        status: 'new',
+        type: res.type,
+        account: res.account,
+        statementPeriod: res.statementPeriod,
+        totalRows: res.holdings.length,
+        newRows: res.holdings.length,
+        duplicateRows: 0,
+        reconciles: null,
+      };
+    }
     if (res.deferred || res.transactions.length === 0) {
       return {
         fileName,

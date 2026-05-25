@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { accounts, categories, imports, paystubs, transactions, vendorRules } from '@/lib/db/schema';
+import { accounts, categories, holdings as holdingsTable, imports, paystubs, transactions, vendorRules } from '@/lib/db/schema';
 import { cleanMerchant } from '@/lib/transactions/merchant';
 import { UNCATEGORIZED_SLUG } from '@/lib/transactions/taxonomy';
 import { classifyByRules } from '@/lib/categorize/rules';
@@ -396,6 +396,63 @@ export async function previewIngest(args: {
     reconciles,
     endDelta,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Holdings (investment positions from a brokerage/retirement statement)
+// ---------------------------------------------------------------------------
+
+export type ParsedHolding = {
+  symbol: string | null;
+  name: string;
+  assetClass: string;
+  quantity: number | null;
+  price: number | null;
+  value: number | null;
+  costBasis: number | null;
+  asOf: string | null;
+};
+
+/**
+ * Ingest a statement's holdings (positions) for an account. Idempotent per
+ * snapshot: re-uploading a statement replaces that account's positions for the
+ * same `as_of` date (delete-then-insert), so the Investments view always shows
+ * one set per statement date. Resolves/creates the account from its label.
+ */
+export async function ingestHoldings(args: {
+  accountLabel: string;
+  accountNumber: string | null;
+  holdings: ParsedHolding[];
+  importId?: string;
+}): Promise<{ accountId: string; inserted: number }> {
+  const accountId = await getOrCreateAccount(args.accountLabel, args.accountNumber);
+  const rows = args.holdings.filter((h) => h.value != null || h.quantity != null);
+  if (rows.length === 0) return { accountId, inserted: 0 };
+
+  const money = (n: number | null | undefined) => (n == null ? null : n.toFixed(2));
+  const price = (n: number | null | undefined) => (n == null ? null : n.toFixed(4));
+  const qty = (n: number | null | undefined) => (n == null ? null : n.toFixed(6));
+
+  // Replace each as_of snapshot for this account so re-uploads don't duplicate.
+  const asOfs = [...new Set(rows.map((h) => h.asOf).filter((d): d is string => !!d))];
+  for (const a of asOfs) {
+    await db.delete(holdingsTable).where(and(eq(holdingsTable.accountId, accountId), eq(holdingsTable.asOf, a)));
+  }
+
+  const values = rows.map((h) => ({
+    accountId,
+    symbol: h.symbol,
+    name: h.name,
+    assetClass: h.assetClass || 'other',
+    quantity: qty(h.quantity),
+    costBasis: money(h.costBasis),
+    statementPrice: price(h.price),
+    statementValue: money(h.value),
+    asOf: h.asOf,
+    importId: args.importId ?? null,
+  }));
+  await db.insert(holdingsTable).values(values);
+  return { accountId, inserted: values.length };
 }
 
 // ---------------------------------------------------------------------------
