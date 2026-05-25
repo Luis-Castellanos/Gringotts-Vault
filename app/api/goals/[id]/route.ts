@@ -30,15 +30,23 @@ export const PATCH = handler(async (req: NextRequest, ctx: { params: Promise<{ i
   }
   if ('targetAmount' in b) set.targetAmount = b.targetAmount != null ? money(b.targetAmount) : null;
   if ('monthlyContribution' in b) set.monthlyContribution = b.monthlyContribution != null ? money(b.monthlyContribution) : null;
+  if ('growthRatePct' in b) set.growthRatePct = b.growthRatePct != null ? b.growthRatePct.toFixed(2) : null;
 
   const [updated] = await db.update(goals).set(set).where(eq(goals.id, id)).returning({ id: goals.id });
   if (!updated) return fail('not_found', 'Goal not found.', 404);
 
-  // Replace assigned accounts when accountIds is provided.
-  if (b.accountIds) {
+  // Replace assigned accounts (with their allocation) when provided.
+  if (b.accounts) {
     await db.delete(goalAccounts).where(eq(goalAccounts.goalId, id));
-    if (b.accountIds.length) {
-      await db.insert(goalAccounts).values(b.accountIds.map((accountId) => ({ goalId: id, accountId })));
+    if (b.accounts.length) {
+      await db.insert(goalAccounts).values(
+        b.accounts.map((a) => ({
+          goalId: id,
+          accountId: a.accountId,
+          useEntireBalance: a.useEntireBalance ?? true,
+          allocatedAmount: a.allocatedAmount != null ? a.allocatedAmount.toFixed(2) : null,
+        })),
+      );
     }
   }
   return ok({ id });

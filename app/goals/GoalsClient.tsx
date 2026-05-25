@@ -8,7 +8,9 @@ import type { SaveStatus } from '@/lib/goals/calc';
 import { PageHeader } from '@/components/PageHeader';
 import { StatTile } from '@/components/StatTile';
 import { fmtMoney0, fmtPct, fmtDate } from '@/lib/format';
+import type { Debt } from '@/lib/goals/payoff-scenario';
 import { GoalForm, type AccountOption } from './GoalForm';
+import { DebtPayoffPlan } from './DebtPayoffPlan';
 
 const STATUS: Record<SaveStatus, { label: string; cls: string }> = {
   reached: { label: 'Reached 🎉', cls: 'text-positive' },
@@ -85,7 +87,7 @@ function GoalCard({ g, onEdit, onDelete }: { g: GoalView; onEdit: () => void; on
   );
 }
 
-export function GoalsClient({ goals, accountOptions }: { goals: GoalView[]; accountOptions: AccountOption[] }) {
+export function GoalsClient({ goals, accountOptions, debts }: { goals: GoalView[]; accountOptions: AccountOption[]; debts: Debt[] }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<GoalView | null>(null);
@@ -150,6 +152,12 @@ export function GoalsClient({ goals, accountOptions }: { goals: GoalView[]; acco
             </div>
           )}
         </>
+      )}
+
+      {debts.length > 0 && (
+        <div className="mt-8">
+          <DebtPayoffPlan debts={debts} />
+        </div>
       )}
 
       {adding && <GoalForm accountOptions={accountOptions} onClose={() => setAdding(false)} />}

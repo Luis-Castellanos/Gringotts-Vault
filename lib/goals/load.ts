@@ -4,17 +4,19 @@
  * projection (lib/goals/calc.ts). Balances are derived, so goals track the ledger.
  */
 
-import { asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accounts, goalAccounts, goals, transactions } from '@/lib/db/schema';
 import { addMonthsToday, payoffMonths, saveUpStatus, type SaveStatus } from './calc';
+import type { Debt } from './payoff-scenario';
 
 const num = (v: unknown): number | null => (v == null ? null : Number(v));
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export type GoalAccountView = { id: string; name: string; amount: number };
+export type GoalAccountView = { id: string; name: string; amount: number; useEntireBalance: boolean; allocatedAmount: number | null };
 export type GoalType = 'save_up' | 'pay_down';
+type Link = { accountId: string; useEntireBalance: boolean; allocatedAmount: number | null };
 
 export type GoalView = {
   id: string;
@@ -23,6 +25,7 @@ export type GoalView = {
   targetAmount: number | null;
   targetDate: string | null;
   monthlyContribution: number | null;
+  growthRatePct: number | null;
   icon: string | null;
   color: string | null;
   sortOrder: number;
@@ -52,12 +55,12 @@ type AcctMeta = {
 
 function buildView(
   g: typeof goals.$inferSelect,
-  accountIds: string[],
+  links: Link[],
   acctMap: Map<string, AcctMeta>,
 ): GoalView {
-  const accts = accountIds.map((id) => acctMap.get(id)).filter((a): a is AcctMeta => !!a);
   const target = num(g.targetAmount);
   const monthly = num(g.monthlyContribution);
+  const growth = num(g.growthRatePct);
   const base = {
     id: g.id,
     name: g.name,
@@ -65,22 +68,25 @@ function buildView(
     targetAmount: target,
     targetDate: g.targetDate,
     monthlyContribution: monthly,
+    growthRatePct: growth,
     icon: g.icon,
     color: g.color,
     sortOrder: g.sortOrder,
-    accountIds,
+    accountIds: links.map((l) => l.accountId),
   };
 
   if (g.type === 'pay_down') {
     let totalOwed = 0;
     let sumOrig = 0;
-    let allHaveOrig = accts.length > 0;
+    let allHaveOrig = links.length > 0;
     let maxMonths = 0;
     let anyMonths = false;
     let totalInterest = 0;
     let anyInterest = false;
     const accountsView: GoalAccountView[] = [];
-    for (const a of accts) {
+    for (const l of links) {
+      const a = acctMap.get(l.accountId);
+      if (!a) continue;
       const owed = Math.max(0, -a.balance);
       totalOwed += owed;
       if (a.originalPrincipal != null) sumOrig += a.originalPrincipal;
@@ -95,7 +101,7 @@ function buildView(
           anyInterest = true;
         }
       }
-      accountsView.push({ id: a.id, name: a.name, amount: round2(owed) });
+      accountsView.push({ id: a.id, name: a.name, amount: round2(owed), useEntireBalance: true, allocatedAmount: null });
     }
     return {
       ...base,
@@ -111,14 +117,17 @@ function buildView(
     };
   }
 
-  // save_up
+  // save_up — each linked account contributes its whole balance or a fixed portion.
   let current = 0;
   const accountsView: GoalAccountView[] = [];
-  for (const a of accts) {
-    current += a.balance;
-    accountsView.push({ id: a.id, name: a.name, amount: round2(a.balance) });
+  for (const l of links) {
+    const a = acctMap.get(l.accountId);
+    if (!a) continue;
+    const contributing = l.useEntireBalance ? a.balance : l.allocatedAmount ?? 0;
+    current += contributing;
+    accountsView.push({ id: a.id, name: a.name, amount: round2(contributing), useEntireBalance: l.useEntireBalance, allocatedAmount: l.allocatedAmount });
   }
-  const s = saveUpStatus(current, target, g.targetDate, monthly);
+  const s = saveUpStatus(current, target, g.targetDate, monthly, growth);
   return {
     ...base,
     accounts: accountsView,
@@ -142,10 +151,10 @@ export async function loadGoals(): Promise<GoalView[]> {
   if (goalRows.length === 0) return [];
 
   const links = await db.select().from(goalAccounts);
-  const byGoal = new Map<string, string[]>();
+  const byGoal = new Map<string, Link[]>();
   for (const l of links) {
     const arr = byGoal.get(l.goalId) ?? [];
-    arr.push(l.accountId);
+    arr.push({ accountId: l.accountId, useEntireBalance: l.useEntireBalance, allocatedAmount: num(l.allocatedAmount) });
     byGoal.set(l.goalId, arr);
   }
 
@@ -182,6 +191,32 @@ export async function loadGoals(): Promise<GoalView[]> {
   );
 
   return goalRows.map((g) => buildView(g, byGoal.get(g.id) ?? [], acctMap));
+}
+
+/** Active debt accounts (balance owed > 0) for the payoff-scenario simulator. */
+export async function loadDebts(): Promise<Debt[]> {
+  const rows = await db
+    .select({
+      id: accounts.id,
+      name: accounts.displayName,
+      apr: accounts.apr,
+      interestRate: accounts.interestRate,
+      monthlyPayment: accounts.monthlyPayment,
+      balance: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
+    })
+    .from(accounts)
+    .leftJoin(transactions, eq(transactions.accountId, accounts.id))
+    .where(and(eq(accounts.assetClass, 'liability'), eq(accounts.isActive, true)))
+    .groupBy(accounts.id);
+  return rows
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      balance: Math.max(0, -Number(r.balance)),
+      aprPct: num(r.apr) ?? num(r.interestRate),
+      minPayment: num(r.monthlyPayment),
+    }))
+    .filter((d) => d.balance > 0);
 }
 
 /** Accounts for the goal-assignment picker (id, label, asset class). */

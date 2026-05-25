@@ -22,14 +22,22 @@ export const POST = handler(async (req: NextRequest) => {
       targetAmount: money(b.targetAmount),
       targetDate: b.targetDate ?? null,
       monthlyContribution: money(b.monthlyContribution),
+      growthRatePct: b.growthRatePct != null ? b.growthRatePct.toFixed(2) : null,
       icon: b.icon ?? null,
       color: b.color ?? null,
     })
     .returning({ id: goals.id });
   if (!created) return fail('insert_failed', 'Could not create goal.', 500);
 
-  if (b.accountIds?.length) {
-    await db.insert(goalAccounts).values(b.accountIds.map((accountId) => ({ goalId: created.id, accountId })));
+  if (b.accounts?.length) {
+    await db.insert(goalAccounts).values(
+      b.accounts.map((a) => ({
+        goalId: created.id,
+        accountId: a.accountId,
+        useEntireBalance: a.useEntireBalance ?? true,
+        allocatedAmount: a.allocatedAmount != null ? a.allocatedAmount.toFixed(2) : null,
+      })),
+    );
   }
   return ok({ id: created.id }, { status: 201 });
 });

@@ -30,7 +30,13 @@ export function GoalForm({
   const [targetAmount, setTargetAmount] = useState(goal?.targetAmount != null ? String(goal.targetAmount) : '');
   const [targetDate, setTargetDate] = useState(goal?.targetDate ?? '');
   const [monthly, setMonthly] = useState(goal?.monthlyContribution != null ? String(goal.monthlyContribution) : '');
-  const [accountIds, setAccountIds] = useState<Set<string>>(new Set(goal?.accountIds ?? []));
+  const [growth, setGrowth] = useState(goal?.growthRatePct != null ? String(goal.growthRatePct) : '');
+  // accountId → allocation amount string ('' = use the entire balance). Presence = assigned.
+  const [alloc, setAlloc] = useState<Map<string, string>>(() => {
+    const m = new Map<string, string>();
+    for (const a of goal?.accounts ?? []) m.set(a.id, a.useEntireBalance ? '' : String(a.allocatedAmount ?? ''));
+    return m;
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,12 +50,15 @@ export function GoalForm({
   const relevant = accountOptions.filter((a) => (type === 'pay_down' ? a.assetClass === 'liability' : a.assetClass === 'asset'));
 
   function toggle(id: string) {
-    setAccountIds((cur) => {
-      const next = new Set(cur);
+    setAlloc((cur) => {
+      const next = new Map(cur);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else next.set(id, '');
       return next;
     });
+  }
+  function setAmount(id: string, v: string) {
+    setAlloc((cur) => new Map(cur).set(id, v));
   }
 
   async function submit(e: React.FormEvent) {
@@ -57,13 +66,18 @@ export function GoalForm({
     if (!name.trim()) { setError('Name is required.'); return; }
     setSaving(true);
     setError(null);
+    const accounts = [...alloc.entries()].map(([accountId, amt]) => {
+      const n = type === 'save_up' ? numOrNull(amt) : null;
+      return { accountId, useEntireBalance: n == null, allocatedAmount: n };
+    });
     const body = {
       name: name.trim(),
       type,
       targetAmount: type === 'save_up' ? numOrNull(targetAmount) : null,
       targetDate: type === 'save_up' ? targetDate || null : null,
       monthlyContribution: numOrNull(monthly),
-      accountIds: [...accountIds],
+      growthRatePct: type === 'save_up' ? numOrNull(growth) : null,
+      accounts,
     };
     try {
       const res = await fetch(editing ? `/api/goals/${goal!.id}` : '/api/goals', {
@@ -98,7 +112,7 @@ export function GoalForm({
               <button
                 key={t}
                 type="button"
-                onClick={() => { setType(t); setAccountIds(new Set()); }}
+                onClick={() => { setType(t); setAlloc(new Map()); }}
                 className={`rounded-md px-4 py-1.5 font-medium transition-colors ${type === t ? 'bg-surface-3 text-text-primary' : 'text-text-tertiary hover:text-text-primary'}`}
               >
                 {t === 'save_up' ? 'Save up' : 'Pay down debt'}
@@ -112,7 +126,7 @@ export function GoalForm({
           </label>
 
           {type === 'save_up' && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <label className={lbl}>
                 Target
                 <input className={field} value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} inputMode="decimal" placeholder="25000" />
@@ -122,8 +136,12 @@ export function GoalForm({
                 <input className={field} type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
               </label>
               <label className={lbl}>
-                Monthly
+                Monthly contribution
                 <input className={field} value={monthly} onChange={(e) => setMonthly(e.target.value)} inputMode="decimal" placeholder="500" />
+              </label>
+              <label className={lbl}>
+                Growth rate %/yr <span className="font-normal text-text-muted">(optional)</span>
+                <input className={field} value={growth} onChange={(e) => setGrowth(e.target.value)} inputMode="decimal" placeholder="5" />
               </label>
             </div>
           )}
@@ -141,14 +159,29 @@ export function GoalForm({
               {relevant.length === 0 ? (
                 <div className="px-3 py-3 text-[12.5px] text-text-tertiary">No {type === 'pay_down' ? 'liability' : 'asset'} accounts found.</div>
               ) : (
-                relevant.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2.5 px-3 py-2 text-[13px] cursor-pointer hover:bg-surface-3">
-                    <input type="checkbox" checked={accountIds.has(a.id)} onChange={() => toggle(a.id)} className="accent-accent-500" />
-                    <span className="text-text-secondary">{a.label}</span>
-                  </label>
-                ))
+                relevant.map((a) => {
+                  const selected = alloc.has(a.id);
+                  return (
+                    <div key={a.id} className="flex items-center gap-2.5 px-3 py-2 text-[13px] hover:bg-surface-3">
+                      <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
+                        <input type="checkbox" checked={selected} onChange={() => toggle(a.id)} className="accent-accent-500" />
+                        <span className="text-text-secondary truncate">{a.label}</span>
+                      </label>
+                      {selected && type === 'save_up' && (
+                        <input
+                          value={alloc.get(a.id) ?? ''}
+                          onChange={(e) => setAmount(a.id, e.target.value)}
+                          inputMode="decimal"
+                          placeholder="Entire balance"
+                          className="w-32 shrink-0 rounded-md bg-surface-1 border border-border-subtle px-2 py-1 text-[12px] text-right tabular-nums text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-500"
+                        />
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
+            {type === 'save_up' && <span className="text-[11px] text-text-muted font-normal">Leave an amount blank to use the account&rsquo;s entire balance.</span>}
           </div>
         </div>
 

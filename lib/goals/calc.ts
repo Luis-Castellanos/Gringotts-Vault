@@ -35,33 +35,55 @@ export type SaveUpResult = {
   monthsToTarget: number | null;
 };
 
+// Accounts for an optional annual growth rate (compounded monthly) on the
+// balance + contributions — Monarch's "growth rate" on save-up goals.
 export function saveUpStatus(
   current: number,
   target: number | null,
   targetDate: string | null,
   monthly: number | null,
+  growthRatePct: number | null = null,
 ): SaveUpResult {
   if (target != null && current >= target) {
     return { status: 'reached', projectedDate: null, requiredMonthly: null, monthsToTarget: 0 };
   }
-  const remaining = target != null ? Math.max(0, target - current) : null;
+  const r = (growthRatePct ?? 0) / 100 / 12;
+  const C = current;
+  const P = monthly && monthly > 0 ? monthly : 0;
   const monthsUntil = targetDate ? monthsBetweenToday(targetDate) : null;
-  const requiredMonthly = remaining != null && monthsUntil && monthsUntil > 0 ? remaining / monthsUntil : null;
 
-  let projectedDate: string | null = null;
+  // Months to reach the target at the current pace (FV of balance + contributions).
   let monthsAtPace: number | null = null;
-  if (remaining != null && monthly && monthly > 0) {
-    monthsAtPace = Math.ceil(remaining / monthly);
-    projectedDate = addMonthsToday(monthsAtPace);
+  if (target != null && (P > 0 || (r > 0 && C > 0))) {
+    if (r === 0) {
+      monthsAtPace = P > 0 ? Math.ceil((target - C) / P) : null;
+    } else {
+      const k = P / r;
+      const ratio = (target + k) / (C + k);
+      monthsAtPace = ratio > 0 ? Math.ceil(Math.log(ratio) / Math.log(1 + r)) : null;
+    }
+    if (monthsAtPace != null && (!Number.isFinite(monthsAtPace) || monthsAtPace < 0)) monthsAtPace = null;
+  }
+  const projectedDate = monthsAtPace != null ? addMonthsToday(monthsAtPace) : null;
+
+  // Monthly contribution needed to hit the target date (solving FV = target).
+  let requiredMonthly: number | null = null;
+  if (target != null && monthsUntil && monthsUntil > 0) {
+    if (r === 0) {
+      requiredMonthly = Math.max(0, (target - C) / monthsUntil);
+    } else {
+      const g = Math.pow(1 + r, monthsUntil);
+      requiredMonthly = Math.max(0, ((target - C * g) * r) / (g - 1));
+    }
   }
 
   let status: SaveStatus = 'no_plan';
-  if (requiredMonthly != null && monthly && monthly > 0) {
+  if (requiredMonthly != null && monthly != null) {
     if (monthly >= requiredMonthly * 1.05) status = 'ahead';
     else if (monthly >= requiredMonthly * 0.95) status = 'on_track';
     else status = 'at_risk';
   } else if (monthly && monthly > 0) {
-    status = 'on_track'; // contributing, no deadline to miss
+    status = 'on_track';
   }
   return { status, projectedDate, requiredMonthly, monthsToTarget: monthsAtPace };
 }

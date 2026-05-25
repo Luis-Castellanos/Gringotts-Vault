@@ -416,6 +416,7 @@ export const goals = pgTable(
     targetAmount: numeric('target_amount', { precision: 14, scale: 2 }), // null for pay_down (target = $0)
     targetDate: date('target_date'),
     monthlyContribution: numeric('monthly_contribution', { precision: 14, scale: 2 }),
+    growthRatePct: numeric('growth_rate_pct', { precision: 5, scale: 2 }), // assumed annual return on a save-up goal
     icon: text('icon'),
     color: text('color'),
     sortOrder: integer('sort_order').notNull().default(0),
@@ -432,6 +433,10 @@ export const goalAccounts = pgTable(
   {
     goalId: uuid('goal_id').notNull().references(() => goals.id, { onDelete: 'cascade' }),
     accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+    // Allocation: use the whole balance, or a fixed portion of it (so one account
+    // can be split across goals). allocated_amount is ignored when use_entire_balance.
+    useEntireBalance: boolean('use_entire_balance').notNull().default(true),
+    allocatedAmount: numeric('allocated_amount', { precision: 14, scale: 2 }),
   },
   (t) => ({ pk: primaryKey({ columns: [t.goalId, t.accountId] }) }),
 );
