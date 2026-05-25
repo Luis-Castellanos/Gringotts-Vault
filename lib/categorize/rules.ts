@@ -48,6 +48,15 @@ export function classifyByRules(raw: string, amount: number): CategoryHit | null
   if (/direct dep|title resource/.test(s)) return { slug: 'inflows-wages-paycheck', confidence: 'high' };
   if (/discover cash(back| award)/.test(s)) return { slug: 'inflows-rewards_bonuses-credit_card_cashback_points', confidence: 'high' };
   if (/insufficient funds fee|overdraft fee|foreign exch rt adj fee|\bservice fee\b|returned item/.test(s)) return { slug: 'outflows-financial-financial_fees', confidence: 'high' };
+  if (/interest (payment|paid|earned|credit)/.test(s)) return { slug: 'inflows-investment_income-interest', confidence: 'high' };
+
+  // Account-verification micro-deposits / prenotes — tiny and net to ~$0, so
+  // they're noise: sweep to Other. Runs AFTER the transfer/income rules so real
+  // small transfers, Zelle, and interest keep their proper category. Catches a
+  // verification descriptor at ≤$1, or anything ≤$0.20 (no real purchase is that
+  // small; interest is already claimed above).
+  if (Math.abs(amount) <= 1.0 && (/verif|prenote|acct ?verify|test (deposit|debit)/.test(s) || Math.abs(amount) <= 0.2))
+    return { slug: 'outflows-other-miscellaneous', confidence: 'high' };
 
   // ── Spend (best-effort keywords → suggested, not auto-confirmed) ─────────────
   if (/aaa (ca )?insurance/.test(s)) return { slug: 'outflows-auto_transport-auto_insurance', confidence: 'low' };
