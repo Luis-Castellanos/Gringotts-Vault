@@ -3,17 +3,19 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-  STUBS,
-  EVENTS,
-  computeStub,
   computeYTD,
   depositsByBankYTD,
+  deriveEvents,
+  prettyLabel,
+  stubYears,
   fmtMoney,
   fmtMoneyParts,
   fmtDate,
   fmtDateShort,
   fmtMonth,
-  type ComputedStub,
+  type LineItem,
+  type PayrollEvent,
+  type Stub,
   type EventTone,
 } from '@/lib/payroll/data';
 
@@ -68,6 +70,17 @@ function SectionHd({ title, meta }: { title: string; meta?: string }) {
   );
 }
 
+// Render a list of parser-extracted line items (label prettified, amount right).
+function ItemRows({ items }: { items: LineItem[] }) {
+  return (
+    <>
+      {items.map((li, i) => (
+        <LineRow key={`${li.label}-${i}`} label={prettyLabel(li.label)} amount={li.amount} />
+      ))}
+    </>
+  );
+}
+
 // ─── Donut ────────────────────────────────────────────────────────────────
 const DONUT_COLORS = {
   light: { green: '#16a34a', blue: '#2563eb', red: '#dc2626', track: 'rgba(0,0,0,0.06)' },
@@ -97,7 +110,7 @@ function Donut({
   centerTone?: string | null;
   theme: Theme;
 }) {
-  const total = slices.reduce((s, x) => s + x.value, 0);
+  const total = slices.reduce((s, x) => s + x.value, 0) || 1;
   const R = 40;
   const C = 2 * Math.PI * R;
   let acc = 0;
@@ -155,19 +168,19 @@ function Donut({
 }
 
 // ─── Hero card ────────────────────────────────────────────────────────────
-function HeroCard({ stub, theme }: { stub: ComputedStub; theme: Theme }) {
+function HeroCard({ stub, theme }: { stub: Stub; theme: Theme }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const slices: Slice[] = [
-    { key: 'net',        label: 'Net pay',    value: stub.net,                color: 'green', tone: 'green-text' },
-    { key: 'deductions', label: 'Deductions', value: stub.deductions.total,   color: 'blue',  tone: 'blue-text'  },
-    { key: 'taxes',      label: 'Taxes',      value: stub.taxes.total,        color: 'red',   tone: 'red-text'   },
+    { key: 'net',        label: 'Net pay',    value: stub.net,             color: 'green', tone: 'green-text' },
+    { key: 'deductions', label: 'Deductions', value: stub.deductionsTotal, color: 'blue',  tone: 'blue-text'  },
+    { key: 'taxes',      label: 'Taxes',      value: stub.taxesTotal,      color: 'red',   tone: 'red-text'   },
   ];
   const hot = slices.find((s) => s.key === hovered);
   const centerLabel = hot ? hot.label : 'Gross pay';
   const centerAmount = hot ? fmtMoney(hot.value) : fmtMoney(stub.gross);
   const centerPercent = hot
-    ? `${((hot.value / stub.gross) * 100).toFixed(1)}% of gross`
-    : stub.rate;
+    ? `${stub.gross > 0 ? ((hot.value / stub.gross) * 100).toFixed(1) : '0.0'}% of gross`
+    : stub.rate || stub.period;
   const centerTone = hot ? hot.tone : null;
 
   return (
@@ -188,7 +201,7 @@ function HeroCard({ stub, theme }: { stub: ComputedStub; theme: Theme }) {
 }
 
 // ─── Section cards ────────────────────────────────────────────────────────
-function EarningsCard({ stub }: { stub: ComputedStub }) {
+function EarningsCard({ stub }: { stub: Stub }) {
   return (
     <section className="card banner-card earnings-card">
       <div className="card-banner green">
@@ -197,18 +210,30 @@ function EarningsCard({ stub }: { stub: ComputedStub }) {
       </div>
       <div className="card-body">
         <div className="lines">
-          <LineRow label="Salary" meta={`${stub.earnings.hours.toFixed(2)} hrs`} amount={stub.earnings.salary} />
-          {stub.earnings.bonus > 0 && (
-            <LineRow label="Annual bonus" meta="Supplemental" amount={stub.earnings.bonus} />
+          {stub.earnings.length > 0 ? (
+            stub.earnings.map((li, i) => (
+              <LineRow
+                key={`${li.label}-${i}`}
+                label={prettyLabel(li.label)}
+                meta={i === 0 && stub.hours > 0 ? `${stub.hours.toFixed(2)} hrs` : undefined}
+                amount={li.amount}
+              />
+            ))
+          ) : (
+            <LineRow label="Gross earnings" meta={stub.hours > 0 ? `${stub.hours.toFixed(2)} hrs` : undefined} amount={stub.gross} />
           )}
           <LineRow label="Gross earnings" amount={stub.gross} subtotal />
-          <SectionHd
-            title="Net pay deposited"
-            meta={`${stub.deposits.length} ${stub.deposits.length === 1 ? 'destination' : 'destinations'}`}
-          />
-          {stub.deposits.map((d, i) => (
-            <LineRow key={i} label={d.bank} meta={`····${d.last4}`} amount={d.amount} />
-          ))}
+          {stub.deposits.length > 0 && (
+            <>
+              <SectionHd
+                title="Net pay deposited"
+                meta={`${stub.deposits.length} ${stub.deposits.length === 1 ? 'destination' : 'destinations'}`}
+              />
+              {stub.deposits.map((d, i) => (
+                <LineRow key={i} label={d.bank} meta={`····${d.last4}`} amount={d.amount} />
+              ))}
+            </>
+          )}
           <LineRow label="Net pay" amount={stub.net} subtotal />
         </div>
       </div>
@@ -216,37 +241,28 @@ function EarningsCard({ stub }: { stub: ComputedStub }) {
   );
 }
 
-function DeductionsCard({ stub }: { stub: ComputedStub }) {
-  const d = stub.deductions;
+function DeductionsCard({ stub }: { stub: Stub }) {
   return (
     <section className="card banner-card">
       <div className="card-banner blue">
         <span className="ttl">Deductions</span>
-        <span className="meta">Pre + post-tax</span>
+        <span className="meta">Withheld from pay</span>
       </div>
       <div className="card-body">
         <div className="lines">
-          <SectionHd title="Pre-tax" meta="Reduces taxable wages" />
-          <LineRow label="401(k) contribution" meta="6%" amount={d.preTax.k401} />
-          <LineRow label="FSA — Healthcare" meta="$3,300/yr" amount={d.preTax.fsa} />
-          <LineRow label="Medical premium" amount={d.preTax.medical} />
-          <LineRow label="Dental premium" amount={d.preTax.dental} />
-          <LineRow label="Vision premium" amount={d.preTax.vision} />
-          {d.postTax.espp > 0 && (
-            <>
-              <SectionHd title="Post-tax" meta="After-tax buys" />
-              <LineRow label="ESPP" meta="10% · STOCK" amount={d.postTax.espp} />
-            </>
+          {stub.deductions.length > 0 ? (
+            <ItemRows items={stub.deductions} />
+          ) : (
+            <div className="empty-line">No itemized deductions on this stub</div>
           )}
-          <LineRow label="Total deductions" amount={d.total} subtotal />
+          <LineRow label="Total deductions" amount={stub.deductionsTotal} subtotal />
         </div>
       </div>
     </section>
   );
 }
 
-function TaxesCard({ stub }: { stub: ComputedStub }) {
-  const t = stub.taxes;
+function TaxesCard({ stub }: { stub: Stub }) {
   return (
     <section className="card banner-card taxes-card">
       <div className="card-banner red">
@@ -255,23 +271,23 @@ function TaxesCard({ stub }: { stub: ComputedStub }) {
       </div>
       <div className="card-body">
         <div className="lines">
-          <LineRow
-            label="Federal income tax"
-            meta={stub.w4 === 'new' ? 'W4: $7,097 claim' : 'W4: $0 claim'}
-            amount={t.fit}
-          />
-          <LineRow label="Social Security" meta="6.2%" amount={t.fica} />
-          <LineRow label="Medicare" meta="1.45%" amount={t.med} />
-          <LineRow label="Ohio state tax" meta="~3.2%" amount={t.state} />
-          <LineRow label="Total taxes" amount={t.total} subtotal />
+          {stub.taxes.length > 0 ? (
+            <ItemRows items={stub.taxes} />
+          ) : (
+            <div className="empty-line">No itemized taxes on this stub</div>
+          )}
+          <LineRow label="Total taxes" amount={stub.taxesTotal} subtotal />
         </div>
       </div>
     </section>
   );
 }
 
-function EmployerCard({ stub }: { stub: ComputedStub }) {
-  const e = stub.employer;
+function EmployerCard({ stub }: { stub: Stub }) {
+  const items = stub.contributions;
+  const half = Math.ceil(items.length / 2);
+  const left = items.slice(0, half);
+  const right = items.slice(half);
   return (
     <section className="card banner-card employer-card">
       <div className="card-banner purple">
@@ -279,52 +295,55 @@ function EmployerCard({ stub }: { stub: ComputedStub }) {
         <span className="meta">On top of your pay</span>
       </div>
       <div className="card-body">
-        <div className="lines" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
-          <div className="lines" style={{ gridColumn: '1' }}>
-            <SectionHd title="Benefits" />
-            <LineRow label="401(k) match" meta="3% safe harbor" amount={e.k401Match} />
-            <LineRow label="Health premium" meta="Employer share" amount={e.health} />
-            <LineRow label="Dental premium" meta="Employer share" amount={e.dental} />
-            <LineRow label="LTD insurance" meta="Long-term disab." amount={e.ltd} />
-            <LineRow label="GTLI" meta="Group term life" amount={e.gtli} />
+        {items.length > 0 ? (
+          <div className="lines" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
+            <div className="lines" style={{ gridColumn: '1' }}>
+              <ItemRows items={left} />
+            </div>
+            <div className="lines" style={{ gridColumn: '2' }}>
+              <ItemRows items={right} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <LineRow label="Total employer-paid" amount={stub.employerTotal} subtotal />
+            </div>
           </div>
-          <div className="lines" style={{ gridColumn: '2' }}>
-            <SectionHd title="Payroll taxes" meta="Employer-side" />
-            <LineRow label="Social Security match" meta="6.2%" amount={e.fica} />
-            <LineRow label="Medicare match" meta="1.45%" amount={e.medicare} />
-            <LineRow label="FUTA" meta="Federal unemp." amount={e.futa} />
-            <LineRow label="SUTA" meta="State unemp." amount={e.suta} />
+        ) : (
+          <div className="lines">
+            <div className="empty-line">No itemized employer contributions on this stub</div>
+            <LineRow label="Total employer-paid" amount={stub.employerTotal} subtotal />
           </div>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <LineRow label="Total employer-paid" amount={e.total} subtotal />
-          </div>
-        </div>
+        )}
       </div>
     </section>
   );
 }
 
-function ImputedFootnote({ stub }: { stub: ComputedStub }) {
-  const i = stub.imputed;
+function ImputedFootnote({ stub }: { stub: Stub }) {
+  if (stub.imputed.length === 0 && stub.nonCashFringe <= 0) return null;
   return (
     <aside className="footnote">
       <span className="ico">i</span>
       <div className="ftn-body">
         <div className="ftn-title">Imputed income — informational only</div>
         <div className="ftn-desc">
-          LTD and GTLI are employer-paid benefits the IRS counts as income —
-          they affect taxable wages, not net pay.
+          Employer-paid benefits the IRS counts as income — they affect taxable
+          wages, not net pay.
         </div>
       </div>
       <div className="ftn-amts">
-        <div className="ftn-amt">
-          <span className="k">LTD</span>
-          <span className="v num">{fmtMoney(i.ltd)}</span>
-        </div>
-        <div className="ftn-amt">
-          <span className="k">GTLI</span>
-          <span className="v num">{fmtMoney(i.gtli)}</span>
-        </div>
+        {stub.imputed.length > 0 ? (
+          stub.imputed.map((li, i) => (
+            <div className="ftn-amt" key={i}>
+              <span className="k">{prettyLabel(li.label)}</span>
+              <span className="v num">{fmtMoney(li.amount)}</span>
+            </div>
+          ))
+        ) : (
+          <div className="ftn-amt">
+            <span className="k">Non-cash fringe</span>
+            <span className="v num">{fmtMoney(stub.nonCashFringe)}</span>
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -339,7 +358,7 @@ function SingleStubView({
   onNext,
   theme,
 }: {
-  stub: ComputedStub;
+  stub: Stub;
   idx: number;
   total: number;
   onPrev: () => void;
@@ -391,22 +410,28 @@ function SingleStubView({
 }
 
 // ─── All stubs view ───────────────────────────────────────────────────────
-type YearFilter = 'all' | 2025 | 2026;
-
-function AllStubsView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
+function AllStubsView({
+  stubs,
+  events,
+  onJumpToStub,
+}: {
+  stubs: Stub[];
+  events: PayrollEvent[];
+  onJumpToStub: (id: string) => void;
+}) {
+  const years = useMemo(() => stubYears(stubs), [stubs]);
+  type YearFilter = 'all' | number;
   const [yearFilter, setYearFilter] = useState<YearFilter>('all');
-  const eventByDate = useMemo<Record<string, (typeof EVENTS)[number]>>(
-    () => Object.fromEntries(EVENTS.map((e) => [e.stubDate, e])),
-    [],
+  const eventByDate = useMemo<Record<string, PayrollEvent>>(
+    () => Object.fromEntries(events.map((e) => [e.stubDate, e])),
+    [events],
   );
-  const rows = useMemo(() => {
-    return STUBS.map(computeStub).filter((s) => {
-      if (yearFilter === 'all') return true;
-      return s.date.startsWith(String(yearFilter));
-    });
-  }, [yearFilter]);
+  const rows = useMemo(
+    () => stubs.filter((s) => (yearFilter === 'all' ? true : s.date.startsWith(String(yearFilter)))),
+    [stubs, yearFilter],
+  );
 
-  const years: YearFilter[] = ['all', 2025, 2026];
+  const filters: YearFilter[] = ['all', ...years];
 
   return (
     <>
@@ -417,18 +442,20 @@ function AllStubsView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) 
             <b>{rows.length}</b> stubs · click any row to drill in
           </div>
         </div>
-        <div className="ytd-year-tabs">
-          {years.map((y) => (
-            <button
-              type="button"
-              key={String(y)}
-              className={'ytd-year-tab' + (yearFilter === y ? ' active' : '')}
-              onClick={() => setYearFilter(y)}
-            >
-              {y === 'all' ? 'All' : y}
-            </button>
-          ))}
-        </div>
+        {years.length > 1 && (
+          <div className="ytd-year-tabs">
+            {filters.map((y) => (
+              <button
+                type="button"
+                key={String(y)}
+                className={'ytd-year-tab' + (yearFilter === y ? ' active' : '')}
+                onClick={() => setYearFilter(y)}
+              >
+                {y === 'all' ? 'All' : y}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <section className="card stubs-list">
@@ -445,10 +472,10 @@ function AllStubsView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) 
             const evt = eventByDate[s.date];
             const chips: { tone: EventTone; label: string }[] = [];
             if (s.bonus > 0) chips.push({ tone: 'purple', label: 'Bonus' });
-            if (evt) chips.push({ tone: evt.tone, label: evt.label });
+            if (evt && evt.label !== 'Bonus') chips.push({ tone: evt.tone, label: evt.label });
             const prevGross = i > 0 ? rows[i - 1]!.gross : null;
             const delta = prevGross != null ? +(s.gross - prevGross).toFixed(2) : 0;
-            const effTax = s.gross > 0 ? (s.taxes.total / s.gross) * 100 : 0;
+            const effTax = s.gross > 0 ? (s.taxesTotal / s.gross) * 100 : 0;
             const takeHome = s.gross > 0 ? (s.net / s.gross) * 100 : 0;
             const dests = s.deposits.map((d) => d.bank).join(' · ');
             return (
@@ -478,9 +505,9 @@ function AllStubsView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) 
                     </span>
                   )}
                 </div>
-                <div className="amt blue">{fmtMoney(s.deductions.total)}</div>
+                <div className="amt blue">{fmtMoney(s.deductionsTotal)}</div>
                 <div className="amt red">
-                  {fmtMoney(s.taxes.total)}
+                  {fmtMoney(s.taxesTotal)}
                   <span className="amt-sub">{effTax.toFixed(1)}% eff.</span>
                 </div>
                 <div className="amt green">
@@ -499,8 +526,8 @@ function AllStubsView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) 
             </div>
             <div className="col-period" />
             <div className="amt muted">{fmtMoney(rows.reduce((a, s) => a + s.gross, 0))}</div>
-            <div className="amt blue">{fmtMoney(rows.reduce((a, s) => a + s.deductions.total, 0))}</div>
-            <div className="amt red">{fmtMoney(rows.reduce((a, s) => a + s.taxes.total, 0))}</div>
+            <div className="amt blue">{fmtMoney(rows.reduce((a, s) => a + s.deductionsTotal, 0))}</div>
+            <div className="amt red">{fmtMoney(rows.reduce((a, s) => a + s.taxesTotal, 0))}</div>
             <div className="amt green">{fmtMoney(rows.reduce((a, s) => a + s.net, 0))}</div>
           </div>
         )}
@@ -510,14 +537,23 @@ function AllStubsView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) 
 }
 
 // ─── YTD view ─────────────────────────────────────────────────────────────
-function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
-  const [year, setYear] = useState<number>(2025);
+function YTDView({
+  stubs,
+  events,
+  onJumpToStub,
+}: {
+  stubs: Stub[];
+  events: PayrollEvent[];
+  onJumpToStub: (id: string) => void;
+}) {
+  const years = useMemo(() => stubYears(stubs), [stubs]);
+  const [year, setYear] = useState<number>(years[years.length - 1] ?? new Date().getFullYear());
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const ytd = useMemo(() => computeYTD(year), [year]);
+  const ytd = useMemo(() => computeYTD(stubs, year), [stubs, year]);
   const isPartial = ytd.stubCount < 12;
-  const eventsForYear = EVENTS.filter((e) => e.stubDate.startsWith(String(year)));
+  const eventsForYear = events.filter((e) => e.stubDate.startsWith(String(year)));
   const eventByDate = Object.fromEntries(eventsForYear.map((e) => [e.stubDate, e]));
-  const maxStubGross = Math.max(...ytd.stubs.map((s) => s.gross));
+  const maxStubGross = Math.max(1, ...ytd.stubs.map((s) => s.gross));
   const avgNet = ytd.stubCount > 0 ? ytd.net / ytd.stubCount : 0;
   const p = fmtMoneyParts(ytd.net);
 
@@ -529,9 +565,9 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
   const taxPct = ytd.gross > 0 ? (ytd.taxesYours / ytd.gross) * 100 : 0;
   const dedPct = ytd.gross > 0 ? (ytd.deductionsTotal / ytd.gross) * 100 : 0;
   const annualFactor = ytd.stubCount > 0 ? 12 / ytd.stubCount : 1;
-  const dests = depositsByBankYTD(year);
-  const yoy = [2025, 2026].map((y) => {
-    const d = computeYTD(y);
+  const dests = depositsByBankYTD(stubs, year);
+  const yoy = years.slice(-2).map((y) => {
+    const d = computeYTD(stubs, y);
     return {
       year: y,
       gross: d.gross,
@@ -557,26 +593,26 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
                 · <span style={{ color: 'var(--amber-text)' }}>Partial year</span>
               </>
             )}
-            {' · '}aggregated from CBIZ payroll
           </div>
         </div>
-        <div className="ytd-year-tabs">
-          {[2025, 2026].map((y) => {
-            const stubs = STUBS.filter((s) => s.date.startsWith(String(y)));
-            const partial = stubs.length < 12;
-            return (
-              <button
-                type="button"
-                key={y}
-                className={'ytd-year-tab' + (year === y ? ' active' : '')}
-                onClick={() => setYear(y)}
-              >
-                {y}
-                {partial && <span className="partial">Partial</span>}
-              </button>
-            );
-          })}
-        </div>
+        {years.length > 1 && (
+          <div className="ytd-year-tabs">
+            {years.map((y) => {
+              const partial = stubs.filter((s) => s.date.startsWith(String(y))).length < 12;
+              return (
+                <button
+                  type="button"
+                  key={y}
+                  className={'ytd-year-tab' + (year === y ? ' active' : '')}
+                  onClick={() => setYear(y)}
+                >
+                  {y}
+                  {partial && <span className="partial">Partial</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="stack">
@@ -677,9 +713,9 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
           <div className="ytd-chart-body" onMouseLeave={() => setHoverIdx(null)}>
             {ytd.stubs.map((s, i) => {
               const evt = eventByDate[s.date];
-              const netPct = (s.net / maxStubGross) * 100;
-              const dedPct = (s.deductions.total / maxStubGross) * 100;
-              const taxPct = (s.taxes.total / maxStubGross) * 100;
+              const nPct = (s.net / maxStubGross) * 100;
+              const dPct = (s.deductionsTotal / maxStubGross) * 100;
+              const tPct = (s.taxesTotal / maxStubGross) * 100;
               const dimmed = hoverIdx != null && hoverIdx !== i;
               return (
                 <div
@@ -694,9 +730,9 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
                     style={evt ? undefined : { visibility: 'hidden' }}
                   />
                   <div className="ytd-bar-stack" style={{ height: 150 }}>
-                    <div className="ytd-bar-seg net" style={{ height: `${netPct}%` }} />
-                    <div className="ytd-bar-seg deduct" style={{ height: `${dedPct}%` }} />
-                    <div className="ytd-bar-seg tax" style={{ height: `${taxPct}%` }} />
+                    <div className="ytd-bar-seg net" style={{ height: `${nPct}%` }} />
+                    <div className="ytd-bar-seg deduct" style={{ height: `${dPct}%` }} />
+                    <div className="ytd-bar-seg tax" style={{ height: `${tPct}%` }} />
                   </div>
                   <div className="ytd-bar-lbl">{fmtMonth(s.date)}</div>
                 </div>
@@ -731,11 +767,11 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
               </div>
               <div>
                 <div style={{ fontSize: 10, color: 'var(--blue-text)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Deductions</div>
-                <div className="num" style={{ fontWeight: 600, color: 'var(--blue-text)' }}>{fmtMoney(ytd.stubs[hoverIdx]!.deductions.total)}</div>
+                <div className="num" style={{ fontWeight: 600, color: 'var(--blue-text)' }}>{fmtMoney(ytd.stubs[hoverIdx]!.deductionsTotal)}</div>
               </div>
               <div>
                 <div style={{ fontSize: 10, color: 'var(--red-text)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Taxes</div>
-                <div className="num" style={{ fontWeight: 600, color: 'var(--red-text)' }}>{fmtMoney(ytd.stubs[hoverIdx]!.taxes.total)}</div>
+                <div className="num" style={{ fontWeight: 600, color: 'var(--red-text)' }}>{fmtMoney(ytd.stubs[hoverIdx]!.taxesTotal)}</div>
               </div>
             </div>
           )}
@@ -752,7 +788,7 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
                 <LineRow label="401(k) contribution" meta="Pre-tax" amount={ytd.k401Contrib} />
                 <LineRow label="Employer 401(k) match" meta="Free money" amount={ytd.k401Match} />
                 {ytd.espp > 0 && <LineRow label="ESPP" meta="Post-tax stock" amount={ytd.espp} />}
-                <LineRow label="FSA — Healthcare" meta="Use it or lose it" amount={ytd.fsa} />
+                {ytd.fsa > 0 && <LineRow label="FSA / HSA" meta="Pre-tax health" amount={ytd.fsa} />}
                 <LineRow
                   label="Total retirement + stock"
                   amount={+(ytd.k401Contrib + ytd.k401Match + ytd.espp).toFixed(2)}
@@ -799,6 +835,7 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
             </div>
             <div className="card-body">
               <div className="ytd-dests">
+                {dests.length === 0 && <div className="empty-line">No deposit splits recorded</div>}
                 {dests.map((d, i) => (
                   <div key={i} className="ytd-dest">
                     <span className="bank">{d.bank} <span className="last4">····{d.last4}</span></span>
@@ -814,7 +851,7 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
           <section className="card banner-card">
             <div className="card-banner blue">
               <span className="ttl">Year over year</span>
-              <span className="meta">2025 vs 2026</span>
+              <span className="meta">{yoy.map((y) => y.year).join(' vs ')}</span>
             </div>
             <div className="card-body">
               <div className="ytd-yoy">
@@ -852,10 +889,10 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
             <div className="lines" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
               <div className="lines">
                 <LineRow label="Federal income tax" meta="FIT" amount={ytd.fit} />
-                <LineRow label="Ohio state tax" meta="~3.2%" amount={ytd.state} />
+                <LineRow label="State / local" meta="SIT, SDI" amount={ytd.state} />
               </div>
               <div className="lines">
-                <LineRow label="Social Security" meta="6.2%" amount={ytd.fica} />
+                <LineRow label="Social Security" meta="FICA" amount={ytd.fica} />
                 <LineRow label="Medicare" meta="1.45%" amount={ytd.medicare} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
@@ -885,19 +922,62 @@ function YTDView({ onJumpToStub }: { onJumpToStub: (id: number) => void }) {
   );
 }
 
+// ─── Empty state ──────────────────────────────────────────────────────────
+function EmptyState() {
+  return (
+    <section className="card" style={{ padding: '56px 32px', textAlign: 'center' }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', marginBottom: 6 }}>
+        No paystubs yet
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text-3)', maxWidth: 420, margin: '0 auto' }}>
+        Upload a paystub PDF on the Upload page and it’ll appear here — with the
+        full earnings, deductions, taxes, and employer-contribution breakdown.
+      </div>
+      <a
+        href="/upload"
+        style={{
+          display: 'inline-block',
+          marginTop: 18,
+          padding: '8px 16px',
+          borderRadius: 10,
+          background: 'var(--blue)',
+          color: '#fff',
+          fontSize: 13,
+          fontWeight: 500,
+          textDecoration: 'none',
+        }}
+      >
+        Go to Upload
+      </a>
+    </section>
+  );
+}
+
 // ─── Main client ──────────────────────────────────────────────────────────
-export function PayrollClient() {
+export function PayrollClient({ stubs }: { stubs: Stub[] }) {
   const theme = useTheme();
+  const events = useMemo(() => deriveEvents(stubs), [stubs]);
   const [activeTab, setActiveTab] = useState<'single' | 'all' | 'ytd'>('single');
-  const [stubIdx, setStubIdx] = useState(STUBS.length - 1);
-  const stub = useMemo(() => computeStub(STUBS[stubIdx]!), [stubIdx]);
+  const [stubIdx, setStubIdx] = useState(() => Math.max(0, stubs.length - 1));
+
+  if (stubs.length === 0) return <EmptyState />;
+
+  const idx = Math.min(stubIdx, stubs.length - 1);
+  const stub = stubs[idx]!;
+  const jumpTo = (id: string) => {
+    const i = stubs.findIndex((s) => s.id === id);
+    if (i >= 0) {
+      setStubIdx(i);
+      setActiveTab('single');
+    }
+  };
 
   return (
     <>
       <nav className="tabs" role="tablist">
         {[
-          { id: 'single' as const, label: 'Single stub', count: STUBS.length },
-          { id: 'all' as const,    label: 'All stubs',   count: STUBS.length },
+          { id: 'single' as const, label: 'Single stub', count: stubs.length },
+          { id: 'all' as const,    label: 'All stubs',   count: stubs.length },
           { id: 'ytd' as const,    label: 'YTD summary', count: null },
         ].map((tab) => (
           <button
@@ -917,35 +997,15 @@ export function PayrollClient() {
       {activeTab === 'single' && (
         <SingleStubView
           stub={stub}
-          idx={stubIdx}
-          total={STUBS.length}
-          onPrev={() => setStubIdx((i) => Math.max(0, i - 1))}
-          onNext={() => setStubIdx((i) => Math.min(STUBS.length - 1, i + 1))}
+          idx={idx}
+          total={stubs.length}
+          onPrev={() => setStubIdx((i) => Math.max(0, Math.min(i, stubs.length - 1) - 1))}
+          onNext={() => setStubIdx((i) => Math.min(stubs.length - 1, i + 1))}
           theme={theme}
         />
       )}
-      {activeTab === 'all' && (
-        <AllStubsView
-          onJumpToStub={(id) => {
-            const idx = STUBS.findIndex((s) => s.id === id);
-            if (idx >= 0) {
-              setStubIdx(idx);
-              setActiveTab('single');
-            }
-          }}
-        />
-      )}
-      {activeTab === 'ytd' && (
-        <YTDView
-          onJumpToStub={(id) => {
-            const idx = STUBS.findIndex((s) => s.id === id);
-            if (idx >= 0) {
-              setStubIdx(idx);
-              setActiveTab('single');
-            }
-          }}
-        />
-      )}
+      {activeTab === 'all' && <AllStubsView stubs={stubs} events={events} onJumpToStub={jumpTo} />}
+      {activeTab === 'ytd' && <YTDView stubs={stubs} events={events} onJumpToStub={jumpTo} />}
     </>
   );
 }

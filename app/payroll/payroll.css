@@ -283,6 +283,12 @@
     letter-spacing: -0.005em;
   }
   .line-row:first-child { border-top: 0; }
+  .empty-line {
+    padding: var(--row-pad) 0;
+    color: var(--text-3);
+    font-size: var(--line-fz);
+    font-style: italic;
+  }
   .line-row .lbl { color: var(--text-1); font-weight: 500; }
   .line-row .meta { color: var(--text-3); font-size: 12px; }
   .line-row .amt { color: var(--text-1); font-weight: 600; }

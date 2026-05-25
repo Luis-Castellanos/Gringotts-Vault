@@ -1,177 +1,196 @@
 /**
- * Payroll data — Phase A hardcoded stubs for the Payroll page.
+ * Payroll data layer — types, pure aggregation, and formatters for the Payroll
+ * page. Stubs come from the `paystubs` table (see lib/payroll/load.ts, which is
+ * server-only); everything here is pure so the client component can import it.
  *
- * Eventually the bank-statement-extractor (Python repo) will emit paystubs
- * the same way it emits bank statements, and Vault's loader will populate a
- * `paystubs` table. Until then this file is the source of truth for the
- * Payroll page.
+ * Line-item breakdowns (earnings/deductions/taxes/contributions/imputed) are
+ * the real per-line values the parser extracted, each [{label, amount}]. They
+ * are rendered dynamically — there are no hardcoded line names — and a section's
+ * lines always sum to its total (the parser only stores reconciling breakdowns).
  */
 
+export type LineItem = { label: string; amount: number };
 export type Deposit = { bank: string; last4: string; amount: number };
 
 export type Stub = {
-  id: number;
-  date: string;        // YYYY-MM-DD
+  id: string;
+  date: string; // pay date, YYYY-MM-DD
   period: string;
   voucher: string;
-  salary: number;
-  bonus: number;
-  rate: string;
-  espp: number;
-  fit: number;
-  w4: 'old' | 'new';
-  deposits: Deposit[];
-};
-
-export type ComputedStub = Stub & {
+  employer: string;
+  baseComp: number; // annualized base, e.g. 82500
+  rate: string; // display form, e.g. "$82,500 / yr"
   gross: number;
-  earnings: { salary: number; bonus: number; hours: number };
-  deductions: {
-    preTax: { k401: number; fsa: number; medical: number; dental: number; vision: number; subtotal: number };
-    postTax: { espp: number; subtotal: number };
-    total: number;
-  };
-  taxes: { fit: number; fica: number; med: number; state: number; total: number };
   net: number;
-  employer: {
-    k401Match: number; health: number; dental: number; ltd: number; gtli: number;
-    fica: number; medicare: number; futa: number; suta: number; total: number;
-  };
-  imputed: { ltd: number; gtli: number; total: number };
+  hours: number;
+  deductionsTotal: number;
+  taxesTotal: number;
+  employerTotal: number;
+  nonCashFringe: number;
+  bonus: number; // derived from an earnings line labelled bonus/supplemental
+  earnings: LineItem[];
+  deductions: LineItem[];
+  taxes: LineItem[];
+  contributions: LineItem[]; // employer-paid
+  imputed: LineItem[];
+  deposits: Deposit[];
 };
 
 export type EventTone = 'green' | 'blue' | 'purple' | 'amber' | 'red';
 export type PayrollEvent = { stubDate: string; label: string; tone: EventTone; desc: string };
 
-export const STUBS: Stub[] = [
-  { id: 1,  date: '2025-01-31', period: 'Jan 1 – Jan 31, 2025',  voucher: 'CBZ-25-001', salary: 5750.00, bonus: 0,    rate: '$69,000 / yr', espp: 0,    fit: 612.00, w4: 'old', deposits: [{bank:'Chase',last4:'4471',amount:3000},{bank:'Ally',last4:'0892',amount:600.62}] },
-  { id: 2,  date: '2025-02-28', period: 'Feb 1 – Feb 28, 2025',  voucher: 'CBZ-25-002', salary: 5750.00, bonus: 0,    rate: '$69,000 / yr', espp: 0,    fit: 612.00, w4: 'old', deposits: [{bank:'Chase',last4:'4471',amount:3000},{bank:'Ally',last4:'0892',amount:600.62}] },
-  { id: 3,  date: '2025-03-31', period: 'Mar 1 – Mar 31, 2025',  voucher: 'CBZ-25-003', salary: 5750.00, bonus: 1880, rate: '$69,000 / yr', espp: 0,    fit: 925.00, w4: 'old', deposits: [{bank:'Chase',last4:'4471',amount:3500},{bank:'Ally',last4:'0892',amount:1417.12}] },
-  { id: 4,  date: '2025-04-30', period: 'Apr 1 – Apr 30, 2025',  voucher: 'CBZ-25-004', salary: 6250.00, bonus: 0,    rate: '$75,000 / yr', espp: 0,    fit: 698.00, w4: 'old', deposits: [{bank:'Chase',last4:'4471',amount:3500},{bank:'Ally',last4:'0892',amount:455.92}] },
-  { id: 5,  date: '2025-05-31', period: 'May 1 – May 31, 2025',  voucher: 'CBZ-25-005', salary: 6250.00, bonus: 0,    rate: '$75,000 / yr', espp: 0,    fit: 698.00, w4: 'old', deposits: [{bank:'Chase',last4:'4471',amount:3500},{bank:'Ally',last4:'0892',amount:455.92}] },
-  { id: 6,  date: '2025-06-30', period: 'Jun 1 – Jun 30, 2025',  voucher: 'CBZ-25-006', salary: 6250.00, bonus: 0,    rate: '$75,000 / yr', espp: 0,    fit: 698.00, w4: 'old', deposits: [{bank:'Chase',last4:'4471',amount:3000},{bank:'US Bank',last4:'7715',amount:955.92}] },
-  { id: 7,  date: '2025-07-31', period: 'Jul 1 – Jul 31, 2025',  voucher: 'CBZ-25-007', salary: 6250.00, bonus: 0,    rate: '$75,000 / yr', espp: 0,    fit: 698.00, w4: 'old', deposits: [{bank:'Chase',last4:'4471',amount:3000},{bank:'US Bank',last4:'7715',amount:955.92}] },
-  { id: 8,  date: '2025-08-31', period: 'Aug 1 – Aug 31, 2025',  voucher: 'CBZ-25-008', salary: 6250.00, bonus: 0,    rate: '$75,000 / yr', espp: 0,    fit: 698.00, w4: 'old', deposits: [{bank:'Chase',last4:'4471',amount:3000},{bank:'US Bank',last4:'7715',amount:955.92}] },
-  { id: 9,  date: '2025-09-30', period: 'Sep 1 – Sep 30, 2025',  voucher: 'CBZ-25-009', salary: 6250.00, bonus: 0,    rate: '$75,000 / yr', espp: 0,    fit: 698.00, w4: 'old', deposits: [{bank:'Chase',last4:'4471',amount:3000},{bank:'US Bank',last4:'7715',amount:955.92}] },
-  { id: 10, date: '2025-10-31', period: 'Oct 1 – Oct 31, 2025',  voucher: 'CBZ-25-010', salary: 6250.00, bonus: 0,    rate: '$75,000 / yr', espp: 0,    fit: 108.00, w4: 'new', deposits: [{bank:'Chase',last4:'4471',amount:2500},{bank:'Capital One',last4:'3308',amount:2045.92}] },
-  { id: 11, date: '2025-11-30', period: 'Nov 1 – Nov 30, 2025',  voucher: 'CBZ-25-011', salary: 6250.00, bonus: 0,    rate: '$75,000 / yr', espp: 0,    fit: 108.00, w4: 'new', deposits: [{bank:'Chase',last4:'4471',amount:2500},{bank:'Capital One',last4:'3308',amount:2045.92}] },
-  { id: 12, date: '2025-12-31', period: 'Dec 1 – Dec 31, 2025',  voucher: 'CBZ-25-012', salary: 6250.00, bonus: 0,    rate: '$75,000 / yr', espp: 0,    fit: 108.00, w4: 'new', deposits: [{bank:'Chase',last4:'4471',amount:2500},{bank:'Capital One',last4:'3308',amount:2045.92}] },
-  { id: 13, date: '2026-04-30', period: 'Apr 1 – Apr 30, 2026',  voucher: 'CBZ-26-004', salary: 6875.00, bonus: 0,    rate: '$82,500 / yr', espp: 687.50, fit: 448.00, w4: 'new', deposits: [{bank:'Chase',last4:'4471',amount:2000},{bank:'Ally',last4:'0892',amount:1000},{bank:'Capital One',last4:'3308',amount:500},{bank:'Bank of America',last4:'1148',amount:660.30}] },
-];
+const round = (n: number) => +n.toFixed(2);
 
-export const EVENTS: PayrollEvent[] = [
-  { stubDate: '2025-03-31', label: 'Annual bonus', tone: 'purple', desc: '+$1,880 supplemental' },
-  { stubDate: '2025-04-30', label: 'Raise',         tone: 'green',  desc: '$69K → $75K' },
-  { stubDate: '2025-10-31', label: 'W4 updated',    tone: 'amber',  desc: 'Dep claim $0 → $7,097' },
-  { stubDate: '2026-04-30', label: 'Raise + ESPP',  tone: 'blue',   desc: '$82.5K · 10% ESPP active' },
-];
+// ─── Label prettifier ───────────────────────────────────────────────────────
+// Maps the terse codes paystubs use onto readable labels. Unknown codes fall
+// back to Title Case. A trailing state suffix (":CA") is surfaced as context.
+const LABEL_MAP: Record<string, string> = {
+  '401K': '401(k)',
+  SALARY: 'Salary',
+  REGULAR: 'Regular pay',
+  BONUS: 'Bonus',
+  SUPPLEMENTAL: 'Supplemental',
+  ESPP: 'ESPP',
+  MEDICAL: 'Medical',
+  DENTAL: 'Dental',
+  VISION: 'Vision',
+  ACCDT: 'Accident',
+  'CR ILLNESS': 'Critical illness',
+  FHSAI: 'Health spending (FSA/HSA)',
+  FSA: 'FSA — Healthcare',
+  HSA: 'HSA',
+  FIT: 'Federal income tax',
+  FICA: 'Social Security',
+  MEDI: 'Medicare',
+  MEDICARE: 'Medicare',
+  FUTA: 'Federal unemployment (FUTA)',
+  SUTA: 'State unemployment (SUTA)',
+  ETT: 'Employment training (ETT)',
+  SIT: 'State income tax',
+  SDI: 'State disability (SDI)',
+  GTLI: 'Group term life',
+  LTD: 'Long-term disability',
+};
 
-export function computeStub(s: Stub): ComputedStub {
-  const gross = s.salary + s.bonus;
-
-  const k401   = +(s.salary * 0.06).toFixed(2);
-  const fsa    = 275.00;
-  const medical = 185.00;
-  const dental  = 25.00;
-  const vision  = 8.00;
-  const preTax = +(k401 + fsa + medical + dental + vision).toFixed(2);
-
-  const espp   = s.espp;
-  const postTax = espp;
-
-  const taxable = +(gross - preTax).toFixed(2);
-
-  const fit    = s.fit + (s.bonus > 0 ? +(s.bonus * 0.22).toFixed(2) : 0);
-  const ssWageBase = Math.min(taxable, 168600 / 12);
-  const fica   = +(ssWageBase * 0.062).toFixed(2);
-  const med    = +(taxable * 0.0145).toFixed(2);
-  const state  = +(taxable * 0.032).toFixed(2);
-  const taxesTotal = +(fit + fica + med + state).toFixed(2);
-
-  const net = +(gross - preTax - postTax - taxesTotal).toFixed(2);
-
-  const eMatch   = +(s.salary * 0.03).toFixed(2);
-  const eHealth  = 625.00;
-  const eDental  = 40.00;
-  const eLTD     = 25.00;
-  const eGTLI    = 8.40;
-  const eFUTA    = 4.20;
-  const eSUTA    = 35.00;
-  const employerTotal = +(eMatch + eHealth + eDental + eLTD + eGTLI + fica + med + eFUTA + eSUTA).toFixed(2);
-
-  const imputedLTD  = 25.00;
-  const imputedGTLI = 8.40;
-
-  return {
-    ...s,
-    gross,
-    earnings: { salary: s.salary, bonus: s.bonus, hours: 173.33 },
-    deductions: {
-      preTax: { k401, fsa, medical, dental, vision, subtotal: preTax },
-      postTax: { espp, subtotal: postTax },
-      total: +(preTax + postTax).toFixed(2),
-    },
-    taxes: { fit, fica, med, state, total: taxesTotal },
-    net,
-    employer: {
-      k401Match: eMatch, health: eHealth, dental: eDental,
-      ltd: eLTD, gtli: eGTLI, fica: fica, medicare: med,
-      futa: eFUTA, suta: eSUTA, total: employerTotal,
-    },
-    imputed: { ltd: imputedLTD, gtli: imputedGTLI, total: +(imputedLTD + imputedGTLI).toFixed(2) },
-  };
+export function prettyLabel(raw: string): string {
+  const m = raw.match(/^(.*?)(?::([A-Z]{2}))?$/);
+  const base = (m?.[1] ?? raw).trim().toUpperCase();
+  const state = m?.[2];
+  const mapped =
+    LABEL_MAP[base] ??
+    base
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  return state ? `${mapped} · ${state}` : mapped;
 }
 
+// ─── Aggregation helpers ──────────────────────────────────────────────────────
+function aggregateLines(stubs: Stub[], pick: (s: Stub) => LineItem[]): LineItem[] {
+  const map = new Map<string, number>();
+  for (const s of stubs) for (const li of pick(s)) map.set(li.label, (map.get(li.label) ?? 0) + li.amount);
+  return [...map.entries()].map(([label, amount]) => ({ label, amount: round(amount) })).sort((a, b) => b.amount - a.amount);
+}
+
+function pickByLabel(items: LineItem[], ...needles: string[]): number {
+  return round(
+    items
+      .filter((i) => needles.some((n) => i.label.toUpperCase().includes(n)))
+      .reduce((a, i) => a + i.amount, 0),
+  );
+}
+
+// Normalize a label to its bare code (drop a state suffix + punctuation), e.g.
+// "ETT:CA" → "ETT", "401(k)" → "401K". Used for exact-code matching where a
+// substring would over-match (e.g. "MEDI" must not catch "MEDICAL").
+const codeOf = (label: string) => label.toUpperCase().split(':')[0]!.replace(/[^A-Z0-9]/g, '');
+function pickByCode(items: LineItem[], ...codes: string[]): number {
+  const set = new Set(codes);
+  return round(items.filter((i) => set.has(codeOf(i.label))).reduce((a, i) => a + i.amount, 0));
+}
+
+// ─── YTD ──────────────────────────────────────────────────────────────────────
 export type YTD = {
   year: number;
   stubCount: number;
-  stubs: ComputedStub[];
-  gross: number; net: number;
-  taxesYours: number; taxesEmployer: number;
-  deductionsTotal: number; deductionsPreTax: number; deductionsPostTax: number;
-  employerBenefits: number; employerTotal: number;
-  bonus: number; espp: number;
-  k401Contrib: number; k401Match: number; fsa: number; medical: number;
-  fit: number; fica: number; medicare: number; state: number;
+  stubs: Stub[];
+  gross: number;
+  net: number;
+  taxesYours: number;
+  taxesEmployer: number;
+  deductionsTotal: number;
+  deductionsPreTax: number;
+  deductionsPostTax: number;
+  employerBenefits: number;
+  employerTotal: number;
+  bonus: number;
+  espp: number;
+  k401Contrib: number;
+  k401Match: number;
+  fsa: number;
+  fit: number;
+  fica: number;
+  medicare: number;
+  state: number;
   imputed: number;
+  deductionLines: LineItem[];
+  taxLines: LineItem[];
+  contributionLines: LineItem[];
 };
 
-export function computeYTD(year: number): YTD {
-  const stubs = STUBS.filter((s) => s.date.startsWith(String(year))).map(computeStub);
-  const sum = (fn: (s: ComputedStub) => number) => stubs.reduce((a, s) => a + fn(s), 0);
-  const round = (n: number) => +n.toFixed(2);
+export function computeYTD(stubs: Stub[], year: number): YTD {
+  const ys = stubs.filter((s) => s.date.startsWith(String(year)));
+  const sum = (fn: (s: Stub) => number) => round(ys.reduce((a, s) => a + fn(s), 0));
+
+  const deductionLines = aggregateLines(ys, (s) => s.deductions);
+  const taxLines = aggregateLines(ys, (s) => s.taxes);
+  const contributionLines = aggregateLines(ys, (s) => s.contributions);
+
+  const gross = sum((s) => s.gross);
+  const taxesYours = sum((s) => s.taxesTotal);
+  const employerTotal = sum((s) => s.employerTotal);
+  const espp = pickByLabel(deductionLines, 'ESPP');
+  const fit = pickByCode(taxLines, 'FIT', 'FEDERAL');
+  const fica = pickByCode(taxLines, 'FICA', 'OASDI', 'SS');
+  const medicare = pickByCode(taxLines, 'MEDI', 'MEDICARE');
+  const state = round(taxesYours - fit - fica - medicare); // remainder = state/local/disability
+  // Employer-side payroll taxes only — exact codes so benefit "MEDICAL" isn't
+  // swept in by a "MEDI" substring.
+  const taxesEmployer = pickByCode(contributionLines, 'FICA', 'MEDI', 'MEDICARE', 'FUTA', 'SUTA', 'ETT', 'SDI', 'OASDI', 'SS');
+
   return {
     year,
-    stubCount: stubs.length,
-    stubs,
-    gross: round(sum((s) => s.gross)),
-    net: round(sum((s) => s.net)),
-    taxesYours: round(sum((s) => s.taxes.total)),
-    taxesEmployer: round(sum((s) => s.employer.fica + s.employer.medicare + s.employer.futa + s.employer.suta)),
-    deductionsTotal: round(sum((s) => s.deductions.total)),
-    deductionsPreTax: round(sum((s) => s.deductions.preTax.subtotal)),
-    deductionsPostTax: round(sum((s) => s.deductions.postTax.subtotal)),
-    employerBenefits: round(sum((s) => s.employer.k401Match + s.employer.health + s.employer.dental + s.employer.ltd + s.employer.gtli)),
-    employerTotal: round(sum((s) => s.employer.total)),
-    bonus: round(sum((s) => s.earnings.bonus)),
-    espp: round(sum((s) => s.deductions.postTax.espp)),
-    k401Contrib: round(sum((s) => s.deductions.preTax.k401)),
-    k401Match: round(sum((s) => s.employer.k401Match)),
-    fsa: round(sum((s) => s.deductions.preTax.fsa)),
-    medical: round(sum((s) => s.deductions.preTax.medical)),
-    fit: round(sum((s) => s.taxes.fit)),
-    fica: round(sum((s) => s.taxes.fica)),
-    medicare: round(sum((s) => s.taxes.med)),
-    state: round(sum((s) => s.taxes.state)),
-    imputed: round(sum((s) => s.imputed.total)),
+    stubCount: ys.length,
+    stubs: ys,
+    gross,
+    net: sum((s) => s.net),
+    taxesYours,
+    taxesEmployer,
+    deductionsTotal: sum((s) => s.deductionsTotal),
+    deductionsPostTax: espp,
+    deductionsPreTax: round(sum((s) => s.deductionsTotal) - espp),
+    employerBenefits: round(employerTotal - taxesEmployer),
+    employerTotal,
+    bonus: sum((s) => s.bonus),
+    espp,
+    k401Contrib: pickByLabel(deductionLines, '401'),
+    k401Match: pickByLabel(contributionLines, '401'),
+    fsa: pickByLabel(deductionLines, 'FSA', 'HSA', 'FHSA'),
+    fit,
+    fica,
+    medicare,
+    state,
+    imputed: sum((s) => s.nonCashFringe),
+    deductionLines,
+    taxLines,
+    contributionLines,
   };
 }
 
 // Aggregate where net pay landed across a year, by destination account.
-export function depositsByBankYTD(year: number): { bank: string; last4: string; total: number; pct: number }[] {
-  const stubs = STUBS.filter((s) => s.date.startsWith(String(year)));
+export function depositsByBankYTD(stubs: Stub[], year: number): { bank: string; last4: string; total: number; pct: number }[] {
+  const ys = stubs.filter((s) => s.date.startsWith(String(year)));
   const map = new Map<string, { bank: string; last4: string; total: number }>();
-  for (const s of stubs) {
+  for (const s of ys) {
     for (const d of s.deposits) {
       const key = `${d.bank}|${d.last4}`;
       const cur = map.get(key) ?? { bank: d.bank, last4: d.last4, total: 0 };
@@ -182,8 +201,33 @@ export function depositsByBankYTD(year: number): { bank: string; last4: string; 
   const arr = [...map.values()];
   const grand = arr.reduce((s, x) => s + x.total, 0);
   return arr
-    .map((x) => ({ ...x, total: +x.total.toFixed(2), pct: grand > 0 ? (x.total / grand) * 100 : 0 }))
+    .map((x) => ({ ...x, total: round(x.total), pct: grand > 0 ? (x.total / grand) * 100 : 0 }))
     .sort((a, b) => b.total - a.total);
+}
+
+// Derive timeline events (raise / bonus / ESPP start) from stub-over-stub change.
+export function deriveEvents(stubs: Stub[]): PayrollEvent[] {
+  const ordered = [...stubs].sort((a, b) => a.date.localeCompare(b.date));
+  const events: PayrollEvent[] = [];
+  let prevBase: number | null = null;
+  let esppSeen = false;
+  for (const s of ordered) {
+    if (s.bonus > 0) events.push({ stubDate: s.date, label: 'Bonus', tone: 'purple', desc: `+${fmtMoney(s.bonus, { decimals: 0 })} supplemental` });
+    if (prevBase != null && s.baseComp > prevBase) {
+      events.push({ stubDate: s.date, label: 'Raise', tone: 'green', desc: `${fmtMoney(prevBase, { decimals: 0 })} → ${fmtMoney(s.baseComp, { decimals: 0 })}` });
+    }
+    const hasEspp = s.deductions.some((d) => d.label.toUpperCase().includes('ESPP'));
+    if (hasEspp && !esppSeen) {
+      events.push({ stubDate: s.date, label: 'ESPP active', tone: 'blue', desc: 'Stock purchase started' });
+      esppSeen = true;
+    }
+    if (s.baseComp > 0) prevBase = s.baseComp;
+  }
+  return events;
+}
+
+export function stubYears(stubs: Stub[]): number[] {
+  return [...new Set(stubs.map((s) => Number(s.date.slice(0, 4))))].sort((a, b) => a - b);
 }
 
 // ─── Formatters ─────────────────────────────────────────────────────────────
