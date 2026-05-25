@@ -44,28 +44,58 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from parse_statements import (  # noqa: E402
-    parse_one, detect_paystub, parse_paystub,
+    parse_one, detect_issuer, detect_paystub, parse_paystub,
     parse_holdings, derive_account_label, INVESTMENT_ISSUERS,
 )
 
+# Multi-column statements that Xpdf -layout mangles (drops/misaligns rows) but
+# poppler -layout reconstructs cleanly. The existing parsers (chase/apple/
+# discover/gain) are tuned to Xpdf and stay on it; only these re-extract via
+# poppler for parsing.
+POPPLER_LAYOUT_ISSUERS = {"amex_checking", "amex_hysa", "citi_card", "boa_card", "capital_one"}
 
-def _tsv_text(pdf_path):
-    """Return `pdftotext -tsv` output (per-word coordinates) for the paystub
-    coordinate parser. The PATH pdftotext may be Xpdf (no -tsv), so try a
-    poppler binary: PDFTOTEXT_BIN override, then PATH, then common install
-    locations. Returns "" if none can emit TSV (parser falls back to text)."""
+
+def _poppler_candidates():
+    """Candidate pdftotext binaries, poppler-preferred. The bundled PATH one may
+    be Xpdf (no -tsv, and it mangles multi-column layouts); poppler is found via
+    env override or common install locations."""
     candidates = []
     for env in ("PDFTOTEXT_TSV_BIN", "PDFTOTEXT_BIN", "POPPLER_PDFTOTEXT"):
         if os.environ.get(env):
             candidates.append(os.environ[env])
-    candidates.append("pdftotext")  # PATH — poppler if installed
     candidates += glob.glob(os.path.expanduser(
         "~/AppData/Local/Microsoft/WinGet/Packages/*Poppler*/poppler-*/Library/bin/pdftotext.exe"))
     candidates += [
         r"C:\Program Files\poppler\Library\bin\pdftotext.exe",
         "/usr/bin/pdftotext", "/usr/local/bin/pdftotext", "/opt/homebrew/bin/pdftotext",
     ]
-    for c in candidates:
+    candidates.append("pdftotext")  # PATH last (often Xpdf)
+    return candidates
+
+
+def _poppler_layout(pdf_path):
+    """`pdftotext -layout` from a *poppler* binary (not the bundled Xpdf). Poppler
+    reconstructs multi-column statements (Amex/Citi/BOA/Capital One) cleanly where
+    Xpdf drops or misaligns rows. Returns the text, or "" if no poppler is found —
+    callers fall back to the Xpdf layout. Identifies poppler by -tsv support
+    (Xpdf lacks it)."""
+    for c in _poppler_candidates():
+        try:
+            probe = subprocess.run([c, "-tsv", pdf_path, "-"], capture_output=True, text=True, encoding="utf-8")
+            if probe.returncode != 0 or not probe.stdout.startswith("level\tpage_num"):
+                continue  # not poppler (or failed)
+            r = subprocess.run([c, "-enc", "UTF-8", "-layout", pdf_path, "-"], capture_output=True, text=True, encoding="utf-8")
+            if r.returncode == 0 and r.stdout:
+                return r.stdout
+        except (OSError, ValueError):
+            continue
+    return ""
+
+
+def _tsv_text(pdf_path):
+    """Return `pdftotext -tsv` output (per-word coordinates) for coordinate
+    parsers (paystubs, holdings). Empty string if no poppler binary is found."""
+    for c in _poppler_candidates():
         try:
             r = subprocess.run([c, "-tsv", pdf_path, "-"], capture_output=True, text=True, encoding="utf-8")
         except (OSError, ValueError):
@@ -82,6 +112,11 @@ ISSUER_TYPE = {
     "discover": "credit_card",
     "chase_checking": "bank",
     "gain_fcu": "bank",
+    "amex_checking": "bank",
+    "amex_hysa": "bank",
+    "capital_one": "bank",
+    "citi_card": "credit_card",
+    "boa_card": "credit_card",
     "jpm_investment": "investment",
     "fidelity": "investment",
     "empower": "investment",
@@ -165,6 +200,18 @@ def main():
                 "transactions": [],
             }))
             return
+
+        # Multi-column issuers (Amex/Citi/BOA/Capital One) parse cleanly only
+        # from poppler -layout; Xpdf drops/misaligns their rows. Detect on the
+        # Xpdf text (keywords survive any layout), then re-extract via poppler
+        # for those issuers so parse_one sees clean rows. Existing issuers stay
+        # on Xpdf (their parsers are tuned to it).
+        if detect_issuer(text) in POPPLER_LAYOUT_ISSUERS:
+            pl = _poppler_layout(pdf_path)
+            if pl:
+                Path(tmp_txt).write_text(pl, encoding="utf-8")
+                text = pl
+
         txns, stmt_str, issuer, summary = parse_one(
             tmp_txt, original_pdf_filename=original_name, pdf_path=pdf_path
         )

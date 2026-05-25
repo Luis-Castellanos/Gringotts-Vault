@@ -312,3 +312,11 @@ A reliable filter: a real transaction line has a date AND an amount. If only one
 - The loan balance is derived (`-SUM(amount)` / amortization). Emitting only principal payments (no opening-balance row) makes Net Worth show the mortgage as a tiny *asset* (~sum of principal paid), not the ~$191k *debt*.
 - The checking-side mortgage-split feature already moves principal→loan / interest→expense / escrow→escrow when the checking payment is split, so ledgering the mortgage statement too would **double-count** the principal paydown.
 - Clean options to ledger later: (a) **`balance_snapshots`** — store the unpaid principal per statement date + wire balance derivation to prefer the latest snapshot (the table exists for exactly this "incomplete transactions" case); (b) synthetic opening-balance transaction; (c) keep loans statement-recognized only and rely on the checking-side split. Decide with the user before ledgering.
+
+## Amex / Citi / Capital One / BOA + the poppler-layout hybrid (added 2026-05-25)
+
+New issuer parsers: `amex_checking` (Rewards Checking), `amex_hysa` (Natl Bank HYSA), `citi_card` (Simplicity), `capital_one` (360), `boa_card` (Bank of America card). Detection keys on brand markers (checked before the Chase branches, which otherwise grabbed Amex/BOA on generic text). Card sign convention matches the existing parsers: spending negative, payments positive (Citi/BOA print the opposite sign → flipped).
+
+**⚠ Critical: these statements need poppler `-layout`, NOT the bundled Xpdf.** Xpdf mangles their multi-column layouts — it drops Citi's main balance-transfer row, splits BOA merchant names onto separate lines, and misaligns Amex's credit/debit/balance columns. Poppler `-layout` reconstructs all of them cleanly (validated: net flows reconcile to the stated ending/new balance — Amex +$678.52, Citi −$3,894.32, BOA −$360.24).
+
+`extract.py` uses a **hybrid**: Xpdf `-layout` by default (the chase/apple/discover/gain parsers are tuned to it — poppler changes their amounts and crashes `chase_card`), but re-extracts via poppler `-layout` for `POPPLER_LAYOUT_ISSUERS` (the five above). Detection runs on the Xpdf text first (keywords survive any layout), then poppler is used for parsing those issuers. `_poppler_layout()` finds a poppler binary (identified by `-tsv` support, which Xpdf lacks).

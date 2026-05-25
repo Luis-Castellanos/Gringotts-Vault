@@ -57,6 +57,18 @@ def detect_issuer(text: str) -> str:
     if "FIDELITY" in head and ("INVESTMENT REPORT" in body
                                or "NATIONAL FINANCIAL SERVICES" in body):
         return "fidelity"
+    # Other institutions — checked before the Chase branches (these carry their
+    # own brand markers; some otherwise misdetect as chase_card on generic text).
+    if "AMERICAN EXPRESS" in body and "REWARDS CHECKING" in body:
+        return "amex_checking"
+    if "AMERICAN EXPRESS NATIONAL BANK" in body and ("SAVINGS" in body or "HIGH YIELD" in body or "SUMMARY OF MY ACCOUNTS" in body):
+        return "amex_hysa"
+    if "CITI" in head and ("SIMPLICITY" in head or "CITI" in body and "BILLING PERIOD" in body and "MINIMUM PAYMENT" in body):
+        return "citi_card"
+    if "CAPITAL ONE 360" in body or ("CAPITAL ONE" in body and "CAPITALONE.COM" in body):
+        return "capital_one"
+    if "BANK OF AMERICA" in body or "BANKOFAMERICA.COM" in body:
+        return "boa_card"
     # Chase loan statements (mortgage / auto) — check before the Chase
     # deposit/card branches, which would otherwise claim them on "Chase" alone.
     if "MORTGAGE STATEMENT" in head and ("UNPAID PRINCIPAL" in body or "CHASE" in body or "ESCROW" in body):
@@ -844,12 +856,156 @@ def parse_gain_fcu(text: str) -> tuple[list[dict], str]:
 
 
 # ---------- Dispatcher ----------
+# ---------- Other institutions ----------
+# Signed money token incl. ordering Amex/Citi/BOA use: "$88.00", "-$88.00",
+# "1,234.56", "-1,234.56". Returns a signed float or None.
+_SMONEY_RE = re.compile(r"-?\$?\s?-?[\d,]+\.\d{2}")
+
+
+def _smoney(tok: str):
+    t = tok.replace("$", "").replace(",", "").replace(" ", "")
+    try:
+        return float(t)
+    except ValueError:
+        return None
+
+
+def _iso_mdy(d: str) -> str:
+    """'01/15/2026' -> '2026-01-15'."""
+    mm, dd, yy = d.split("/")
+    if len(yy) == 2:
+        yy = "20" + yy
+    return f"{yy}-{mm.zfill(2)}-{dd.zfill(2)}"
+
+
+def parse_amex_checking(text: str):
+    """American Express Rewards Checking — bank deposit account. Rows:
+    `MM/DD/YYYY  <desc>  <amount(credit + / debit -$)>  <running balance>`."""
+    txns = []
+    pm = re.search(r"(\d{2}/\d{2}/\d{4})\s*-\s*(\d{2}/\d{2}/\d{4})", text)
+    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(r"(\d{2}/\d{2}/\d{4})\s+(.+)", s)
+        if not m:
+            continue
+        rest = m.group(2)
+        low = rest.lower()
+        if "beginning balance" in low or "ending balance" in low or "total " in low:
+            continue
+        amts = re.findall(r"-?\$[\d,]+\.\d{2}", rest)
+        if len(amts) < 2:
+            continue  # a real row carries the transaction amount + running balance
+        amount, balance = _smoney(amts[0]), _smoney(amts[-1])
+        if amount is None or balance is None:
+            continue
+        desc = rest[: rest.find(amts[0])].strip() or rest.split("  ")[0].strip()
+        txns.append({"date": _iso_mdy(m.group(1)), "source": desc, "amount": round(amount, 2), "balance": round(balance, 2)})
+    return txns, stmt_str
+
+
+def parse_amex_hysa(text: str):
+    """American Express National Bank High-Yield Savings. Same row shape as the
+    checking account; interest credits show as positive amounts."""
+    return parse_amex_checking(text)
+
+
+def _billing_period_years(text: str):
+    """(start_year, end_year, start_month, end_month) from a 'Billing Period:
+    MM/DD/YY-MM/DD/YY' (Citi) or similar, for MM/DD rows that omit the year."""
+    m = re.search(r"(\d{2})/(\d{2})/(\d{2,4})\s*[-–]\s*(\d{2})/(\d{2})/(\d{2,4})", text)
+    if not m:
+        return None
+    sm, _sd, sy, em, _ed, ey = m.groups()
+    norm = lambda y: int("20" + y) if len(y) == 2 else int(y)
+    return norm(sy), norm(ey), int(sm), int(em)
+
+
+def parse_citi_card(text: str):
+    """Citi credit card. Rows: `MM/DD [MM/DD]  <desc>  <amount>`. Charges print
+    positive, payments/credits negative — flip to Vault's card convention
+    (spending negative, payments positive)."""
+    txns = []
+    per = _billing_period_years(text)
+    bm = re.search(r"Billing Period:\s*(\d{2}/\d{2}/\d{2,4})\s*[-–]\s*(\d{2}/\d{2}/\d{2,4})", text)
+    stmt_str = f"{bm.group(1)} - {bm.group(2)}" if bm else ""
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(r"(\d{2})/(\d{2})(?:\s+\d{2}/\d{2})?\s+([A-Za-z].+?)\s+(-?\$?[\d,]+\.\d{2})\s*$", s)
+        if not m:
+            continue
+        mo, day, desc, amt = m.group(1), m.group(2), m.group(3).strip(), m.group(4)
+        year = per[1] if per else datetime.now().year
+        if per:
+            year = assign_year(int(mo), per[0], per[1], per[2], per[3])
+        val = _smoney(amt)
+        if val is None:
+            continue
+        txns.append({"date": f"{year}-{mo}-{day}", "source": desc, "amount": round(-val, 2), "balance": None})
+    return txns, stmt_str
+
+
+def parse_boa_card(text: str):
+    """Bank of America credit card. Rows: `MM/DD MM/DD <desc> <ref> <last4>
+    <amount>`. Purchases print positive, payments negative — flip to Vault's card
+    convention."""
+    txns = []
+    pm = re.search(r"(\d{2}/\d{2}/\d{4})\s*[-–]\s*(\d{2}/\d{2}/\d{4})", text)
+    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
+    end_year = int(pm.group(2)[6:10]) if pm else datetime.now().year
+    start_year = int(pm.group(1)[6:10]) if pm else end_year
+    start_month = int(pm.group(1)[0:2]) if pm else 1
+    end_month = int(pm.group(2)[0:2]) if pm else 12
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(r"(\d{2})/(\d{2})\s+\d{2}/\d{2}\s+(.+?)\s+(-?[\d,]+\.\d{2})\s*$", s)
+        if not m:
+            continue
+        mo, day, desc, amt = m.group(1), m.group(2), m.group(3).strip(), m.group(4)
+        val = _smoney(amt)
+        if val is None:
+            continue
+        # Strip trailing reference/last-4 columns from the description.
+        desc = re.sub(r"\s+\d{3,}\s+\d{3,}\s*$", "", desc).strip()
+        year = assign_year(int(mo), start_year, end_year, start_month, end_month)
+        txns.append({"date": f"{year}-{mo}-{day}", "source": desc, "amount": round(-val, 2), "balance": None})
+    return txns, stmt_str
+
+
+def parse_capital_one(text: str):
+    """Capital One 360 (savings/checking). Activity rows where present:
+    `MM/DD <desc> <amount> <balance>`; near-empty statements yield none."""
+    txns = []
+    pm = re.search(r"(\d{2}/\d{2}/\d{4})\s*[-–]\s*(\d{2}/\d{2}/\d{4})", text)
+    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
+    end_year = int(pm.group(2)[6:10]) if pm else datetime.now().year
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(r"(\d{1,2})/(\d{1,2})\s+([A-Za-z].+?)\s+(-?\$?[\d,]+\.\d{2})(?:\s+(-?\$?[\d,]+\.\d{2}))?\s*$", s)
+        if not m:
+            continue
+        low = m.group(3).lower()
+        if "balance" in low or "total" in low:
+            continue
+        val = _smoney(m.group(4))
+        bal = _smoney(m.group(5)) if m.group(5) else None
+        if val is None:
+            continue
+        txns.append({"date": f"{end_year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}", "source": m.group(3).strip(), "amount": round(val, 2), "balance": round(bal, 2) if bal is not None else None})
+    return txns, stmt_str
+
+
 PARSERS = {
     "apple_card": parse_apple_card,
     "chase_checking": parse_chase_checking,
     "chase_card": parse_chase_card,
     "discover": parse_discover,
     "gain_fcu": parse_gain_fcu,
+    "amex_checking": parse_amex_checking,
+    "amex_hysa": parse_amex_hysa,
+    "citi_card": parse_citi_card,
+    "boa_card": parse_boa_card,
+    "capital_one": parse_capital_one,
 }
 
 
