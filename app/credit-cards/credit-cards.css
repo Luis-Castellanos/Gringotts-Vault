@@ -302,6 +302,17 @@
     cursor: pointer;
     position: relative;
   }
+  /* List size variants (S / M / L) */
+  .cc-list.compact .cc-row {
+    grid-template-columns: 104px minmax(150px, 220px) 1fr 96px 22px;
+    gap: 10px; padding: 5px 12px;
+  }
+  .cc-list.compact .cc-art { width: 104px; height: 66px; }
+  .cc-list.large .cc-row {
+    grid-template-columns: 208px minmax(220px, 330px) 1fr 132px 22px;
+    gap: 18px; padding: 13px 14px;
+  }
+  .cc-list.large .cc-art { width: 208px; height: 132px; }
   .cc-row .cc-chev svg {
     transition: transform 320ms cubic-bezier(0.32, 0.72, 0.24, 1);
   }

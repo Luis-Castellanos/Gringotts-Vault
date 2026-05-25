@@ -70,13 +70,13 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: '/review', label: 'Review', Icon: IconReview, showBadge: true },
       { href: '/transactions', label: 'Transactions', Icon: IconTransactions },
       { href: '/payroll', label: 'Payroll', Icon: IconPayroll },
+      { href: '/credit-cards', label: 'Credit Cards', Icon: IconCreditCard },
     ],
   },
   {
     label: 'Under development',
     items: [
       { href: '/net-worth', label: 'Net Worth', Icon: IconNetWorth },
-      { href: '/credit-cards', label: 'Credit Cards', Icon: IconCreditCard },
       { href: '/cashflow', label: 'Cashflow', Icon: IconCashflow },
     ],
   },

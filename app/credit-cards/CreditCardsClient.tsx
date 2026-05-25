@@ -1683,7 +1683,6 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
               className="view-toggle cc-size"
               role="group"
               aria-label="Card size"
-              style={{ visibility: view === 'grid' ? undefined : 'hidden' }}
             >
               {(['compact', 'default', 'large'] as const).map((s) => (
                 <button
@@ -1738,7 +1737,7 @@ export function CreditCardsClient({ cards }: { cards: CreditCardData[] }) {
           ) : sortedActive.length === 0 ? (
             <div className="card cc-no-results">No cards match this filter.</div>
           ) : (
-            <div className="cc-list">
+            <div className={'cc-list' + (cardSize !== 'default' ? ' ' + cardSize : '')}>
               {sortedActive.map((c) => {
                 const isOpen = selectedId === c.id;
                 const showContent = isOpen || shownId === c.id;
