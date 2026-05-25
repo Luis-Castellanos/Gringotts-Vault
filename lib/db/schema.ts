@@ -235,6 +235,31 @@ export const documents = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// vendor_rules — the "master vendor list": normalized merchant -> category.
+// Tier 1 of categorization. Applied deterministically at ingest so repeat
+// merchants are auto-categorized; learned/strengthened when the user confirms
+// a category in Review (source = confirmed). Seeded from the master.xlsx.
+// ---------------------------------------------------------------------------
+
+export const vendorRules = pgTable(
+  'vendor_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    merchant: text('merchant').notNull(), // normalized (cleanMerchant output)
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'cascade' }),
+    source: text('source').notNull().default('manual'), // master | manual | claude | confirmed
+    hitCount: integer('hit_count').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    merchantUnique: uniqueIndex('vendor_rules_merchant_unique').on(t.merchant),
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // transactions — the core ledger
 // ---------------------------------------------------------------------------
 

@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { accounts, categories, imports, transactions } from '@/lib/db/schema';
+import { accounts, categories, imports, transactions, vendorRules } from '@/lib/db/schema';
 import { cleanMerchant } from '@/lib/transactions/merchant';
 import { UNCATEGORIZED_SLUG } from '@/lib/transactions/taxonomy';
 import { assetClassForType } from '@/lib/account-types';
@@ -138,6 +138,12 @@ async function uncategorizedId(): Promise<string> {
   return row.id;
 }
 
+/** The vendor map: normalized merchant → categoryId. Loaded once per ingest. */
+async function loadVendorMap(): Promise<Map<string, string>> {
+  const rules = await db.select({ merchant: vendorRules.merchant, categoryId: vendorRules.categoryId }).from(vendorRules);
+  return new Map(rules.map((r) => [r.merchant, r.categoryId]));
+}
+
 /**
  * Ingest one parsed statement's rows into the ledger. Resolves/creates the
  * account, records an `imports` provenance row, and inserts transactions
@@ -154,7 +160,8 @@ export async function ingestParsedStatement(args: {
 }): Promise<IngestResult> {
   const { rows, accountLabel, accountNumber, sourceFile, statementPeriod, documentId } = args;
   const accountId = await getOrCreateAccount(accountLabel, accountNumber);
-  const categoryId = await uncategorizedId();
+  const uncatId = await uncategorizedId();
+  const vendorMap = await loadVendorMap();
 
   const [imp] = await db
     .insert(imports)
@@ -169,14 +176,18 @@ export async function ingestParsedStatement(args: {
     const hash = contentHash(accountId, r.date, amount, r.source);
     if (seen.has(hash)) continue;
     seen.add(hash);
+    // Tier 1: a known merchant gets auto-categorized (no review); unknowns
+    // fall to Uncategorized + needs_review for the queue / Claude.
+    const merchant = cleanMerchant(r.source);
+    const ruleCat = merchant ? vendorMap.get(merchant) : undefined;
     values.push({
       accountId,
-      categoryId,
+      categoryId: ruleCat ?? uncatId,
       date: r.date,
       amount,
       rawDescription: r.source,
-      merchant: cleanMerchant(r.source),
-      needsReview: true,
+      merchant,
+      needsReview: !ruleCat,
       isTransfer: false,
       statementPeriod: statementPeriod ?? null,
       sourceFile,

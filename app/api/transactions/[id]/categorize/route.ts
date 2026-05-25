@@ -26,7 +26,7 @@ import { and, eq, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db/client';
-import { transactions, categories } from '@/lib/db/schema';
+import { transactions, categories, vendorRules } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { merchantPrefix } from '@/lib/transactions/merchant';
 
@@ -62,6 +62,18 @@ export const POST = handler(async (req: NextRequest, ctx: { params: Promise<{ id
       updatedAt: new Date(),
     })
     .where(eq(transactions.id, id));
+
+  // Teach the vendor map: this merchant now maps to this category (confirmed),
+  // so future ingests of the same merchant auto-categorize.
+  if (txn.merchant) {
+    await db
+      .insert(vendorRules)
+      .values({ merchant: txn.merchant, categoryId: body.categoryId, source: 'confirmed', hitCount: 1 })
+      .onConflictDoUpdate({
+        target: vendorRules.merchant,
+        set: { categoryId: body.categoryId, source: 'confirmed', hitCount: sql`${vendorRules.hitCount} + 1`, updatedAt: new Date() },
+      });
+  }
 
   const applied: { id: string }[] = [{ id }];
 
