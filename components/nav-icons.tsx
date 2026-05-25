@@ -36,6 +36,15 @@ export function IconGoals({ className, size = 18 }: IconProps) {
   );
 }
 
+export function IconAudit({ className, size = 18 }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <path d="M9 3h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1z" />
+      <path d="M9 13l2 2 4-4" />
+    </svg>
+  );
+}
+
 export function IconAccounts({ className, size = 18 }: IconProps) {
   return (
     <svg {...base(size, className)}>

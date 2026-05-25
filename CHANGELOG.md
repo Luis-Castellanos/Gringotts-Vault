@@ -2,6 +2,17 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Statement Audit page (Phase 4a).** New `/audit` (Data nav) — the
+  data-integrity view. Reconciles each imported statement's PDF-stated control
+  totals (beginning/ending balance, stated deposit/withdrawal totals on `imports`)
+  against the figures derived from parsed rows, and flags coverage gaps between
+  consecutive statements per account. Summary tiles (statements · reconciled ·
+  discrepancies · gaps), a per-account coverage strip, and expandable statement
+  rows. Discrepant statements drill into a **balance-chain view** (`/api/audit/[importId]`)
+  that walks the per-row printed running balance vs. the expected balance (begin +
+  cumulative amounts) and points to the row where the chain breaks. `lib/audit/load.ts`
+  ports + extends `scripts/audit-preview.ts`. The control-total + running-balance
+  data capture shipped earlier; this is the UI on top of it.
 - 2026-05-25 — **Polish: empty states + skeleton drift.** Brought the Investments
   empty state up to the shared pattern (icon + heading + description + a link to
   Accounts) and gave the Goals empty state its icon, so Real Estate / Goals /

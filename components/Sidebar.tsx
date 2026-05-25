@@ -16,6 +16,7 @@ import {
 import { ThemeToggle } from './ThemeToggle';
 import {
   IconAccounts,
+  IconAudit,
   IconBell,
   IconCashflow,
   IconCategories,
@@ -56,6 +57,7 @@ type NavHref =
   | '/categories'
   | '/upload'
   | '/files'
+  | '/audit'
   | '/transfers'
   | '/goals';
 
@@ -95,6 +97,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: '/upload', label: 'Upload', Icon: IconUpload },
       { href: '/files', label: 'Files', Icon: IconFiles },
+      { href: '/audit', label: 'Statement Audit', Icon: IconAudit },
     ],
   },
   {
