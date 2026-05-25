@@ -34,7 +34,16 @@ function HouseImage({ url, alt, className = '' }: { url: string | null; alt: str
   );
 }
 
-function PropertyCard({ p }: { p: PropertyRow }) {
+type Dnd = {
+  dragging: boolean;
+  dropTarget: boolean;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
+};
+
+function PropertyCard({ p, dnd }: { p: PropertyRow; dnd?: Dnd }) {
   const value = p.marketValue ?? p.acquisitionPrice ?? 0;
   const ePct = equityPct(p);
   const ePctClamped = ePct == null ? 0 : Math.max(0, Math.min(100, ePct));
@@ -42,7 +51,12 @@ function PropertyCard({ p }: { p: PropertyRow }) {
   return (
     <Link
       href={`/rentals/${p.id}`}
-      className={`group flex flex-col rounded-2xl bg-surface-1 border border-border-subtle overflow-hidden hover:border-border-strong transition-colors ${p.isActive ? '' : 'opacity-75'}`}
+      onDragOver={dnd?.onDragOver}
+      onDrop={dnd ? (e) => { e.preventDefault(); dnd.onDrop(); } : undefined}
+      onDragEnd={dnd?.onDragEnd}
+      className={`group relative flex flex-col rounded-2xl bg-surface-1 border overflow-hidden transition-colors ${
+        dnd?.dropTarget ? 'border-accent-500 ring-2 ring-accent-500/40' : 'border-border-subtle hover:border-border-strong'
+      } ${dnd?.dragging ? 'opacity-40' : ''} ${p.isActive ? '' : 'opacity-75'}`}
     >
       <div className="relative">
         <HouseImage url={p.imageUrl} alt={p.name} className="h-44 w-full" />
@@ -53,6 +67,23 @@ function PropertyCard({ p }: { p: PropertyRow }) {
           <span className="absolute top-3 right-3 rounded-md bg-black/55 backdrop-blur px-2 py-1 text-[11px] font-medium text-white/90">
             Sold
           </span>
+        )}
+        {dnd && (
+          <button
+            type="button"
+            draggable
+            onDragStart={(e) => { e.stopPropagation(); dnd.onDragStart(); }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            className={`absolute bottom-3 right-3 z-10 cursor-grab rounded-md bg-black/55 backdrop-blur p-1.5 text-white/80 transition-opacity ${dnd.dragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+            title="Drag to reorder"
+            aria-label="Drag to reorder"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+              <circle cx="5" cy="3" r="1.3" /><circle cx="11" cy="3" r="1.3" />
+              <circle cx="5" cy="8" r="1.3" /><circle cx="11" cy="8" r="1.3" />
+              <circle cx="5" cy="13" r="1.3" /><circle cx="11" cy="13" r="1.3" />
+            </svg>
+          </button>
         )}
       </div>
 
@@ -119,6 +150,9 @@ export function RealEstateClient({
   const [adding, setAdding] = useState(false);
   const [sortBy, setSortBy] = useState<SortId>('default');
   const [showSold, setShowSold] = useState(false);
+  const [order, setOrder] = useState<string[]>(() => portfolio.properties.map((p) => p.id));
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropId, setDropId] = useState<string | null>(null);
   const { properties, count, totalMarketValue, totalEquity, totalLoanBalance } = portfolio;
 
   const soldCount = properties.filter((p) => !p.isActive).length;
@@ -136,10 +170,51 @@ export function RealEstateClient({
       case 'name': arr.sort((a, b) => a.name.localeCompare(b.name)); break;
       case 'newest':
         arr.sort((a, b) => (b.acquisitionDate ?? '').localeCompare(a.acquisitionDate ?? '')); break;
-      default: break; // server order (sortOrder, name)
+      default: {
+        // Manual order (drag-to-reorder), persisted via sortOrder.
+        const idx = new Map(order.map((id, i) => [id, i]));
+        arr.sort((a, b) => (idx.get(a.id) ?? 1e9) - (idx.get(b.id) ?? 1e9));
+        break;
+      }
     }
     return arr;
-  }, [properties, sortBy, showSold]);
+  }, [properties, sortBy, showSold, order]);
+
+  function persistOrder(ids: string[]) {
+    void Promise.all(
+      ids.map((id, i) =>
+        fetch(`/api/properties/${id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sortOrder: i }),
+        }),
+      ),
+    );
+  }
+
+  function reorder(dragId: string, targetId: string) {
+    if (dragId === targetId) return;
+    setOrder((cur) => {
+      const next = cur.filter((x) => x !== dragId);
+      const ti = next.indexOf(targetId);
+      if (ti < 0) return cur;
+      next.splice(ti, 0, dragId);
+      persistOrder(next);
+      return next;
+    });
+  }
+
+  const dndFor = (p: PropertyRow): Dnd | undefined =>
+    sortBy === 'default'
+      ? {
+          dragging: draggingId === p.id,
+          dropTarget: dropId === p.id && draggingId !== p.id,
+          onDragStart: () => setDraggingId(p.id),
+          onDragOver: (e) => { e.preventDefault(); if (draggingId && draggingId !== p.id) setDropId(p.id); },
+          onDrop: () => { if (draggingId) reorder(draggingId, p.id); setDraggingId(null); setDropId(null); },
+          onDragEnd: () => { setDraggingId(null); setDropId(null); },
+        }
+      : undefined;
 
   const selectCls = 'rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500';
 
@@ -208,9 +283,12 @@ export function RealEstateClient({
               </select>
             </div>
           </div>
+          {sortBy === 'default' && shown.length > 1 && (
+            <p className="text-[11.5px] text-text-muted mb-2 -mt-2">Drag the ⠿ handle to reorder.</p>
+          )}
           <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
             {shown.map((p) => (
-              <PropertyCard key={p.id} p={p} />
+              <PropertyCard key={p.id} p={p} dnd={dndFor(p)} />
             ))}
           </div>
         </>
