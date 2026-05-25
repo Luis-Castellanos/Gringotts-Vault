@@ -408,6 +408,10 @@ export const transactions = pgTable(
       .notNull()
       .references(() => accounts.id, { onDelete: 'restrict' }),
     categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
+    // Real Estate attribution (manual tag). A transaction also rolls up to a
+    // property implicitly when it sits on that property's mortgage/escrow account
+    // — see lib/properties/financials.ts. Manual tag overrides/extends that.
+    propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'set null' }),
 
     date: date('date').notNull(),
     postedDate: date('posted_date'),
@@ -451,6 +455,7 @@ export const transactions = pgTable(
     reviewIdx: index('transactions_review_idx').on(t.needsReview).where(sql`${t.needsReview}`),
     transferIdx: index('transactions_transfer_idx').on(t.isTransfer).where(sql`${t.isTransfer}`),
     merchantIdx: index('transactions_merchant_idx').on(t.merchant),
+    propertyIdx: index('transactions_property_idx').on(t.propertyId),
     stmtPeriodIdx: index('transactions_stmt_period_idx').on(t.statementPeriod),
     noSelfTransfer: check(
       'transactions_no_self_transfer',

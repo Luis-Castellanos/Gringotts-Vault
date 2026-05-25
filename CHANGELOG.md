@@ -2,6 +2,16 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Real Estate Phase 1: per-property financials + attribution.** First
+  step of the Stessa-parity module. `transactions.property_id` lets you tag a
+  transaction to a property (Property picker in the transaction editor); a property
+  also rolls up its linked mortgage/escrow accounts (account-rollup + manual tag,
+  per the chosen attribution model). The property detail page gains a **Financials**
+  section — income / expenses / net cash flow tiles, a monthly cash-flow chart, and
+  income/expense category breakdowns — computed by `lib/properties/financials.ts`
+  (excludes split parents, folds in their non-transfer parts like mortgage interest,
+  excludes transfers). Unblocks rent roll, return metrics, Schedule E. See
+  `docs/real-estate-expansion-plan.md`.
 - 2026-05-25 — **Split parts now expand into spend reports.** Cashflow, Reports,
   and Dashboard previously *excluded* split parents (so a split mortgage payment's
   interest wasn't counted as spending). They now fold in the non-transfer split

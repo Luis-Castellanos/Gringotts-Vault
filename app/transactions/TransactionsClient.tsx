@@ -17,6 +17,7 @@ export type TxnRow = {
   rawDescription: string;
   isTransfer: boolean;
   isSplit: boolean;
+  propertyId: string | null;
   needsReview: boolean;
   notes: string | null;
   accountId: string | null;
@@ -301,6 +302,17 @@ function TxnDetail({
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
+  const [propertyId, setPropertyId] = useState<string>(txn.propertyId ?? '');
+  const [propOpts, setPropOpts] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/properties').then((r) => r.json()).then((j) => { if (alive) setPropOpts(j?.data ?? []); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  async function changeProperty(v: string) {
+    setPropertyId(v);
+    await patchTxn(txn.id, { propertyId: v || null });
+  }
 
   // Effective category = sub-category (leaf) if chosen, else the top-level.
   const categoryId = childId || parentId;
@@ -417,6 +429,21 @@ function TxnDetail({
           <span className="txd-field-label">Date</span>
           <input type="date" value={date} max={TODAY} onChange={(e) => setDate(e.target.value)} />
         </div>
+        {propOpts.length > 0 && (
+          <div className="txd-field">
+            <span className="txd-field-label">Property</span>
+            <select
+              className="rounded-md bg-surface-2 border border-border-subtle px-2 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent-500"
+              value={propertyId}
+              onChange={(e) => changeProperty(e.target.value)}
+            >
+              <option value="">— None —</option>
+              {propOpts.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {picker && (
           <CatFlatPicker
             items={picker.field === 'parent' ? parents : subs}

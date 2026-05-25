@@ -26,6 +26,7 @@ const bodySchema = z.object({
   needsReview: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
+  propertyId: z.string().uuid().nullable().optional(),
   applyMerchantToSimilar: z.boolean().optional(),
 });
 
@@ -45,6 +46,7 @@ export const PATCH = handler(
     if (body.needsReview !== undefined) patch.needsReview = body.needsReview;
     if (body.tags !== undefined) patch.tags = body.tags;
     if (body.notes !== undefined) patch.notes = body.notes;
+    if (body.propertyId !== undefined) patch.propertyId = body.propertyId;
 
     await db.update(transactions).set(patch).where(eq(transactions.id, id));
 

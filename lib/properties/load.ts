@@ -45,6 +45,7 @@ export type PropertyRow = {
   isActive: boolean;
   soldDate: string | null;
   soldPrice: number | null;
+  escrowAccountId: string | null;
   sortOrder: number;
   notes: string | null;
   mortgage: MortgageInfo | null;
@@ -177,6 +178,7 @@ export async function loadPortfolio(): Promise<Portfolio> {
       isActive: r.isActive,
       soldDate: r.soldDate,
       soldPrice: num(r.soldPrice),
+      escrowAccountId: r.escrowAccountId,
       sortOrder: r.sortOrder,
       notes: r.notes,
       mortgage,
@@ -236,6 +238,7 @@ export async function loadProperty(
     isActive: row.isActive,
     soldDate: row.soldDate,
     soldPrice: num(row.soldPrice),
+    escrowAccountId: row.escrowAccountId,
     sortOrder: row.sortOrder,
     notes: row.notes,
     mortgage,

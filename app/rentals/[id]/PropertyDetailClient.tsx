@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import type { AmortResult } from '@/lib/properties/amortization';
 import type { MortgageAccountOption, PropertyRow } from '@/lib/properties/load';
+import type { FinCategory, PropertyFinancials } from '@/lib/properties/financials';
 import { StatTile } from '@/components/StatTile';
 import { PropertyForm, propertyTypeLabel } from '../PropertyForm';
 import { addressLine, fmtDate, fmtMoney, fmtMoney0, fmtPct, specLine } from '../format';
@@ -173,13 +174,87 @@ function SellModal({ property, onClose }: { property: PropertyRow; onClose: () =
   );
 }
 
+function FinBreakdown({ title, cats, tone }: { title: string; cats: FinCategory[]; tone: 'pos' | 'neg' }) {
+  const max = cats.length ? Math.max(...cats.map((c) => c.amount)) : 1;
+  const bar = tone === 'pos' ? 'var(--color-positive)' : 'var(--color-negative)';
+  return (
+    <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
+      <h3 className="text-[13px] font-semibold mb-3">{title}</h3>
+      {cats.length === 0 ? (
+        <p className="text-[12.5px] text-text-tertiary py-2">None recorded.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {cats.slice(0, 8).map((c) => (
+            <div key={c.id} className="relative rounded-lg overflow-hidden">
+              <div className="absolute inset-y-0 left-0 rounded-lg opacity-[0.14]" style={{ width: `${(c.amount / max) * 100}%`, background: c.color ?? bar }} />
+              <div className="relative flex justify-between px-3 py-1.5 text-[13px]">
+                <span className="truncate text-text-secondary">{c.name}</span>
+                <span className="tabular-nums text-text-primary ml-2">{fmtMoney0(c.amount)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function FinancialsSection({ fin }: { fin: PropertyFinancials }) {
+  if (fin.txnCount === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-8 text-[13px] text-text-tertiary">
+        No transactions attributed yet. Tag transactions to this property (the <strong>Property</strong> field when you expand a transaction in Transactions), or link the property&rsquo;s accounts — then rent, expenses, and cash flow appear here.
+      </div>
+    );
+  }
+  const months = fin.months.slice(-12);
+  const maxM = Math.max(1, ...months.flatMap((m) => [m.income, m.expenses]));
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-3 gap-4">
+        <StatTile label="Income" value={fmtMoney0(fin.income)} tone="pos" />
+        <StatTile label="Expenses" value={fmtMoney0(fin.expenses)} tone="neg" />
+        <StatTile label="Net cash flow" value={(fin.net >= 0 ? '+' : '') + fmtMoney0(fin.net)} tone={fin.net >= 0 ? 'pos' : 'neg'} />
+      </div>
+      {months.length > 1 && (
+        <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[13px] font-semibold">Monthly cash flow</h3>
+            <div className="flex gap-3 text-[11px] text-text-tertiary">
+              <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-positive" />Income</span>
+              <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-negative" />Expenses</span>
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-1.5 h-28">
+            {months.map((m) => (
+              <div key={m.ym} className="flex-1 flex flex-col items-center gap-1">
+                <div className="flex items-end gap-0.5 h-24 w-full justify-center">
+                  <div className="w-2 rounded-t bg-positive" style={{ height: `${(m.income / maxM) * 100}%` }} title={`Income ${fmtMoney0(m.income)}`} />
+                  <div className="w-2 rounded-t bg-negative" style={{ height: `${(m.expenses / maxM) * 100}%` }} title={`Expenses ${fmtMoney0(m.expenses)}`} />
+                </div>
+                <span className="text-[9px] text-text-muted">{m.ym.slice(5)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <FinBreakdown title="Income" cats={fin.incomeByCategory} tone="pos" />
+        <FinBreakdown title="Expenses" cats={fin.expenseByCategory} tone="neg" />
+      </div>
+    </div>
+  );
+}
+
 export function PropertyDetailClient({
   property,
   schedule,
+  financials,
   mortgageOptions,
 }: {
   property: PropertyRow;
   schedule: AmortResult | null;
+  financials: PropertyFinancials;
   mortgageOptions: MortgageAccountOption[];
 }) {
   const router = useRouter();
@@ -297,6 +372,12 @@ export function PropertyDetailClient({
         <StatTile label="Monthly payment" value={property.mortgage?.monthlyPayment != null ? fmtMoney(property.mortgage.monthlyPayment) : '—'} sub="P&I (from mortgage)" />
       </div>
 
+      {/* Financials (per-property income / expenses / cash flow) */}
+      <h2 className="text-[15px] font-semibold mb-3">Financials</h2>
+      <div className="mb-8">
+        <FinancialsSection fin={financials} />
+      </div>
+
       {/* Mortgage / amortization */}
       <h2 className="text-[15px] font-semibold mb-3">Mortgage</h2>
       {property.mortgage ? (
@@ -309,9 +390,9 @@ export function PropertyDetailClient({
         </div>
       )}
 
-      {/* Future: rental income, expenses, and the principal/interest/escrow split. */}
+      {/* Roadmap: the rest of the Stessa-parity module. */}
       <div className="mt-8 rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-5 text-[12.5px] text-text-muted">
-        Coming soon: rental income &amp; expenses, monthly cash flow, and splitting your mortgage outflow into principal / interest / escrow.
+        Coming next: rent roll &amp; leases, maintenance log, return metrics (cap rate, cash-on-cash, NOI), and a Schedule E export.
       </div>
 
       {editing && <PropertyForm property={property} mortgageOptions={mortgageOptions} onClose={() => setEditing(false)} />}

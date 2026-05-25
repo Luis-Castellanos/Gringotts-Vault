@@ -63,9 +63,12 @@ Schedule E worksheet (income, each expense line, depreciation) as Excel/PDF.
 
 ## Phasing
 
-1. **Attribution + per-property financials** — `transactions.property_id` + assignment
-   (account-rollup default + manual tag), and a property-detail **Financials** tab:
-   income/expense by category, monthly net cash flow, NOI. *Unblocks everything.*
+1. ✅ **Attribution + per-property financials — shipped 2026-05-25.**
+   `transactions.property_id` (manual tag in the transaction editor) + account-rollup
+   (a property's mortgage/escrow accounts), and a property-detail **Financials**
+   section: income/expense by category, monthly cash-flow chart, net cash flow.
+   Folds in non-transfer split parts (mortgage interest). `lib/properties/financials.ts`.
+   *Unblocks everything below.* (NOI/return metrics = Phase 2.)
 2. **Return metrics** — add `cash_invested`; compute cap rate / cash-on-cash / DSCR /
    ROI / GRM on the property detail + a portfolio roll-up.
 3. **Rent roll** — `leases` model + a Rent Roll view (portfolio + per-property);
