@@ -152,7 +152,7 @@
 .acctset-item.open .acctset-row:hover { background: transparent; }
 
 .acctset-logo {
-  width: 32px; height: 32px; border-radius: 9px; background: var(--surface);
+  width: 32px; height: 32px; border-radius: 50%; background: var(--surface);
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0; overflow: hidden; box-shadow: inset 0 0 0 0.5px var(--line);
 }

@@ -94,13 +94,13 @@ function InstLogo({ institution }: { institution: string }) {
   const [failed, setFailed] = useState(false);
   if (failed || !domain) {
     return (
-      <span className="inline-flex size-[18px] items-center justify-center rounded bg-surface-3 text-[9px] font-semibold text-text-tertiary">
+      <span className="inline-flex size-[18px] items-center justify-center rounded-full bg-surface-3 text-[9px] font-semibold text-text-tertiary">
         {instInitials(institution)}
       </span>
     );
   }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={faviconUrl(domain)} alt="" width={18} height={18} className="rounded" onError={() => setFailed(true)} />;
+  return <img src={faviconUrl(domain)} alt="" width={18} height={18} className="rounded-full" onError={() => setFailed(true)} />;
 }
 
 function TrashIcon() {
