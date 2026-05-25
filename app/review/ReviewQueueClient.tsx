@@ -79,6 +79,8 @@ export function ReviewQueueClient() {
   const [session, setSession] = useState({ reviewed: 0, skipped: 0, startedAt: Date.now() });
   const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentlyReviewed[]>([]);  // CHANGE 1
+  const [claudeBusy, setClaudeBusy] = useState(false);
+  const [claudeMsg, setClaudeMsg] = useState<string | null>(null);
 
   useEffect(() => {
     api<Category[]>('/api/categories').then((r) => {
@@ -94,6 +96,28 @@ export function ReviewQueueClient() {
     if (res.data) setQueue(res.data);
     setLoading(false);
   }, [skipIds]);
+
+  const categorizeWithClaude = useCallback(async () => {
+    if (claudeBusy) return;
+    setClaudeBusy(true);
+    setClaudeMsg(null);
+    const r = await api<{ categorized: number; merchants: number; skipped: number; message?: string }>(
+      '/api/categorize',
+      { method: 'POST' },
+    );
+    setClaudeBusy(false);
+    if (r.error) {
+      setClaudeMsg(r.error.message);
+    } else {
+      setClaudeMsg(
+        r.data.categorized > 0
+          ? `Claude suggested categories for ${r.data.categorized} transaction${r.data.categorized === 1 ? '' : 's'} — review them below.`
+          : (r.data.message ?? 'No suggestions applied.'),
+      );
+      setSkipIds([]);
+      refetch();
+    }
+  }, [claudeBusy, refetch]);
 
   useEffect(() => { refetch(); }, [refetch]);
 
@@ -241,7 +265,7 @@ export function ReviewQueueClient() {
             style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="flex items-center mt-3">
+        <div className="flex items-center justify-between mt-3 gap-4">
           <div className="text-sm text-text-tertiary">
             <strong className="text-text-primary numeric">{remaining}</strong> remaining
             <span className="mx-2 text-text-muted">·</span>
@@ -249,7 +273,21 @@ export function ReviewQueueClient() {
             <span className="mx-2 text-text-muted">·</span>
             <strong className="text-text-primary numeric">{session.skipped}</strong> skipped
           </div>
+          <button
+            type="button"
+            onClick={categorizeWithClaude}
+            disabled={claudeBusy}
+            title="Suggest categories for the remaining queue using Claude"
+            className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-2 hover:bg-surface-3 disabled:opacity-60 text-text-primary text-[13px] font-medium px-3 py-1.5 transition-colors shrink-0"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+              <path d="M19 14l.8 2 .2.1-2 .8" />
+            </svg>
+            {claudeBusy ? 'Categorizing…' : 'Categorize with Claude'}
+          </button>
         </div>
+        {claudeMsg && <div className="mt-2 text-[12.5px] text-text-tertiary">{claudeMsg}</div>}
       </div>
 
       <div className="grid grid-cols-[1fr_360px] gap-6 items-start">
