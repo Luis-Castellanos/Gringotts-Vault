@@ -104,6 +104,17 @@ def _last4_from_name(name):
     return m.group(1) if m else None
 
 
+def _investment_account_label(name):
+    """Human account label from an investment statement filename, e.g.
+    'Empower 401k (0101 2026 thru 0331 2026).pdf' -> 'Empower 401k';
+    'Fidelity Roth IRA #6856 (...).pdf' -> 'Fidelity Roth IRA #6856'."""
+    import re as _re
+    stem = Path(name).stem
+    stem = _re.sub(r"^\d{8,}_", "", stem)          # upload-system id prefix
+    stem = _re.sub(r"\s*\([^)]*\)\s*$", "", stem)  # trailing (date range)
+    return stem.strip() or None
+
+
 def _fail(msg, code=1):
     print(json.dumps({"ok": False, "error": msg}))
     sys.exit(code)
@@ -158,7 +169,7 @@ def main():
         holdings = []
         if issuer in INVESTMENT_ISSUERS:
             holdings = parse_holdings(text, issuer, _tsv_text(pdf_path))
-            account = derive_account_label(original_name, issuer, text)
+            account = _investment_account_label(original_name) or derive_account_label(original_name, issuer, text)
             account_number = _last4_from_name(original_name)
             stmt_str = stmt_str or (holdings[0].get("as_of") if holdings else None)
             # Still deferred only if we recognized it but couldn't extract holdings.

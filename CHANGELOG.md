@@ -2,6 +2,20 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Brokerage holdings parsers: Fidelity + Empower.** Investment
+  statements now extract positions into the `holdings` table (→ Investments
+  holdings view). **Fidelity** (NFS): `-tsv` coordinate parsing of the Holdings
+  table — logical-line grouping + x-bucketing each cell to its column
+  (quantity/price/ending-MV/cost), keyed on `(TICKER)` + the holdings columns;
+  validated on real Roth IRA statements (FXAIX accurate). **Empower 401k**: the
+  "How is my account invested?" table is interleaved with full-width disclosure
+  prose, so it clusters `-tsv` logical lines by row and takes the two rightmost
+  numerics as Ending Balance + Units, with a non-prose short-line heuristic for
+  the fund name (validated: Fidelity 500 Index, 14.871 units, $3,885.02; no
+  ticker/cost in this format). Detection added for fidelity/empower/optum_hsa
+  (Empower checked before Fidelity since it *holds* Fidelity funds); `extract.py`
+  emits `holdings[]` + a clean account label from the filename. Optum HSA = cash
+  (no holdings). Bank/card parsers unaffected (regression-checked).
 - 2026-05-25 — **Investments: holdings view (groundwork, parser-gated).** The
   Investments page now reads the `holdings` table, enriches each position with a
   **live quote** (lib/market/quotes) for market value + gain/loss (falling back to

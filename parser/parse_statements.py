@@ -45,16 +45,18 @@ def detect_issuer(text: str) -> str:
     if "GAIN FEDERAL CREDIT UNION" in head or "GAINFCU" in head:
         return "gain_fcu"
     # Investment / brokerage issuers (holdings statements). Checked before the
-    # bank/card branches since some carry overlapping brand text.
-    if "FIDELITY" in head and ("INVESTMENT REPORT" in head or "HOLDINGS" in head
-                               or "FIDELITY 500" in body or "ROTH IRA" in head
-                               or "NATIONAL FINANCIAL SERVICES" in body):
-        return "fidelity"
+    # bank/card branches since some carry overlapping brand text. Order matters:
+    # Empower 401k statements *hold* Fidelity funds (e.g. "Fidelity 500 Index"),
+    # so match Empower before Fidelity, and key Fidelity on its own statement
+    # header (INVESTMENT REPORT / NFS), never on a holding's name.
     if "EMPOWER" in head and ("HOW IS MY ACCOUNT INVESTED" in body
                               or "PLAN NUMBER" in head or "VESTED BALANCE" in body):
         return "empower"
     if "OPTUM" in head and ("HSA" in head or "HEALTH SAVINGS" in body):
         return "optum_hsa"
+    if "FIDELITY" in head and ("INVESTMENT REPORT" in body
+                               or "NATIONAL FINANCIAL SERVICES" in body):
+        return "fidelity"
     # IMPORTANT: check JPM investment BEFORE chase_card, since investment
     # statements contain Chase branding.
     if ("INVESTMENT STATEMENT" in head or "BROKERAGE" in head or
@@ -1028,7 +1030,7 @@ def parse_holdings(text: str, issuer: str, tsv_text: str = "") -> list[dict]:
     if issuer == "fidelity":
         return _parse_fidelity_holdings(text, tsv_text)
     if issuer == "empower":
-        return _parse_empower_holdings(text)
+        return _parse_empower_holdings(text, tsv_text)
     return []
 
 
@@ -1121,10 +1123,115 @@ def _parse_fidelity_holdings(text: str, tsv_text: str) -> list[dict]:
     return out
 
 
-def _parse_empower_holdings(text: str) -> list[dict]:
-    # TODO: "How is my account invested?" section (fund name, units/shares,
-    # ending balance). Implemented in a follow-up pass.
-    return []
+# Empower fund-name keyword → asset class (no ticker/cost basis in this format).
+_EMP_CLASS = [
+    ("STABLE VALUE", "cash"), ("MONEY MARKET", "cash"),
+    ("BOND", "bond"), ("FIXED INCOME", "bond"), ("TREASURY", "bond"),
+]
+_EMP_SKIP_NAMES = ("TOTAL", "BEGINNING", "DESCRIPTION", "UNITS", "SHARES", "BALANCE",
+                   "CONTRIBUTION", "DEPOSITS", "DIVIDENDS", "VESTED", "ENDING")
+# Lowercase function words that mark a line as disclosure prose, not a fund name.
+_EMP_PROSE = {"the", "and", "you", "your", "of", "to", "for", "we", "that", "is",
+              "are", "be", "by", "on", "as", "or", "this", "will", "may", "a", "an",
+              "in", "with", "from", "have", "any", "if", "must", "not"}
+
+
+def _emp_as_of(text: str):
+    m = re.search(r"[Aa]s of ([A-Z][a-z]+ \d{1,2}, \d{4})", text)
+    if m:
+        try:
+            return datetime.strptime(m.group(1), "%B %d, %Y").date().isoformat()
+        except ValueError:
+            pass
+    return None
+
+
+def _emp_is_fund_name(s: str) -> bool:
+    words = s.split()
+    if not (1 <= len(words) <= 6) or s.rstrip().endswith("."):
+        return False
+    if not re.match(r"^[A-Za-z]", s) or not re.search(r"[A-Z]", s):
+        return False
+    up = s.upper()
+    if any(up.startswith(k) for k in _EMP_SKIP_NAMES):
+        return False
+    if any(w in _EMP_PROSE for w in s.lower().split()):
+        return False
+    return True
+
+
+def _parse_empower_holdings(text: str, tsv_text: str = "") -> list[dict]:
+    """Empower 401k 'How is my account invested?' holdings, from -tsv coordinate
+    data (the -layout text interleaves full-width disclosure prose with the table
+    at the same rows). Cluster logical lines by row (y); a fund row has a clean
+    short name line plus its values as separate cells — the two rightmost numerics
+    by x are Ending Balance (market value) and Units/Shares. No ticker/cost basis."""
+    if not tsv_text:
+        return []
+    lines = _tsv_lines(tsv_text)
+    # Bound to the invested section: between its title and the next ("funded" /
+    # "performed") section on the same page.
+    inv_page = inv_top = end_top = None
+    for ln in lines:
+        low = ln["text"].lower()
+        if inv_page is None and "how is my account invested" in low:
+            inv_page, inv_top = ln["page"], ln["top"]
+        elif inv_page is not None and ln["page"] == inv_page and ln["top"] > inv_top and (
+            "being funded" in low or "investments performed" in low
+        ):
+            end_top = ln["top"]
+            break
+    if inv_page is None:
+        return []
+    hi = end_top if end_top is not None else 1e9
+
+    rows = [ln for ln in lines if ln["page"] == inv_page and inv_top - 1 < ln["top"] < hi]
+    # Cluster lines into visual rows by y.
+    rows.sort(key=lambda l: l["top"])
+    clusters = []
+    for ln in rows:
+        if clusters and abs(ln["top"] - clusters[-1][0]) <= 4:
+            clusters[-1][1].append(ln)
+        else:
+            clusters.append((ln["top"], [ln]))
+
+    as_of = _emp_as_of(text)
+    num_re = re.compile(r"^-?[\d,]+\.\d+$")
+    out, seen = [], set()
+    for _top, group in clusters:
+        numerics = []  # (x, value)
+        name = None
+        for ln in group:
+            for x, w in ln["words"]:
+                if num_re.match(w):
+                    numerics.append((x, float(w.replace(",", ""))))
+            if name is None and _emp_is_fund_name(ln["text"].strip()):
+                name = ln["text"].strip()
+        if not name or len(numerics) < 2 or name in seen:
+            continue
+        numerics.sort(key=lambda t: t[0])
+        ending = numerics[-2][1]
+        units = numerics[-1][1]
+        if ending <= 0:
+            continue
+        seen.add(name)
+        cls = "mutual_fund"
+        nu = name.upper()
+        for kw, c in _EMP_CLASS:
+            if kw in nu:
+                cls = c
+                break
+        out.append({
+            "symbol": None,
+            "name": name,
+            "asset_class": cls,
+            "quantity": units if units > 0 else None,
+            "price": round(ending / units, 4) if units else None,
+            "value": ending,
+            "cost_basis": None,
+            "as_of": as_of,
+        })
+    return out
 
 
 # ---------- Paystubs ----------
