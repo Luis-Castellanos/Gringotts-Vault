@@ -1,6 +1,6 @@
 # Vault Roadmap
 
-> Last updated: 2026-05-23
+> Last updated: 2026-05-24
 
 ## Vision
 
@@ -54,27 +54,42 @@ Cashback/Points** and count as income in net cashflow. (This supersedes the earl
 price-reduction-outflow treatment; changed 2026-05-23 alongside the master-file taxonomy
 overhaul, in favor of a simpler net-cashflow view.)
 
-## External dependencies
+## Data pipeline (in-app, as of 2026-05-24)
 
-### bank-statement-extractor (Python repo)
-https://github.com/Luis-Castellanos/bank-statement-extractor (private)
+> **Superseded the old model.** The statement parser used to live in a separate
+> `bank-statement-extractor` repo emitting `master.xlsx`, which Vault imported.
+> That's retired: the parser now lives **inside this repo** and ingestion runs
+> **in-app, straight to Neon**. `master.xlsx` is export-only (Settings → Export),
+> no longer the source of truth.
 
-The canonical extractor for every statement type: checking, savings, credit card,
-investment, retirement, loans, mortgages, HSA, 401k, and paystubs. Lives outside
-Vault — separate repo, independent release cycle.
+**Current architecture:**
+1. The parser lives at **`parser/`** (Python). The app invokes it only through
+   **`lib/parser/extract.ts`** (spawns `parser/extract.py`; `PYTHON_BIN`
+   overridable), which returns one JSON object per PDF — the single swappable
+   seam so the parser can later become a TS port or a service.
+2. **Upload** (`/upload`, drag-drop) → parse → **`lib/ingest`** writes rows
+   straight to Neon. Original PDFs are stored as `bytea` on the `documents` table
+   (so everything travels with the DB; self-host needs only a Postgres URL).
+   **Files** (`/files`) lists every document — download, reassign account, set
+   document-type vs account-type, bulk actions.
+3. **Categorization is tiered:** vendor-map rules (`vendor_rules`, ~3,994) apply
+   deterministically at ingest; **Claude** (Anthropic API, key managed in
+   Settings) fills the unknowns via the Review "Categorize with Claude" button;
+   the Review page confirms + teaches the map.
+4. The **category taxonomy** and **account-type taxonomy** are first-class,
+   editable in-app (Categories page; Settings account-types editor) and stored as
+   versioned DB defaults (`scripts/data/categories.json` + `db:seed`).
 
-**Pipeline:**
-1. Extractor parses statement PDFs and appends rows to `master.xlsx`.
-2. `master.xlsx` also contains two reference sheets: **Categories** (the full
-   taxonomy) and **Vendors** (vendor → category mapping). Categorization happens
-   in Excel via Claude Code, mapping each new vendor against the Vendors sheet.
-3. Once master.xlsx is clean, Vault's loader imports it.
-4. Vault allows post-hoc edits to any field (category, vendor, amount, etc.) but
-   is not responsible for first-pass categorization.
+**Coverage:** bank + credit card (Apple Card, Chase checking/card, Discover, Gain
+FCU) and **paystubs** (CBIZ, coordinate-based — see Payroll). Investment (jpm) and
+`unknown` are detected but deferred. Loans / mortgage / auto / HSA / 401k remain
+future sub-parsers.
 
-**Architectural principle:** the extractor is extraction-only — no categorization
-logic. The Categories taxonomy and Vendors list live in Excel for now because
-iterating there is faster; they will eventually move into Vault (see Phase 5+).
+**Dependency note:** the paystub parser uses `pdftotext -tsv` (per-word
+coordinates), which needs a **poppler** `pdftotext` — the Git-bundled binary is
+Xpdf and lacks `-tsv`. `parser/extract.py` resolves a poppler binary
+(`PDFTOTEXT_BIN`/`POPPLER_PDFTOTEXT` env → PATH → common locations) and falls back
+to a degraded text parse (section totals only, no line items) if none is found.
 
 ## Phases
 
@@ -132,13 +147,27 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
   + Imputed footnote, prev/next nav), All stubs (table with year filter and
   event chips), YTD summary (year picker, big hero, 4 colored metric cards,
   monthly stacked bar chart with event dots + hover tooltip, Saved+Invested,
-  Year events timeline, full tax breakdown). **Phase A data is hardcoded** in
-  `lib/payroll/data.ts` (13 stubs from the design handoff). When the
-  bank-statement-extractor adds paystub support, swap that file for a server
-  query against a `paystubs` table — `computeStub` and `computeYTD` port
-  straight over.
+  Year events timeline, full tax breakdown). **2026-05-24: now DB-backed** —
+  reads the `paystubs` table via `lib/payroll/load.ts` (no more hardcoded data;
+  empty table → empty state). The CBIZ paystub parser is coordinate-based
+  (`pdftotext -tsv`) and extracts per-line **earnings / deductions / taxes /
+  employer contributions** (emitted only when they reconcile to the section
+  total), **non-cash fringe**, **deposits**, and **W-4 tax elections** (filing
+  status, claim dependent, allowances); **bonuses** are recognized. The page
+  renders dynamic breakdown cards, a Tax elections (W-4) card, and a derived
+  **event timeline** (raises / bonuses / W-4 changes / ESPP). All-stubs table has
+  dedicated Events + Change columns. Validated against 34 real stubs (all
+  reconcile). Future employers' layouts/label-codes may need parser tweaks.
 
 #### Data layer (prerequisites for the reporting pages)
+
+> **2026-05-24: pipeline moved in-app** (see "Data pipeline" above). `master.xlsx`
+> and `load-master.ts` are retired as the import path; uploads parse + ingest
+> straight to Neon via `/upload` + `lib/ingest`, surfaced on `/files`. New this
+> pass: editable `account_types` taxonomy + Settings editor, vendor-map +
+> Claude categorization, customizable Excel **export**, Transfers In/Out split +
+> reconciliation page, and a versioned category-taxonomy DB default. The bullets
+> below describe the older master.xlsx era and are kept for history.
 
 - [x] **Parser-to-Vault data pipeline** — overhauled 2026-05-23 for the new
   master.xlsx schema. `load-master.ts` now (1) syncs the full taxonomy from the

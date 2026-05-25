@@ -4,13 +4,15 @@ Personal finance app. Audience of one. Long-term build, not a sprint.
 
 ## Status
 
-- ✅ Schema designed, tested end-to-end against real master.xlsx
-- ✅ Drizzle ORM port of the schema with full TypeScript inference
-- ✅ API routes for the Review Queue (queue, categorize, update, categories)
-- ✅ Review Queue page wired to real data with all interaction logic
-  (Option B merchant rename dialog, suggestion banner, similar-transaction rail,
-  keyboard shortcuts, session stats, auto-stretching right rail)
-- 🟡 Other pages (Dashboard, Accounts, Transactions, Cashflow, Net Worth) — todo
+- ✅ Schema + Drizzle ORM with full TypeScript inference; Neon Postgres
+- ✅ **In-app ingestion pipeline** — the parser lives in `parser/`, uploads parse
+  and write straight to Neon, original PDFs stored as `bytea`. `master.xlsx` is
+  retired as the source of truth (export-only). See ROADMAP "Data pipeline".
+- ✅ Pages shipped: Review Queue, Transactions, Cashflow, Net Worth, Accounts,
+  Credit Cards, Categories, **Payroll** (paystub-driven), **Upload**, **Files**,
+  **Settings**, **Transfers** (recon)
+- ✅ Vendor-map + Claude (Anthropic API) categorization; customizable Excel export
+- 🟡 Dashboard, deeper reporting, investment/holdings model — todo
 - 🟡 Auth — none yet, audience of one
 
 ## Stack
@@ -76,8 +78,18 @@ Go to **<http://localhost:3000>**. Available pages so far:
 | Page          | URL                                       |
 | ------------- | ----------------------------------------- |
 | Home          | <http://localhost:3000>                   |
+| Upload        | <http://localhost:3000/upload>            |
+| Files         | <http://localhost:3000/files>             |
+| Transactions  | <http://localhost:3000/transactions>      |
+| Cashflow      | <http://localhost:3000/cashflow>          |
+| Net Worth     | <http://localhost:3000/net-worth>         |
+| Accounts      | <http://localhost:3000/accounts>          |
 | Credit Cards  | <http://localhost:3000/credit-cards>      |
+| Categories    | <http://localhost:3000/categories>        |
+| Payroll       | <http://localhost:3000/payroll>           |
+| Transfers     | <http://localhost:3000/transfers>         |
 | Review Queue  | <http://localhost:3000/review>            |
+| Settings      | <http://localhost:3000/settings>          |
 
 **5. To stop the server**, click back into the PowerShell window and
 press **Ctrl + C**. Just closing the browser tab does *not* stop the
@@ -131,14 +143,24 @@ npm run db:seed    # seeds the categories hierarchy
 If you're connecting to the existing shared Neon database, the tables
 are already there and you can skip this step.
 
-**6. Load your transaction data:**
+**6. Load your data — upload statements in-app.**
+Open **<http://localhost:3000/upload>** and drag in statement / paystub PDFs.
+They're parsed and written straight to Neon (the original PDF is stored too), and
+appear on **/files**. This replaced the old `master.xlsx` import path; that file
+is now export-only (Settings → Export to Excel). The legacy
+`npm run db:load-master path\to\master.xlsx` still exists for historical loads.
 
-```powershell
-npm run db:load-master path\to\master.xlsx
-```
+> **Parser dependencies:** the parser shells out to Python (`PYTHON_BIN`
+> overridable) and `pdftotext`. **Paystub** parsing needs a **poppler**
+> `pdftotext` for `-tsv` (the Git-bundled binary is Xpdf and lacks it) — install
+> poppler and put it on PATH, or set `PDFTOTEXT_BIN`. Other statements work with
+> any `pdftotext`. After changing `parser/*.py`, restart the dev server.
 
-This is idempotent — re-running skips duplicates. Use this same command
-each time you append new statement batches to `master.xlsx`.
+**Resetting for a dry run:** `npm run db:reset` clears ingested data (keeps
+accounts); `npm run db:reset:all` is a full clean slate. Both always keep the
+taxonomies (categories, account types, vendor rules, settings).
+`scripts/reprocess-paystubs.ts` re-parses stored paystub PDFs in place after a
+parser fix (no re-upload).
 
 ### Troubleshooting
 

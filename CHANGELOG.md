@@ -2,6 +2,40 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-24 — **Paystubs end-to-end + Payroll driven from the DB.** Rewrote the
+  paystub parser to be **coordinate-based** (`pdftotext -tsv` word boxes) so it's
+  robust across the CBIZ template's content-driven reflow — flat-text anchors had
+  failed on most real stubs (grabbed YTD as gross, wrong employer totals, dropped
+  line items). It now extracts per-line **earnings / deductions / taxes / employer
+  contributions** (each emitted only when it reconciles to the section total),
+  non-cash fringe, deposits, and **W-4 tax elections** (filing status, claim
+  dependent, allowances); **bonuses** (`BNSNIP`) are recognized. The `paystubs`
+  table gained breakdown + `tax_settings` jsonb columns. The **Payroll page now
+  loads from the `paystubs` table** (`lib/payroll/load.ts`) instead of hardcoded
+  data: dynamic breakdown cards, a Tax elections (W-4) card, an empty state, and a
+  derived **event timeline** (raises / bonuses / W-4 changes / ESPP). All-stubs
+  table reworked — dedicated **Events** + **Change** columns, compact centered
+  layout. `scripts/reprocess-paystubs.ts` re-parses stored PDFs in place after a
+  parser fix. Needs a poppler `pdftotext` for `-tsv` (`PDFTOTEXT_BIN` override;
+  falls back to totals-only). All 34 real stubs reconcile. Files page also split
+  the Type column into **Document type** (editable, from the parser) + **Account
+  type**.
+- 2026-05-24 — **In-app ingestion pipeline + Upload/Files pages; Settings export +
+  Claude key; editable account taxonomy; clean-slate reset.** The Python parser
+  moved **into the repo** (`parser/`) and is invoked in-app via
+  `lib/parser/extract.ts`; uploads parse and write **straight to Neon** (original
+  PDFs stored as `bytea`), surfaced on a new **`/upload`** (drag-drop) + **`/files`**
+  (manage, download, reassign account, set type, bulk actions). Account taxonomy is
+  now an editable **`account_types`** table with a Settings editor (icons, group
+  colors, drag-reorder, Assets/Liabilities parents). **Vendor-map-first
+  categorization** (~3,994 rules) applied at ingest; **Claude** (Anthropic API, key
+  managed in Settings) fills unknowns via a Review "Categorize with Claude" button.
+  **Customizable Excel export** of transactions in Settings. **Transfers split** into
+  Transfers In / Transfers Out with a reconciliation page. Category taxonomy
+  snapshotted as a **versioned DB default** (`scripts/data/categories.json` +
+  `db:seed`); `reset-data.ts` now keeps the taxonomies and clears only ingested +
+  account data. **master.xlsx retired as source of truth** — the in-app pipeline is
+  primary; xlsx is export-only.
 - 2026-05-24 — **UI iteration pass (accounts, categories, payroll, cashflow,
   transactions).** Accounts settings page: grouped Assets/Liabilities → type
   sub-groups, institution logos, click-to-expand detail, editable Type (re-files
