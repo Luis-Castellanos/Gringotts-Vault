@@ -298,16 +298,23 @@ not a 1-hour ordeal.
 - [ ] Duplicate detection improvements
 - [ ] Import dry-run / preview before committing
 - [ ] Re-clean script as a UI button, not a CLI command
-- [ ] **Faster upload/ingest** (diagnosed 2026-05-24; ~20s for 77 statements,
-  strictly sequential in the upload route). Planned:
-  - **Parse in parallel** (bounded pool, ~4–8) — the per-file Python + `pdftotext`
-    spawns are the bottleneck and are independent per file. Keep **ingest serial**
-    (or make account-resolution concurrency-safe) so concurrent files don't race
-    in `getOrCreateAccount` and spawn duplicate accounts.
-  - **Load the vendor map once per batch** — today `loadVendorMap()` reloads all
-    ~3,994 `vendor_rules` from the DB on every single file.
-  - Optional: batch all PDFs into one Python invocation to amortize interpreter
-    startup, if parallelism alone isn't enough.
+- [x] **Faster upload/ingest** — diagnosed 2026-05-24, **shipped 2026-05-25**.
+  The upload route was strictly sequential (store → parse → ingest, one file at a
+  time). Now two-phase:
+  - [x] **Parse in parallel** (bounded pool, `PARSE_CONCURRENCY`, default 6) — the
+    per-file Python + `pdftotext` spawn is the bottleneck and is independent per
+    file (`runExtractor` uses a unique `mkdtemp` dir per call, so it's race-safe).
+  - [x] **Ingest serial** — a second pass does all ledger writes one at a time, so
+    `getOrCreateAccount`'s check-then-insert can't race into duplicate accounts.
+    (Transaction writes were already dedup-safe via the unique `content_hash`
+    index.) In-batch byte-identical dupes still report `duplicate`.
+  - [x] **Load the vendor map once per batch** — `loadIngestMaps()` loads the ~4k
+    `vendor_rules` (+ category maps) once and threads them into every file's
+    ingest, instead of reloading per file.
+  - Measured **~5x faster parse** on real stored statements
+    (`scripts/bench-parse.ts`): 80 files 7.4s → 1.4s. The optional
+    "one Python invocation for the whole batch" wasn't needed — parallelism alone
+    cleared it.
 
 ### Phase 4b: Live data layer (deferred, decision pending)
 

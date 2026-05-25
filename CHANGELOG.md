@@ -2,6 +2,19 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Faster upload/ingest (parallel parse).** The upload route
+  (`app/api/documents/upload`) processed files strictly sequentially — store →
+  spawn Python parser → ingest, one at a time — so a bulk import idled on
+  independent subprocess spawns. Now two-phase: **(1) parse in a bounded parallel
+  pool** (`PARSE_CONCURRENCY`, default 6; the per-file Python + `pdftotext` spawn
+  is the bottleneck and is independent per file — `runExtractor` already uses a
+  unique temp dir per call, so it's race-safe), then **(2) ingest serially** so
+  `getOrCreateAccount`'s check-then-insert can't race into duplicate accounts.
+  The vendor map (~4k `vendor_rules`) is now loaded **once per batch** via
+  `loadIngestMaps()` instead of reloaded per file. In-batch byte-identical
+  duplicates still report as `duplicate` (preserved via a per-batch hash map).
+  Measured on real stored statements (`scripts/bench-parse.ts`, new read-only
+  tooling): **~5x faster parse** — 80 files 7.4s → 1.4s serial→parallel.
 - 2026-05-25 — **Page-responsiveness perf pass (app-shell + skeletons + parallel
   queries).** Navigation used to freeze the whole view: every page rendered its
   own `<Sidebar/>` inside a `force-dynamic` route that fetched serially with no

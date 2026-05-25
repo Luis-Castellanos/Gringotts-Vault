@@ -170,6 +170,28 @@ async function loadCategoryMaps(): Promise<{
   return { bySlug, isTransferById };
 }
 
+/** The lookup maps an ingest needs: uncategorized id, vendor map, category maps. */
+export type IngestMaps = {
+  uncatId: string;
+  vendorMap: Map<string, string>;
+  catMaps: Awaited<ReturnType<typeof loadCategoryMaps>>;
+};
+
+/**
+ * Load the per-batch lookup maps once so they can be reused across every file in
+ * an upload batch — `vendor_rules` is ~4k rows, so reloading it per file (as a
+ * bare `ingestParsedStatement` call does) is pure waste. Optional everywhere:
+ * `ingestParsedStatement` loads them itself when not supplied.
+ */
+export async function loadIngestMaps(): Promise<IngestMaps> {
+  const [uncatId, vendorMap, catMaps] = await Promise.all([
+    uncategorizedId(),
+    loadVendorMap(),
+    loadCategoryMaps(),
+  ]);
+  return { uncatId, vendorMap, catMaps };
+}
+
 /**
  * Ingest one parsed statement's rows into the ledger. Resolves/creates the
  * account, records an `imports` provenance row, and inserts transactions
@@ -184,12 +206,12 @@ export async function ingestParsedStatement(args: {
   statementPeriod: string | null;
   summary?: ParsedStatementSummary | null;
   documentId?: string;
+  /** Pre-loaded batch maps; loaded on demand if omitted. See loadIngestMaps. */
+  maps?: IngestMaps;
 }): Promise<IngestResult> {
   const { rows, accountLabel, accountNumber, sourceFile, statementPeriod, summary, documentId } = args;
   const accountId = await getOrCreateAccount(accountLabel, accountNumber);
-  const uncatId = await uncategorizedId();
-  const vendorMap = await loadVendorMap();
-  const catMaps = await loadCategoryMaps();
+  const { uncatId, vendorMap, catMaps } = args.maps ?? (await loadIngestMaps());
 
   // numeric columns take string | null in drizzle.
   const money = (n: number | null | undefined) => (n == null ? null : n.toFixed(2));
