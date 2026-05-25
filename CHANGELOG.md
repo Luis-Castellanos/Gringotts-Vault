@@ -2,6 +2,20 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Tax page (first pass) + Forecasting page (first pass)** — the two
+  formerly-deferred "too heavy" pages, both now real and out of "Not started".
+  **Forecasting** (`/forecasting`): current net worth + trailing-12mo savings seed
+  an interactive net-worth/retirement projection — scenario inputs (monthly
+  contribution, return %, inflation %, annual raise, horizon) recompute a nominal
+  + real trajectory, with the FI number (25× expenses), FI year, and $-milestones.
+  `lib/forecasting/{load,project}.ts`. **Tax** (`/tax`): year-end summary from
+  paystubs (W-2 wages, federal/state/FICA withholding, W-4 filing status) +
+  categorized transactions (investment income, itemizable deductions), with a
+  **federal liability estimate** (`lib/tax/brackets.ts` — 2024/2025 ordinary-income
+  brackets + standard deduction by filing status) → est. tax, effective/marginal
+  rate, standard-vs-itemized, and est. refund/balance-due. `lib/tax/load.ts`.
+  Aiwyn's engine has no runtime API (it's MCP-only via Claude), so this is the
+  durable in-app path; Aiwyn can prepare an actual return interactively.
 - 2026-05-25 — **Investments page: rich build-out (holdings-powered).** Now that
   statements populate the `holdings` table, the page gains: a **true
   market-value-over-time** chart (sum of holdings snapshots, carry-forward),

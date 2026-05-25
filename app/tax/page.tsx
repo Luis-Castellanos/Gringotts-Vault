@@ -1,24 +1,17 @@
-import { UnderDevelopment } from '@/components/UnderDevelopment';
+import { loadTaxSummary, loadTaxYears } from '@/lib/tax/load';
+import { TaxClient } from './TaxClient';
 
 export const metadata = { title: 'Tax · Vault' };
+export const dynamic = 'force-dynamic';
 
-export default function TaxPage() {
+export default async function TaxPage({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
+  const { year } = await searchParams;
+  const years = await loadTaxYears();
+  const selected = year && years.includes(Number(year)) ? Number(year) : years[0]!;
+  const summary = await loadTaxSummary(selected);
   return (
-    <main className="w-full max-w-[1600px] px-12 pt-10 pb-20">
-      <UnderDevelopment
-        title="Tax"
-        description="Tax-prep-lite tailored to one accountant's actual return. Year-round visibility into where the tax bill is heading, plus draft return generation at year-end."
-        features={[
-          'Year-end income, deductions, taxes withheld — reconciled to bank deposits and paystubs',
-          'Effective vs marginal rate, federal + state',
-          'Pre-tax deduction tracking (401(k), HSA, FSA) with annual limit progress',
-          'Capital gains / losses worksheet, short vs long term',
-          '1099 + W-2 totals reconciled to ledger',
-          'Quarterly estimated payment tracker',
-          'Deduction-finder against the ledger (mortgage interest, charitable, business expenses)',
-          'Draft return generation — open question: build native or integrate Aiwyn\'s engine',
-        ]}
-      />
+    <main className="w-full max-w-[1100px] px-10 pt-8 pb-20">
+      <TaxClient years={years} summary={summary} />
     </main>
   );
 }
