@@ -6,6 +6,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 
 import { VendorLogo } from '@/components/VendorLogo';
 import { iconBg, iconFor } from '@/lib/categories/icons';
+import { SplitModal } from './SplitModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 export type TxnRow = {
@@ -15,6 +16,7 @@ export type TxnRow = {
   merchant: string;
   rawDescription: string;
   isTransfer: boolean;
+  isSplit: boolean;
   needsReview: boolean;
   notes: string | null;
   accountId: string | null;
@@ -298,6 +300,7 @@ function TxnDetail({
   const [picker, setPicker] = useState<{ field: 'parent' | 'child'; x: number; y: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
 
   // Effective category = sub-category (leaf) if chosen, else the top-level.
   const categoryId = childId || parentId;
@@ -447,10 +450,21 @@ function TxnDetail({
         ) : (
           <button type="button" className="txd-delete-link" onClick={() => setConfirmDelete(true)}>Delete</button>
         )}
+        <button type="button" className="pg-btn" onClick={() => setSplitOpen(true)}>
+          {txn.isSplit ? 'Edit split' : 'Split'}
+        </button>
         <button type="button" className="pg-btn primary" disabled={saving || !dirty} onClick={save}>
           {saving ? 'Saving…' : dirty ? 'Save changes' : 'No changes'}
         </button>
       </div>
+      {splitOpen && (
+        <SplitModal
+          txn={{ id: txn.id, amount: txn.amount, date: txn.date, merchant: txn.merchant }}
+          categories={categories}
+          onClose={() => setSplitOpen(false)}
+          onDone={() => setSplitOpen(false)}
+        />
+      )}
     </div>
   );
 }

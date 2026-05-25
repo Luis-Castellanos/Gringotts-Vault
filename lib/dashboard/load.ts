@@ -65,7 +65,7 @@ export async function loadDashboard(): Promise<DashboardData> {
       })
       .from(transactions)
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
-      .where(and(gte(transactions.date, monthStart), eq(transactions.isTransfer, false)))
+      .where(and(gte(transactions.date, monthStart), eq(transactions.isTransfer, false), eq(transactions.isSplit, false)))
       .groupBy(categories.flowType),
     // Top spending categories this month (outflow only).
     db
@@ -81,6 +81,7 @@ export async function loadDashboard(): Promise<DashboardData> {
         and(
           gte(transactions.date, monthStart),
           eq(transactions.isTransfer, false),
+          eq(transactions.isSplit, false),
           sql`COALESCE(${categories.flowType}, 'outflow') = 'outflow'`,
         ),
       )

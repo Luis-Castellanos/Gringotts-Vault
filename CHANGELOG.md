@@ -2,6 +2,18 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Mortgage payment split — UI + report-awareness.** Completes the
+  split feature: a **Split / Edit split** action in the Transactions expand-editor
+  opens a modal that pre-fills principal / interest / escrow from the chosen
+  property's amortization schedule (editable parts, live sum check, remove-split).
+  Creating a split moves the money for real — principal → the mortgage account
+  (reduces the loan), escrow → an auto-created escrow account — so **balances and
+  net worth stay correct** (the parent stays on checking; the legs net to the
+  interest). Spend/income reports (Cashflow, Reports, Dashboard) now **exclude
+  split parents** so principal/escrow aren't miscounted as spending. New:
+  `/api/transactions/[id]/split`, `GET /api/properties` list. _Follow-up:_ expand
+  split parts INTO those reports so interest counts as spend (today they're
+  excluded), and split-aware Categories counts.
 - 2026-05-25 — **UI consistency pass (shared primitives).** Started extracting the
   repeated page furniture into shared components so every page reads the same:
   `lib/format.ts` (one canonical `fmtMoney`/`fmtMoney0`/`fmtSigned0`/`fmtPct`/

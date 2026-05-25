@@ -1,6 +1,10 @@
 # Mortgage payment split — scoping plan
 
-> Status: **proposed** (2026-05-25). Plan-first per the user; not yet built.
+> Status: **first pass shipped 2026-05-25.** Built with a `transaction_splits`
+> side-table (not child rows) so account balances are never touched — see the
+> model note below. Remaining: expand split parts into spend reports (today split
+> parents are excluded, so interest isn't yet counted as spending) + escrow
+> sub-ledger/disbursements + auto-detection.
 > Goal: take the single monthly mortgage outflow from checking and split it into
 > **principal**, **interest**, and **escrow**, each landing in the right place.
 

@@ -8,10 +8,21 @@
 
 import { NextRequest } from 'next/server';
 
+import { asc } from 'drizzle-orm';
+
 import { db } from '@/lib/db/client';
 import { properties } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { propertySchema } from '@/lib/properties/validation';
+
+/** List properties (id + name + whether a mortgage is linked) for pickers. */
+export const GET = handler(async () => {
+  const rows = await db
+    .select({ id: properties.id, name: properties.name, mortgageAccountId: properties.mortgageAccountId })
+    .from(properties)
+    .orderBy(asc(properties.sortOrder), asc(properties.name));
+  return ok(rows.map((r) => ({ id: r.id, name: r.name, hasMortgage: !!r.mortgageAccountId })));
+});
 
 export const POST = handler(async (req: NextRequest) => {
   const b = propertySchema.parse(await req.json());

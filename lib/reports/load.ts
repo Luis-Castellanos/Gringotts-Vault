@@ -48,7 +48,7 @@ export async function loadAnnualReport(year: number): Promise<AnnualReport> {
       })
       .from(transactions)
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
-      .where(and(gte(transactions.date, start), lte(transactions.date, end), eq(transactions.isTransfer, false)))
+      .where(and(gte(transactions.date, start), lte(transactions.date, end), eq(transactions.isTransfer, false), eq(transactions.isSplit, false)))
       .groupBy(categories.id, categories.name, categories.color, categories.flowType),
     db
       .select({
@@ -58,7 +58,7 @@ export async function loadAnnualReport(year: number): Promise<AnnualReport> {
       })
       .from(transactions)
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
-      .where(and(gte(transactions.date, start), lte(transactions.date, end), eq(transactions.isTransfer, false)))
+      .where(and(gte(transactions.date, start), lte(transactions.date, end), eq(transactions.isTransfer, false), eq(transactions.isSplit, false)))
       .groupBy(sql`EXTRACT(MONTH FROM ${transactions.date})`, categories.flowType)
       .orderBy(asc(sql`EXTRACT(MONTH FROM ${transactions.date})`)),
   ]);

@@ -36,7 +36,11 @@ export default async function CashflowPage() {
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .leftJoin(parent, eq(categories.parentId, parent.id))
-    .leftJoin(accounts, eq(transactions.accountId, accounts.id));
+    .leftJoin(accounts, eq(transactions.accountId, accounts.id))
+    // Exclude split parents — their parts (interest as expense, principal/escrow
+    // as transfers) carry the real categorization. The transfer destination legs
+    // are normal rows and still show in the transfers section.
+    .where(eq(transactions.isSplit, false));
 
   // Aggregate per (month, account, category) so the client can re-derive the
   // chart series + breakdown for any account selection without a round-trip.
