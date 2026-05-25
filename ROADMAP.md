@@ -339,19 +339,23 @@ Ideas for later, in no particular order. May or may not get built.
 > (Reports, Rental Properties, Investments, Tax, Forecasting) — the nav surfaces
 > them under "Not started" so the shape of the eventual product is visible.
 
-- [~] **Real Estate** — **first pass shipped 2026-05-25** (moved to "Under
-  development"). New `properties` table (address / specs / acquisition / market
-  value / optional `mortgage_account_id`). `/rentals` is a large-card portfolio
-  (value · loan · equity + equity bar) with portfolio tiles, add/edit modal, and
-  empty state; `/rentals/[id]` shows the property header, metric cards, and a
-  **mortgage amortization table** (yearly⇄monthly, payoff progress) computed by
-  `lib/properties/amortization.ts` from the linked account's loan terms. API:
-  POST /api/properties, PATCH+DELETE /api/properties/[id].
-  - _Still to build:_ per-property rental income + expenses, monthly/annual cash
-    flow, **splitting the monthly mortgage outflow into principal / interest /
-    escrow** sub-accounts, depreciation schedule, return metrics (cap rate,
-    cash-on-cash, ROI), tenant/lease info, photo upload (URL only today),
-    value-over-time history, drag-reorder.
+- [x] **Real Estate** — **first pass 2026-05-25, then built out to full Stessa
+  parity the same day.** New `properties` table (address / specs / acquisition /
+  market value / land-value % / optional `mortgage_account_id` / escrow account).
+  `/rentals` is a large-card portfolio (value · loan · equity + equity bar) with
+  portfolio tiles, add/edit modal, **photo upload** (stored as `bytea`),
+  **drag-to-reorder**, sort, and sold-lifecycle. `/rentals/[id]` shows the property
+  header, metric cards, and a **mortgage amortization table** (yearly⇄monthly,
+  payoff progress) from `lib/properties/amortization.ts`. **Shipped this round
+  (Phases 1–6):** per-property financials + attribution (account rollup + manual
+  tag), **return metrics** (cap rate / cash-on-cash / NOI / DSCR / ROI), **rent
+  roll** (`leases`), **maintenance** work-order log (`maintenance`), **Schedule E**
+  worksheet + Excel export (`lib/properties/schedule-e.ts`), and **capex +
+  straight-line depreciation** (`capex` table, 27.5-yr; feeds Schedule E line 18).
+  Mortgage-payment **split** into principal/interest/escrow via the
+  `transaction_splits` side-table (balances untouched). API: `/api/properties`,
+  `/api/leases`, `/api/maintenance`, `/api/capex`, `/api/export/schedule-e`. See
+  `docs/real-estate-expansion-plan.md` (all 6 phases marked shipped).
 
 - [ ] Tags as a cross-cutting label system (separate from categories)
 - [ ] **Forecasting** — Projection Labs-style scenario modeling (portfolio growth,
@@ -366,11 +370,26 @@ Ideas for later, in no particular order. May or may not get built.
 - [~] **Investment analysis** — **first pass shipped 2026-05-25** (`/investments`,
   moved to "Under development"): total portfolio value + value-over-time area
   chart (Fidelity-style) from transaction history, per-account balances with
-  sparklines, and allocation-by-account. `lib/investments/load.ts`. _Still needs a
-  holdings/cost-basis model_ for asset-class allocation, performance attribution,
-  fees, contributions-vs-growth, and per-holding detail.
+  sparklines, and allocation-by-account. `lib/investments/load.ts`. **Market-data
+  seam wired 2026-05-25** — `lib/market/quotes.ts` (Twelve Data adapter; key
+  managed in **Settings → Market data** or `MARKET_DATA_KEY`, with a Test-connection
+  probe), and a live **S&P 500 (SPY)** quote on the Investments hero. _Still gated
+  on a holdings/cost-basis model_ (the **jpm investment sub-parser** must emit
+  holdings) for asset-class allocation, performance attribution, fees,
+  contributions-vs-growth, per-holding detail, and a true benchmark performance
+  overlay. NOTE: the existing value-over-time series is cumulative net cash flow,
+  **not** market value — don't overlay a benchmark %-growth line on it.
 - [ ] Subscription tracker (auto-detect recurring charges, surface upcoming renewals)
-- [ ] Net worth goals ("you'd hit $X by Y at current rate")
+- [x] **Goals** — **shipped 2026-05-25, full Monarch parity** (`/goals`). Save-up
+  goals (target / date / monthly contribution / **growth rate**; assign asset
+  accounts with **per-account allocation** — whole balance or fixed amount;
+  on-track/at-risk status + projected date + required-monthly) and pay-down goals
+  (assign debt accounts → payoff projection). **Debt-payoff scenarios**
+  (`lib/goals/payoff-scenario.ts`): avalanche/snowball + extra-monthly + lump-sum
+  what-ifs → debt-free date, interest saved vs minimums, per-debt order.
+  Priority **drag-to-reorder**. Schema: `goals` / `goal_accounts`. Subsumes the old
+  "net worth goals" idea. _Possible follow-up:_ a global available-vs-allocated
+  overview.
 - [ ] **Move Categories taxonomy and Vendors list into Vault.** Today they live
   in master.xlsx because iterating in Excel is fast. Eventually they belong in
   Vault so categorization can be a first-class in-app concept.
