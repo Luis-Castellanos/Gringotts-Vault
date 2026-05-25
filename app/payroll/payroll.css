@@ -515,7 +515,7 @@
   .stubs-list { padding: 0; }
   .stubs-list-hd {
     display: grid;
-    grid-template-columns: 130px 1fr repeat(4, 110px);
+    grid-template-columns: 130px minmax(120px, 1fr) minmax(110px, 1fr) 110px 90px repeat(3, 110px);
     gap: 12px;
     padding: 10px 18px;
     border-bottom: 1px solid var(--line);
@@ -526,7 +526,7 @@
   .stubs-list-body { display: flex; flex-direction: column; }
   .stub-list-row {
     display: grid;
-    grid-template-columns: 130px 1fr repeat(4, 110px);
+    grid-template-columns: 130px minmax(120px, 1fr) minmax(110px, 1fr) 110px 90px repeat(3, 110px);
     gap: 12px;
     padding: 12px 18px;
     border-top: 1px solid var(--line);
@@ -551,9 +551,10 @@
     font-size: 13px; color: var(--text-2);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .stub-list-row .col-period .evts {
-    display: flex; flex-wrap: wrap; gap: 4px;
+  .stub-list-row .col-events {
+    display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
   }
+  .stub-list-row .col-change { justify-content: center; }
   .stub-list-row .amt {
     display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
     font-size: 14px; font-weight: 600; color: var(--text-1);

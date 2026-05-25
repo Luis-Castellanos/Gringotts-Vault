@@ -16,7 +16,6 @@ import {
   type LineItem,
   type PayrollEvent,
   type Stub,
-  type EventTone,
 } from '@/lib/payroll/data';
 
 // ─── Theme tracker (donut needs explicit hex to bypass Dark Reader) ────────
@@ -460,10 +459,11 @@ function AllStubsView({
   const years = useMemo(() => stubYears(stubs), [stubs]);
   type YearFilter = 'all' | number;
   const [yearFilter, setYearFilter] = useState<YearFilter>('all');
-  const eventByDate = useMemo<Record<string, PayrollEvent>>(
-    () => Object.fromEntries(events.map((e) => [e.stubDate, e])),
-    [events],
-  );
+  const eventsByDate = useMemo<Map<string, PayrollEvent[]>>(() => {
+    const m = new Map<string, PayrollEvent[]>();
+    for (const e of events) m.set(e.stubDate, [...(m.get(e.stubDate) ?? []), e]);
+    return m;
+  }, [events]);
   const rows = useMemo(
     () => stubs.filter((s) => (yearFilter === 'all' ? true : s.date.startsWith(String(yearFilter)))),
     [stubs, yearFilter],
@@ -500,22 +500,20 @@ function AllStubsView({
         <div className="stubs-list-hd">
           <div>Date</div>
           <div>Period</div>
+          <div>Events</div>
           <div className="r">Gross</div>
+          <div className="r">Change</div>
           <div className="r">Deductions</div>
           <div className="r">Taxes</div>
           <div className="r">Net</div>
         </div>
         <div className="stubs-list-body">
           {rows.map((s, i) => {
-            const evt = eventByDate[s.date];
-            const chips: { tone: EventTone; label: string }[] = [];
-            if (s.bonus > 0) chips.push({ tone: 'purple', label: 'Bonus' });
-            if (evt && evt.label !== 'Bonus') chips.push({ tone: evt.tone, label: evt.label });
+            const rowEvents = eventsByDate.get(s.date) ?? [];
             const prevGross = i > 0 ? rows[i - 1]!.gross : null;
             const delta = prevGross != null ? +(s.gross - prevGross).toFixed(2) : 0;
             const effTax = s.gross > 0 ? (s.taxesTotal / s.gross) * 100 : 0;
             const takeHome = s.gross > 0 ? (s.net / s.gross) * 100 : 0;
-            const dests = s.deposits.map((d) => d.bank).join(' · ');
             return (
               <div key={s.id} className="stub-list-row" onClick={() => onJumpToStub(s.id)}>
                 <div className="col-date">
@@ -524,23 +522,22 @@ function AllStubsView({
                 </div>
                 <div className="col-period">
                   <span className="p">{s.period}</span>
-                  {chips.length > 0 && (
-                    <span className="evts">
-                      {chips.map((c, j) => (
-                        <span key={j} className={'evt-chip ' + c.tone}>
-                          {c.label}
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                  {dests && <span className="col-dests">→ {dests}</span>}
                 </div>
-                <div className="amt muted">
-                  {fmtMoney(s.gross)}
-                  {delta !== 0 && (
+                <div className="col-events">
+                  {rowEvents.map((e, j) => (
+                    <span key={j} className={'evt-chip ' + e.tone} title={e.desc}>
+                      {e.label}
+                    </span>
+                  ))}
+                </div>
+                <div className="amt muted">{fmtMoney(s.gross)}</div>
+                <div className="amt col-change">
+                  {delta !== 0 ? (
                     <span className={'mom-chip ' + (delta > 0 ? 'up' : 'down')}>
                       {delta > 0 ? '▲' : '▼'} {fmtMoney(Math.abs(delta), { decimals: 0 })}
                     </span>
+                  ) : (
+                    <span className="amt-sub">—</span>
                   )}
                 </div>
                 <div className="amt blue">{fmtMoney(s.deductionsTotal)}</div>
@@ -563,7 +560,9 @@ function AllStubsView({
               <span className="v">{rows.length} stubs</span>
             </div>
             <div className="col-period" />
+            <div className="col-events" />
             <div className="amt muted">{fmtMoney(rows.reduce((a, s) => a + s.gross, 0))}</div>
+            <div className="amt col-change" />
             <div className="amt blue">{fmtMoney(rows.reduce((a, s) => a + s.deductionsTotal, 0))}</div>
             <div className="amt red">{fmtMoney(rows.reduce((a, s) => a + s.taxesTotal, 0))}</div>
             <div className="amt green">{fmtMoney(rows.reduce((a, s) => a + s.net, 0))}</div>
