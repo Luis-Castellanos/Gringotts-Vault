@@ -13,6 +13,7 @@ import { db } from '@/lib/db/client';
 import { categories, properties, transactions, transactionSplits } from '@/lib/db/schema';
 import { computeDepreciation } from './depreciation';
 import { loadCapex } from './capex';
+import { SE_LINE_DEFS, resolveLineKey } from './schedule-e-lines';
 
 export type ScheduleELine = { line: number; key: string; label: string; amount: number };
 export type ScheduleE = {
@@ -24,45 +25,6 @@ export type ScheduleE = {
   totalExpenses: number;
   netIncome: number; // rents − total expenses
 };
-
-// Ordered: first match wins, so specific patterns precede generic ones.
-const RULES: { re: RegExp; key: string }[] = [
-  { re: /advertis|marketing|listing/i, key: 'advertising' },
-  { re: /auto|travel|mileage/i, key: 'auto_travel' },
-  { re: /clean/i, key: 'cleaning' },
-  { re: /commission/i, key: 'commissions' },
-  { re: /insurance/i, key: 'insurance' },
-  { re: /legal|attorney|accounting|professional|tax prep/i, key: 'legal' },
-  { re: /manage|mgmt/i, key: 'management' },
-  { re: /interest/i, key: 'mortgage_interest' },
-  { re: /repair|fix|plumb|hvac|electric(?!ity)|appliance/i, key: 'repairs' },
-  { re: /suppl/i, key: 'supplies' },
-  { re: /property tax|prop tax|\btax(es)?\b/i, key: 'taxes' },
-  { re: /utilit|electric|water|sewer|\bgas\b|trash|internet|cable/i, key: 'utilities' },
-  { re: /maintenance|hoa|lawn|landscap|pest|turnover/i, key: 'cleaning' },
-];
-
-const LINE_DEFS: { line: number; key: string; label: string }[] = [
-  { line: 5, key: 'advertising', label: 'Advertising' },
-  { line: 6, key: 'auto_travel', label: 'Auto and travel' },
-  { line: 7, key: 'cleaning', label: 'Cleaning and maintenance' },
-  { line: 8, key: 'commissions', label: 'Commissions' },
-  { line: 9, key: 'insurance', label: 'Insurance' },
-  { line: 10, key: 'legal', label: 'Legal and other professional fees' },
-  { line: 11, key: 'management', label: 'Management fees' },
-  { line: 12, key: 'mortgage_interest', label: 'Mortgage interest (banks, etc.)' },
-  { line: 14, key: 'repairs', label: 'Repairs' },
-  { line: 15, key: 'supplies', label: 'Supplies' },
-  { line: 16, key: 'taxes', label: 'Taxes' },
-  { line: 17, key: 'utilities', label: 'Utilities' },
-  { line: 18, key: 'depreciation', label: 'Depreciation expense' },
-  { line: 19, key: 'other', label: 'Other' },
-];
-
-function lineKeyFor(categoryName: string): string {
-  for (const r of RULES) if (r.re.test(categoryName)) return r.key;
-  return 'other';
-}
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -95,6 +57,7 @@ export async function loadScheduleE(propertyId: string, year: number): Promise<S
         amount: transactions.amount,
         flow: sql<string>`COALESCE(${categories.flowType}, 'outflow')`,
         catName: sql<string>`COALESCE(${categories.name}, 'Uncategorized')`,
+        seLine: categories.scheduleELine,
       })
       .from(transactions)
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -121,7 +84,10 @@ export async function loadScheduleE(propertyId: string, year: number): Promise<S
     const amt = Number(r.amount);
     if (r.flow === 'transfer') continue;
     if (r.flow === 'inflow') rents += amt;
-    else byKey.set(lineKeyFor(r.catName), (byKey.get(lineKeyFor(r.catName)) ?? 0) + Math.abs(amt));
+    else {
+      const key = resolveLineKey(r.catName, r.seLine);
+      byKey.set(key, (byKey.get(key) ?? 0) + Math.abs(amt));
+    }
   }
   // Split parts (mortgage interest) → line 12.
   for (const s of splits) byKey.set('mortgage_interest', (byKey.get('mortgage_interest') ?? 0) + Math.abs(Number(s.amount)));
@@ -138,7 +104,7 @@ export async function loadScheduleE(propertyId: string, year: number): Promise<S
   );
   if (dep.annualTotal > 0) byKey.set('depreciation', dep.annualTotal);
 
-  const lines = LINE_DEFS.map((d) => ({ ...d, amount: round2(byKey.get(d.key) ?? 0) }));
+  const lines = SE_LINE_DEFS.map((d) => ({ ...d, amount: round2(byKey.get(d.key) ?? 0) }));
   const totalExpenses = round2(lines.reduce((s, l) => s + l.amount, 0));
   return {
     propertyId,

@@ -18,6 +18,7 @@ import { addressLine, fmtDate, fmtMoney, fmtMoney0, fmtPct, specLine } from '../
 import { LeaseForm } from './LeaseForm';
 import { MaintenanceForm } from './MaintenanceForm';
 import { CapexForm } from './CapexForm';
+import { ScheduleEMappingModal } from './ScheduleEMappingModal';
 
 function DepreciationSection({ property, capexItems }: { property: PropertyRow; capexItems: CapexRow[] }) {
   const router = useRouter();
@@ -87,6 +88,7 @@ function DepreciationSection({ property, capexItems }: { property: PropertyRow; 
 
 function ScheduleESection({ se }: { se: ScheduleE }) {
   const router = useRouter();
+  const [mappingOpen, setMappingOpen] = useState(false);
   const cur = new Date().getFullYear();
   const years = Array.from({ length: 6 }, (_, i) => cur - i);
   const expenseLines = se.lines.filter((l) => l.amount !== 0);
@@ -104,11 +106,15 @@ function ScheduleESection({ se }: { se: ScheduleE }) {
           >
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
+          <button type="button" onClick={() => setMappingOpen(true)} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">
+            Adjust mapping
+          </button>
           <a href={`/api/export/schedule-e?propertyId=${se.propertyId}&year=${se.year}`} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">
             Export ↓
           </a>
         </div>
       </div>
+      {mappingOpen && <ScheduleEMappingModal onClose={() => { setMappingOpen(false); router.refresh(); }} />}
       {!hasData ? (
         <div className="rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-8 text-[13px] text-text-tertiary">
           No income or expenses attributed to this property in {se.year}. Tag transactions to it (and add rent) to build the Schedule E worksheet.
@@ -135,7 +141,7 @@ function ScheduleESection({ se }: { se: ScheduleE }) {
           </div>
         </div>
       )}
-      <p className="text-[11px] text-text-muted mt-2">Heuristic mapping from your categories to Schedule E lines — review before filing. Depreciation (line 18) is coming.</p>
+      <p className="text-[11px] text-text-muted mt-2">Categories map to Schedule E lines automatically (keyword guess); use <span className="text-text-tertiary">Adjust mapping</span> to set them explicitly. Review before filing.</p>
     </div>
   );
 }

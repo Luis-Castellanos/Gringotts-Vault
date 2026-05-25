@@ -297,6 +297,10 @@ export const categories = pgTable(
     // category is treated as spending until reclassified.
     flowType: flowTypeEnum('flow_type').notNull().default('outflow'),
     isArchived: boolean('is_archived').notNull().default(false),
+    // Explicit IRS Schedule E (Part I) line key for rental tax export. When set,
+    // overrides the keyword heuristic in lib/properties/schedule-e-lines.ts.
+    // Null = auto (resolve by category name).
+    scheduleELine: text('schedule_e_line'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
