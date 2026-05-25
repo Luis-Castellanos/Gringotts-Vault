@@ -2,6 +2,11 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **logo.dev brand logos (env-gated).** When
+  `NEXT_PUBLIC_LOGO_DEV_TOKEN` is set, merchant logos (`VendorLogo`) and
+  institution logos (`faviconUrl`) render full-fidelity brand images from
+  logo.dev; otherwise they keep using Google favicons. Initials fallback
+  unchanged. Documented in `.env.example`.
 - 2026-05-25 — **Import polish: dry-run preview + re-clean button.** Upload gains a
   **Preview (dry run)** step (`/api/documents/preview`) that parses without writing
   and reports, per file: detected account (and whether it's new), new vs

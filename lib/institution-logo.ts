@@ -1,8 +1,11 @@
 /**
  * Institution → logo helpers, shared by the Accounts and Files pages.
- * We render a Google favicon for the institution's domain, with an initials
- * fallback. (There are no local logo assets — public/bank-logos is empty.)
+ * Renders logo.dev's full-fidelity brand logo for the institution's domain when
+ * a publishable token is configured (`NEXT_PUBLIC_LOGO_DEV_TOKEN`), else a Google
+ * favicon, with an initials fallback in the consuming components.
  */
+
+const LOGO_DEV_TOKEN = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN;
 
 export const INST_DOMAINS: Record<string, string> = {
   Chase: 'chase.com',
@@ -42,5 +45,6 @@ export function instInitials(inst: string): string {
 }
 
 export function faviconUrl(domain: string): string {
+  if (LOGO_DEV_TOKEN) return `https://img.logo.dev/${domain}?token=${LOGO_DEV_TOKEN}&size=64&format=png&retina=true`;
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
 }

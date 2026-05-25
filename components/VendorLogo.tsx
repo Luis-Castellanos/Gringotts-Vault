@@ -6,13 +6,25 @@ import { vendorDomain } from '@/lib/vendor-domain';
 
 /**
  * VendorLogo — resolves a recognized merchant to a brand domain (curated
- * keyword map) and shows its favicon via Google's favicon service. Falls back
- * to a colored letter circle for unrecognized merchants (or if the icon fails
- * to load). Used in the Transactions list and anywhere we surface a merchant.
+ * keyword map) and shows its logo. Uses logo.dev's full-fidelity brand wordmarks
+ * when a publishable token is configured (`NEXT_PUBLIC_LOGO_DEV_TOKEN`), else
+ * Google's favicon service. Falls back to a colored letter circle for
+ * unrecognized merchants (or if the image fails to load). Used in the
+ * Transactions list and anywhere we surface a merchant.
  *
  * Optional `domainHint` lets callers force a domain (incl. TLD, e.g.
  * "apple.com") for merchants that don't map cleanly.
  */
+
+const LOGO_DEV_TOKEN = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN;
+
+/** Logo image URL for a domain — logo.dev when configured, else Google favicon. */
+function logoSrc(domain: string, px: number): string {
+  if (LOGO_DEV_TOKEN) {
+    return `https://img.logo.dev/${domain}?token=${LOGO_DEV_TOKEN}&size=${px * 2}&format=png&retina=true`;
+  }
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+}
 
 function initials(name: string): string {
   return name
@@ -62,7 +74,7 @@ export function VendorLogo({
     >
       {showLogo ? (
         <img
-          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+          src={logoSrc(domain, iconPx)}
           alt=""
           width={iconPx}
           height={iconPx}
