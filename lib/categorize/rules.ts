@@ -47,6 +47,9 @@ export function classifyByRules(raw: string, amount: number): CategoryHit | null
   if (/atm withdraw/.test(s)) return { slug: 'outflows-financial-cash_atm', confidence: 'high' };
   if (/direct dep|title resource/.test(s)) return { slug: 'inflows-wages-paycheck', confidence: 'high' };
   if (/discover cash(back| award)/.test(s)) return { slug: 'inflows-rewards_bonuses-credit_card_cashback_points', confidence: 'high' };
+  // "Cash Redemption" = cashback from the various Chase cards — lumped together
+  // (not worth tracing to a specific card).
+  if (/cash redemption/.test(s)) return { slug: 'inflows-rewards_bonuses-credit_card_cashback_points', confidence: 'high' };
   if (/insufficient funds fee|overdraft fee|foreign exch rt adj fee|\bservice fee\b|returned item/.test(s)) return { slug: 'outflows-financial-financial_fees', confidence: 'high' };
   if (/interest (payment|paid|earned|credit)/.test(s)) return { slug: 'inflows-investment_income-interest', confidence: 'high' };
 
