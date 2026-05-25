@@ -210,9 +210,12 @@ Make Vault genuinely useful as a daily tool. Build the screens that make the dat
   - _Future option:_ wire **logo.dev** (publishable `NEXT_PUBLIC_` token) for
     full-fidelity brand wordmark logos instead of favicons. ~15 min, low effort;
     gate on the env var with favicon fallback. Deferred 2026-05-24.
-- [ ] **Dashboard** — placeholder route live. Real page still to design: net
-  worth headline + sparkline, monthly cashflow snapshot, top categories, account
-  snapshot. Default landing page when you open Vault.
+- [x] **Dashboard** — first pass shipped 2026-05-25. The default landing page (`/`):
+  net-worth headline + 30-day delta + SVG area sparkline, this-month cashflow
+  tiles (income / spending / net + savings rate), top spending categories (with
+  bars), grouped account snapshot (Cash / Investments / Liabilities → account
+  detail), and quick links (Review w/ count, Transactions). `lib/dashboard/load.ts`
+  batches all queries. _Future:_ tailored skeleton, date-range control, more cards.
 - [x] **Cashflow** — shipped 2026-05-23 (Phase A). Income-vs-spending chart
   (income/expense bars + net-line overlay) with Monthly / Quarterly / Yearly
   toggle, click/prev-next period selection + hover tooltip, selected-period

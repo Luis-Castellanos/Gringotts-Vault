@@ -2,6 +2,16 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Dashboard (first pass).** The default landing page (`/`) is now
+  real instead of a placeholder: net-worth headline + 30-day delta + an SVG area
+  sparkline of the cumulative net-worth series; this-month cashflow tiles (income
+  / spending / net + savings rate); top spending categories with proportional
+  bars; a grouped account snapshot (Cash / Investments / Liabilities, rows link to
+  account detail); and quick links (Review with its count, Transactions).
+  `lib/dashboard/load.ts` runs all the queries in one parallel batch. Also scoped
+  the **mortgage payment split** (principal / interest / escrow) in
+  `docs/mortgage-split-plan.md` — child-row splits + transfer legs, amounts driven
+  by the amortization schedule; planned, not yet built.
 - 2026-05-25 — **Real Estate page (first pass).** New `properties` table (address,
   specs, acquisition, market value, optional `mortgage_account_id`) + CRUD API
   (`/api/properties`). `/rentals` is a large-card property portfolio — each card

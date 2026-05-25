@@ -1,21 +1,14 @@
-import { UnderDevelopment } from '@/components/UnderDevelopment';
+import { loadDashboard } from '@/lib/dashboard/load';
+import { DashboardClient } from './DashboardClient';
 
 export const metadata = { title: 'Dashboard · Vault' };
+export const dynamic = 'force-dynamic';
 
-export default function Home() {
+export default async function Home() {
+  const data = await loadDashboard();
   return (
-    <main className="w-full max-w-[1600px] px-12 pt-10 pb-20">
-      <UnderDevelopment
-        title="Dashboard"
-        description="The default landing page when you open Vault — your at-a-glance view of where things stand."
-        features={[
-          'Net worth headline + sparkline',
-          'Monthly cashflow snapshot (income vs spending this month)',
-          'Top spending categories this month',
-          'Account balance summary across cash / investments / liabilities',
-          'Quick links into Review Queue, Cashflow, Net Worth',
-        ]}
-      />
+    <main className="w-full max-w-[1200px] px-10 pt-8 pb-20">
+      <DashboardClient data={data} />
     </main>
   );
 }
