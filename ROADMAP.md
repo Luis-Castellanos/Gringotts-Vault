@@ -271,6 +271,23 @@ not a 1-hour ordeal.
     Chase Checking done; Gain FCU partial; credit cards emit null until samples
     arrive (different recon model — see parser/references/bank_formats.md). The
     page itself is still to build.
+  - [x] **Balance-chain parsing (2026-05-24)** — `parse_chase_checking` now
+    derives each amount from the printed running balance (`amount[i] =
+    balance[i] - balance[i-1]`), bounded by Chase's `*start*/*end*transaction
+    detail` markers, so pdftotext-reflowed deposit rows (amount detached onto its
+    own line) are recovered instead of dropped. Validated on 77 real Chase
+    statements: **71 reconcile** (was 63), 0 blank balances, 0 coverage gaps.
+  - [ ] **Known reconciliation residuals — troubleshoot later** (6 statements;
+    small, pre-existing, and *unchanged* by the balance-chain rewrite, so NOT the
+    detached-deposit bug). Re-surface with `scripts/audit-preview.ts`; inspect raw
+    text with `scripts/dump-doc-text.ts`:
+    - `12/10/2024` — −$0.06 (rounding; benign).
+    - `05/09/2025` — deposits & withdrawals each −$160 but they cancel, so the
+      balance still reconciles (a classification/split quirk; no lost money).
+    - `02/2021` (−$284), `03/2021` (−$100), `07/2021` (−$15), `06/2024` (−$86) —
+      small end-balance gaps. The derived end isn't even a printed balance, so a
+      withdrawal is recorded somewhere the detail's running-balance chain doesn't
+      cleanly carry. Fix = trace each statement's chain to the off-detail row.
 - [ ] Duplicate detection improvements
 - [ ] Import dry-run / preview before committing
 - [ ] Re-clean script as a UI button, not a CLI command

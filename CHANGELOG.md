@@ -2,6 +2,21 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-24 — **Chase parser balance-chain rewrite + Files page filtering/bulk-
+  delete.** `parse_chase_checking` now derives each amount from the printed
+  **running balance** (`amount[i] = balance[i] - balance[i-1]`), bounded by
+  Chase's `*start*/*end*transaction detail` markers, so pdftotext-reflowed deposit
+  rows (the amount detached onto its own line) are **recovered instead of
+  dropped**; the legacy two-number path is kept as a fallback. Validated on 77
+  real Chase statements: **71 reconcile** (was 63), 0 blank balances, 0 gaps — the
+  systematic detached-deposit bug (e.g. a statement that had silently dropped
+  $4,300 of deposits) is fixed. 6 small pre-existing residuals remain, recorded
+  under ROADMAP "Statement audit page" to troubleshoot later. **Files page** gained
+  facet filters (Status / Document type / Account, multi-select with counts),
+  shift-click range selection, row-selection highlight, and a proper bulk-remove
+  modal with the **file-only vs file + data** choice — so a subset can be isolated
+  and deleted precisely. New read-only tooling: `verify-parse.ts` (re-parse +
+  reconcile every stored statement).
 - 2026-05-24 — **Statement audit-field capture + parser robustness.** The parser
   now reconstructs *and self-verifies*: `extract_statement_summary` captures each
   statement's stated control totals (period start/end, beginning/ending balance,
