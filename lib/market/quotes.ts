@@ -11,7 +11,7 @@
  * tiers rarely expose index symbols.
  */
 
-import { getSetting } from '@/lib/settings';
+import { getSetting, MARKET_DATA_KEY } from '@/lib/settings';
 
 export type Quote = { symbol: string; price: number; changePct: number | null };
 export type PricePoint = { date: string; close: number };
@@ -20,7 +20,7 @@ export const DEFAULT_BENCHMARK = 'SPY'; // S&P 500 proxy (free tiers lack ^GSPC)
 const BASE = 'https://api.twelvedata.com';
 
 async function apiKey(): Promise<string | null> {
-  const fromDb = await getSetting('market_data_key').catch(() => null);
+  const fromDb = await getSetting(MARKET_DATA_KEY).catch(() => null);
   return fromDb || process.env.MARKET_DATA_KEY || null;
 }
 
@@ -52,6 +52,31 @@ export async function getQuotes(symbols: string[]): Promise<Map<string, Quote>> 
     /* degrade silently to statement values */
   }
   return out;
+}
+
+/**
+ * Probe a provider key — the one passed in (unsaved, from the Settings field) or
+ * the stored one — by fetching the benchmark quote. Returns a sample quote on
+ * success, `null` if there's no key or the provider rejected it. Used by the
+ * Settings "Test connection" button; never throws.
+ */
+export async function testMarketKey(providedKey?: string): Promise<Quote | null> {
+  const key = providedKey?.trim() || (await apiKey());
+  if (!key) return null;
+  try {
+    const url = `${BASE}/quote?symbol=${DEFAULT_BENCHMARK}&apikey=${key}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const json = await res.json();
+    const price = json?.close != null ? Number(json.close) : NaN;
+    if (!Number.isFinite(price)) return null;
+    return {
+      symbol: DEFAULT_BENCHMARK,
+      price,
+      changePct: json?.percent_change != null ? Number(json.percent_change) : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Daily close series for a symbol (e.g. the benchmark overlay). Empty when unconfigured. */

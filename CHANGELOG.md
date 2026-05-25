@@ -2,6 +2,14 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Market-data provider wired into Settings.** New **Market data**
+  panel in Settings to store the Twelve Data API key (DB-backed, or `MARKET_DATA_KEY`
+  env), with a **Test connection** button that probes the provider with the typed-or-
+  stored key and reports back the live S&P 500 quote (`/api/market/test`). When a key
+  is configured, the Investments hero now shows a **live S&P 500 (SPY)** quote pill —
+  an honest live data point, not a comparison against the cash-flow series (true
+  per-holding market value still awaits the holdings model). `lib/settings.ts` gains a
+  `MARKET_DATA_KEY` constant; `lib/market/quotes.ts` gains `testMarketKey()`.
 - 2026-05-25 — **Real Estate Phase 6: capex & depreciation.** New `capex` table
   (description · cost · placed-in-service date · useful life · notes) + CRUD API
   (`/api/capex`) and a property `land_value_pct` column. The property detail page

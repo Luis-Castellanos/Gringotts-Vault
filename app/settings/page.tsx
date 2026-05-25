@@ -2,9 +2,10 @@ import { asc, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accountTypeGroups, accountTypes, accounts } from '@/lib/db/schema';
-import { ANTHROPIC_KEY, getAnthropicKey, getAnthropicModel, getSetting } from '@/lib/settings';
+import { ANTHROPIC_KEY, MARKET_DATA_KEY, getAnthropicKey, getAnthropicModel, getSetting } from '@/lib/settings';
 import { SettingsClient, type GroupRow, type TypeRow } from './SettingsClient';
 import { ClaudeSettings } from './ClaudeSettings';
+import { MarketDataSettings } from './MarketDataSettings';
 import { ExportPanel } from './ExportPanel';
 
 export const metadata = { title: 'Settings · Vault' };
@@ -13,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export default async function SettingsPage() {
   // Independent reads — taxonomy groups/types, per-type usage counts, and the
   // three Anthropic settings — fired together.
-  const [groups, types, usage, dbKey, anthropicKey, model] = await Promise.all([
+  const [groups, types, usage, dbKey, anthropicKey, model, marketDbKey] = await Promise.all([
     db.select().from(accountTypeGroups).orderBy(asc(accountTypeGroups.sortOrder)),
     db.select().from(accountTypes).orderBy(asc(accountTypes.sortOrder)),
     db
@@ -23,10 +24,13 @@ export default async function SettingsPage() {
     getSetting(ANTHROPIC_KEY),
     getAnthropicKey(),
     getAnthropicModel(),
+    getSetting(MARKET_DATA_KEY),
   ]);
   const countBySlug = new Map(usage.map((u) => [u.type, u.n]));
   const hasKey = !!anthropicKey;
   const keySource = dbKey ? 'settings' : process.env.ANTHROPIC_API_KEY ? 'env' : 'none';
+  const hasMarketKey = !!(marketDbKey || process.env.MARKET_DATA_KEY);
+  const marketKeySource = marketDbKey ? 'settings' : process.env.MARKET_DATA_KEY ? 'env' : 'none';
 
   const groupRows: GroupRow[] = groups.map((g) => ({ key: g.key, label: g.label, color: g.color }));
   const rows: TypeRow[] = types.map((t) => ({
@@ -47,6 +51,7 @@ export default async function SettingsPage() {
       <p className="text-[13px] text-text-tertiary mb-8">Manage Vault’s account taxonomy and preferences.</p>
       <SettingsClient groups={groupRows} rows={rows} />
       <ClaudeSettings hasKey={hasKey} keySource={keySource} model={model} />
+      <MarketDataSettings hasKey={hasMarketKey} keySource={marketKeySource} />
       <ExportPanel />
     </main>
   );

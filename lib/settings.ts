@@ -11,6 +11,7 @@ import { appSettings } from '@/lib/db/schema';
 
 export const ANTHROPIC_KEY = 'anthropic_api_key';
 export const ANTHROPIC_MODEL_KEY = 'anthropic_model';
+export const MARKET_DATA_KEY = 'market_data_key';
 const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 
 export async function getSetting(key: string): Promise<string | null> {

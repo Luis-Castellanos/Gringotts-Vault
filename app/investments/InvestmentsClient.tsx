@@ -67,7 +67,7 @@ function AccountRow({ a, color }: { a: InvAccount; color: string }) {
 }
 
 export function InvestmentsClient({ data }: { data: InvestmentsData }) {
-  const { totalValue, delta30, accounts, series } = data;
+  const { totalValue, delta30, accounts, series, benchmark } = data;
 
   if (accounts.length === 0) {
     return (
@@ -86,8 +86,19 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
 
       {/* Hero value + chart */}
       <section className="rounded-2xl bg-surface-1 border border-border-subtle p-6 mb-5">
-        <div className="flex items-baseline gap-3 mb-1">
+        <div className="flex items-center justify-between gap-3 mb-1">
           <div className="text-[11px] uppercase tracking-[0.07em] text-text-muted">Total value</div>
+          {benchmark && (
+            <div className="flex items-center gap-1.5 text-[12px] tabular-nums" title="S&P 500 (SPY) — live, delayed">
+              <span className="text-text-tertiary">S&amp;P 500</span>
+              <span className="text-text-secondary font-medium">{money0(benchmark.price)}</span>
+              {benchmark.changePct != null && (
+                <span className={benchmark.changePct >= 0 ? 'text-positive' : 'text-negative'}>
+                  {benchmark.changePct >= 0 ? '+' : ''}{benchmark.changePct.toFixed(2)}%
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
           <div className="text-[34px] font-semibold tracking-[-0.02em] tabular-nums leading-none">{money0(totalValue)}</div>

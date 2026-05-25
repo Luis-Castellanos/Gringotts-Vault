@@ -9,6 +9,7 @@ import { asc, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accounts, transactions } from '@/lib/db/schema';
+import { getQuotes, DEFAULT_BENCHMARK } from '@/lib/market/quotes';
 
 const INVEST_TYPES = ['brokerage', 'retirement', 'roth_ira', 'traditional_ira', '401k', 'roth_401k', 'hsa', 'crypto'];
 const MS_DAY = 86_400_000;
@@ -27,13 +28,22 @@ export type InvAccount = {
   sparkline: number[];
 };
 export type ValuePoint = { date: string; value: number };
+export type Benchmark = { symbol: string; price: number; changePct: number | null };
 
 export type InvestmentsData = {
   totalValue: number;
   delta30: number;
   accounts: InvAccount[];
   series: ValuePoint[];
+  benchmark: Benchmark | null;
 };
+
+/** Live benchmark quote (S&P 500 proxy). Null when market data isn't configured. */
+async function loadBenchmark(): Promise<Benchmark | null> {
+  const quotes = await getQuotes([DEFAULT_BENCHMARK]);
+  const q = quotes.get(DEFAULT_BENCHMARK);
+  return q ? { symbol: q.symbol, price: q.price, changePct: q.changePct } : null;
+}
 
 export async function loadInvestments(): Promise<InvestmentsData> {
   const acctRows = await db
@@ -43,10 +53,11 @@ export async function loadInvestments(): Promise<InvestmentsData> {
     .orderBy(asc(accounts.name));
 
   if (acctRows.length === 0) {
-    return { totalValue: 0, delta30: 0, accounts: [], series: [] };
+    return { totalValue: 0, delta30: 0, accounts: [], series: [], benchmark: null };
   }
 
   const ids = acctRows.map((a) => a.id);
+  const benchmarkP = loadBenchmark(); // fire concurrently with the txn aggregation
   const txnRows = await db
     .select({
       accountId: transactions.accountId,
@@ -123,5 +134,5 @@ export async function loadInvestments(): Promise<InvestmentsData> {
   for (const a of invAccounts) a.share = total > 0 ? round2((a.balance / total) * 100) : 0;
   invAccounts.sort((a, b) => b.balance - a.balance);
 
-  return { totalValue, delta30: round2(delta30), accounts: invAccounts, series };
+  return { totalValue, delta30: round2(delta30), accounts: invAccounts, series, benchmark: await benchmarkP };
 }
