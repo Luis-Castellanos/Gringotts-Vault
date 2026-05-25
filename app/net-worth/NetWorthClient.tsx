@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { ACCOUNT_TYPES, accountTypeLabel, assetClassForType } from '@/lib/account-types';
+import { ACCOUNT_TYPES, ACCOUNT_TYPE_GROUPS, type AccountTypeGroup, accountTypeLabel, assetClassForType } from '@/lib/account-types';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 // Open taxonomy slug (see lib/account-types.ts), no longer a fixed union.
@@ -37,35 +37,32 @@ const RANGES = ['7D', '1M', '3M', '6M', 'YTD', '1Y', '2Y', 'All'] as const;
 type RangeKey = (typeof RANGES)[number] | 'Custom';
 type CustomRange = { from: string; to: string };
 
-type GroupName = 'Cash' | 'Investments' | 'Liabilities' | 'Other';
+// Grouping follows the account taxonomy directly: parent = group, child = type.
+type GroupName = AccountTypeGroup;
 
 type TypeMeta = {
   label: string;
   group: GroupName;
-  subgroup?: string;
+  subgroup: string; // the account-type label (the child within a group)
   asset: boolean;
 };
 
-// Derived from the account taxonomy so every type (incl. user-added) maps to a
-// Cash / Investments / Liabilities / Other group with a sensible subgroup.
 function typeMeta(slug: string): TypeMeta {
   const def = ACCOUNT_TYPES.find((t) => t.slug === slug);
-  const asset = (def?.assetClass ?? assetClassForType(slug)) === 'asset';
-  const g = def?.group ?? 'other';
-  if (!asset) {
-    return { label: accountTypeLabel(slug), group: 'Liabilities', subgroup: slug === 'credit_card' ? 'Credit cards' : 'Loans', asset: false };
-  }
-  if (g === 'banking') return { label: accountTypeLabel(slug), group: 'Cash', asset: true };
-  if (g === 'retirement') return { label: accountTypeLabel(slug), group: 'Investments', subgroup: 'Retirement', asset: true };
-  if (g === 'investments') return { label: accountTypeLabel(slug), group: 'Investments', subgroup: 'Taxable brokerage', asset: true };
-  return { label: accountTypeLabel(slug), group: 'Other', asset: true };
+  return {
+    label: accountTypeLabel(slug),
+    group: (def?.group ?? 'other') as GroupName,
+    subgroup: accountTypeLabel(slug),
+    asset: (def?.assetClass ?? assetClassForType(slug)) === 'asset',
+  };
 }
 
-const GROUP_ORDER: GroupName[] = ['Cash', 'Investments', 'Liabilities', 'Other'];
-const SUBGROUP_ORDER: Partial<Record<GroupName, string[]>> = {
-  Investments: ['Retirement', 'Taxable brokerage'],
-  Liabilities: ['Credit cards', 'Loans'],
-};
+const GROUP_ORDER: GroupName[] = ACCOUNT_TYPE_GROUPS.map((g) => g.key);
+const GROUP_LABEL: Record<string, string> = Object.fromEntries(ACCOUNT_TYPE_GROUPS.map((g) => [g.key, g.label]));
+// Account-type slugs in display order within each group (taxonomy order).
+const TYPES_IN_GROUP: Record<string, string[]> = Object.fromEntries(
+  ACCOUNT_TYPE_GROUPS.map((g) => [g.key, ACCOUNT_TYPES.filter((t) => t.group === g.key).map((t) => t.slug)]),
+);
 
 const slugsIn = (...groups: string[]) => ACCOUNT_TYPES.filter((t) => groups.includes(t.group)).map((t) => t.slug);
 const ASSET_SEGMENTS: { key: string; name: string; color: string; types: AccountType[] }[] = [
@@ -1605,12 +1602,9 @@ export function NetWorthClient({
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [range, setRange] = useState<RangeKey>('1M');
   const [customRange, setCustomRange] = useState<CustomRange | null>(null);
-  const [openGroups, setOpenGroups] = useState<Record<GroupName, boolean>>({
-    Cash: true,
-    Investments: true,
-    Liabilities: true,
-    Other: true,
-  });
+  const [openGroups, setOpenGroups] = useState<Record<GroupName, boolean>>(
+    () => Object.fromEntries(GROUP_ORDER.map((g) => [g, true])) as Record<GroupName, boolean>,
+  );
   const [showAdd, setShowAdd] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -1669,13 +1663,10 @@ export function NetWorthClient({
 
   // Bucket non-credit-card accounts into groups
   const grouped = useMemo(() => {
-    const result: Record<GroupName, AccountRow[]> = {
-      Cash: [], Investments: [], Liabilities: [], Other: [],
-    };
+    const result = Object.fromEntries(GROUP_ORDER.map((g) => [g, [] as AccountRow[]])) as Record<GroupName, AccountRow[]>;
     for (const a of visible) {
-      if (a.type === 'credit_card') continue;
       const g = typeMeta(a.type).group;
-      result[g].push(a);
+      (result[g] ??= []).push(a);
     }
     return result;
   }, [visible]);
@@ -1763,64 +1754,42 @@ export function NetWorthClient({
     setDropTarget(null);
   }
 
-  function subgroupBuckets(rows: AccountRow[], groupName: GroupName, includeCc: boolean) {
-    const order = SUBGROUP_ORDER[groupName];
-    if (!order) {
-      return [{
-        name: null as string | null,
-        rows,
-        total: rows.reduce((s, r) => s + r.balance, 0),
-        isCcAggregate: false,
-      }];
-    }
-    const buckets: Record<string, AccountRow[]> = {};
+  // Child buckets within a group = account types, in taxonomy order (then any
+  // custom types present). Credit cards collapse into the aggregate summary.
+  function subgroupBuckets(rows: AccountRow[], groupName: GroupName) {
+    const byType = new Map<string, AccountRow[]>();
     for (const r of rows) {
-      const sg = typeMeta(r.type).subgroup;
-      if (!sg) continue;
-      (buckets[sg] ??= []).push(r);
+      const arr = byType.get(r.type) ?? [];
+      arr.push(r);
+      byType.set(r.type, arr);
     }
-    // For Liabilities, add the credit-cards aggregate as a sub-bucket
-    const out = order
-      .filter((sg) => {
-        if (sg === 'Credit cards' && includeCc && ccAggregate) return true;
-        return (buckets[sg]?.length ?? 0) > 0;
-      })
-      .map((sg) => {
-        if (sg === 'Credit cards' && includeCc && ccAggregate) {
-          return {
-            name: sg,
-            rows: [] as AccountRow[],
-            total: ccAggregate.totalBalance,
-            isCcAggregate: true,
-          };
-        }
-        const rows = buckets[sg] ?? [];
-        return {
-          name: sg,
-          rows,
-          total: rows.reduce((s, r) => s + r.balance, 0),
-          isCcAggregate: false,
-        };
-      });
-    return out;
+    const taxonomyTypes = TYPES_IN_GROUP[groupName] ?? [];
+    const ordered = [
+      ...taxonomyTypes,
+      ...[...byType.keys()].filter((t) => !taxonomyTypes.includes(t)),
+    ].filter((t) => (byType.get(t)?.length ?? 0) > 0);
+    return ordered.map((typeSlug) => {
+      const tRows = byType.get(typeSlug) ?? [];
+      if (typeSlug === 'credit_card' && ccAggregate) {
+        return { name: accountTypeLabel(typeSlug), rows: [] as AccountRow[], total: ccAggregate.totalBalance, isCcAggregate: true };
+      }
+      return {
+        name: accountTypeLabel(typeSlug),
+        rows: tRows,
+        total: tRows.reduce((s, r) => s + r.balance, 0),
+        isCcAggregate: false,
+      };
+    });
   }
 
   function groupTotal(g: GroupName): number {
-    const rows = grouped[g];
-    let total = rows.reduce((s, r) => s + r.balance, 0);
-    if (g === 'Liabilities' && ccAggregate) total += ccAggregate.totalBalance;
-    return total;
+    return grouped[g].reduce((s, r) => s + r.balance, 0);
   }
   function groupDelta(g: GroupName): number {
-    const rows = grouped[g];
-    let total = rows.reduce((s, r) => s + r.delta30, 0);
-    if (g === 'Liabilities' && ccAggregate) total += ccAggregate.delta30;
-    return total;
+    return grouped[g].reduce((s, r) => s + r.delta30, 0);
   }
   function groupCount(g: GroupName): number {
-    let count = grouped[g].length;
-    if (g === 'Liabilities' && ccAggregate) count += 1; // aggregate counts as one row
-    return count;
+    return grouped[g].length;
   }
 
   return (
@@ -1933,14 +1902,13 @@ export function NetWorthClient({
           <div>
             {GROUP_ORDER.map((g) => {
               const rows = grouped[g];
-              const includeCc = g === 'Liabilities' && ccAggregate != null;
-              if (rows.length === 0 && !includeCc) return null;
+              if (rows.length === 0) return null;
               const total = groupTotal(g);
               const delta = groupDelta(g);
               const count = groupCount(g);
               const isOpen = openGroups[g];
-              const isLiab = g === 'Liabilities';
-              const buckets = subgroupBuckets(rows, g, includeCc);
+              const isLiab = g === 'credit_loans';
+              const buckets = subgroupBuckets(rows, g);
 
               if (view === 'grid') {
                 return (
@@ -1958,7 +1926,7 @@ export function NetWorthClient({
                         </svg>
                       </span>
                       <span className="ttl">
-                        {g}
+                        {GROUP_LABEL[g] ?? g}
                         <span className="n">
                           {count} {count === 1 ? 'account' : 'accounts'}
                         </span>
@@ -2034,7 +2002,7 @@ export function NetWorthClient({
                       </svg>
                     </span>
                     <span className="ttl">
-                      {g}
+                      {GROUP_LABEL[g] ?? g}
                       <span className="n">
                         {count} {count === 1 ? 'account' : 'accounts'}
                       </span>
