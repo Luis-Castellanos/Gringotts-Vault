@@ -9,6 +9,8 @@ description: "Use this skill whenever the user uploads one or more bank or credi
 
 Reads bank or credit card statement PDFs, extracts every transaction, and writes the results to an Excel workbook with a fixed schema. **Pure extraction — categorization is intentionally out of scope.** The Category and Sub-category columns are left blank; downstream tools (the user's own categorization pipeline) populate them. Default mode is **append to master file** — every run adds new transactions to a single growing master sheet so the user builds up a consolidated transaction history over time.
 
+**Second goal — reconstruct *and self-verify*.** Beyond the rows, the parser captures each statement's stated **audit control totals** (beginning/ending balance, total deposits/withdrawals, period bounds) so a statement can be reconciled independently of the rows we parsed. See `references/bank_formats.md` → "Statement summary — audit control totals" for the field set and per-format coverage. In the in-app pipeline these are emitted by `extract_statement_summary()` and stored on the `imports` row (running balance on each `transactions` row) for the statement-audit view.
+
 ## Output schema (fixed — do not deviate)
 
 | Column | Description |

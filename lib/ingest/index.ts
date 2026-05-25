@@ -114,6 +114,16 @@ export type ParsedTxn = {
   balance: number | null;
 };
 
+// Statement-stated audit control totals (see parser extract_statement_summary).
+export type ParsedStatementSummary = {
+  period_start: string | null;
+  period_end: string | null;
+  beginning_balance: number | null;
+  ending_balance: number | null;
+  stated_credits: number | null;
+  stated_debits: number | null;
+};
+
 export type IngestResult = {
   accountId: string;
   importId: string;
@@ -156,16 +166,31 @@ export async function ingestParsedStatement(args: {
   accountNumber: string | null;
   sourceFile: string;
   statementPeriod: string | null;
+  summary?: ParsedStatementSummary | null;
   documentId?: string;
 }): Promise<IngestResult> {
-  const { rows, accountLabel, accountNumber, sourceFile, statementPeriod, documentId } = args;
+  const { rows, accountLabel, accountNumber, sourceFile, statementPeriod, summary, documentId } = args;
   const accountId = await getOrCreateAccount(accountLabel, accountNumber);
   const uncatId = await uncategorizedId();
   const vendorMap = await loadVendorMap();
 
+  // numeric columns take string | null in drizzle.
+  const money = (n: number | null | undefined) => (n == null ? null : n.toFixed(2));
+
   const [imp] = await db
     .insert(imports)
-    .values({ sourceFile, statementPeriod: statementPeriod ?? null, accountId, documentId: documentId ?? null })
+    .values({
+      sourceFile,
+      statementPeriod: statementPeriod ?? null,
+      accountId,
+      documentId: documentId ?? null,
+      periodStart: summary?.period_start ?? null,
+      periodEnd: summary?.period_end ?? null,
+      beginningBalance: money(summary?.beginning_balance),
+      endingBalance: money(summary?.ending_balance),
+      statedCredits: money(summary?.stated_credits),
+      statedDebits: money(summary?.stated_debits),
+    })
     .returning({ id: imports.id });
   const importId = imp!.id;
 
@@ -185,6 +210,7 @@ export async function ingestParsedStatement(args: {
       categoryId: ruleCat ?? uncatId,
       date: r.date,
       amount,
+      balance: money(r.balance),
       rawDescription: r.source,
       merchant,
       needsReview: !ruleCat,

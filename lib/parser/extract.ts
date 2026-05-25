@@ -20,6 +20,18 @@ export type ExtractedTxn = {
   balance: number | null;
 };
 
+// Statement-stated audit control totals (captured from the PDF summary,
+// independent of the parsed rows). Null fields = format doesn't print it / not
+// extracted yet. See parser/parse_statements.py:extract_statement_summary.
+export type ExtractedSummary = {
+  period_start: string | null; // YYYY-MM-DD
+  period_end: string | null;
+  beginning_balance: number | null;
+  ending_balance: number | null;
+  stated_credits: number | null;
+  stated_debits: number | null;
+};
+
 export type ExtractedPaystubLine = { label: string; amount: number };
 
 export type ExtractedPaystub = {
@@ -63,6 +75,7 @@ export type ExtractResult =
       account: string | null;
       accountNumber: string | null;
       statementPeriod: string | null;
+      summary?: ExtractedSummary; // present for parsed statements (not paystubs)
       transactions: ExtractedTxn[];
       paystub?: ExtractedPaystub;
     }

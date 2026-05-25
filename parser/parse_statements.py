@@ -48,9 +48,18 @@ def detect_issuer(text: str) -> str:
     if ("INVESTMENT STATEMENT" in head or "BROKERAGE" in head or
         "J.P. MORGAN SECURITIES" in head or "ACCOUNT VALUE" in head):
         return "jpm_investment"
-    if "JPMORGAN CHASE" in head and ("CHECKING" in head or "TRANSACTION DETAIL" in head[:8000].upper()):
+    # Scan the FULL body, not just the 5000-char head: Chase's 2025 statement
+    # layout pushes the account-type label + TRANSACTION DETAIL section past
+    # char 5000 (the old `head[:8000]` check was a no-op since head is already
+    # capped at 5000). These markers are specific to deposit statements — cards
+    # use ACCOUNT ACTIVITY / PAYMENTS AND OTHER CREDITS, handled just below.
+    body = text.upper()
+    if "JPMORGAN CHASE" in head and (
+        "CHECKING" in head or "TRANSACTION DETAIL" in body
+        or "CHECKING SUMMARY" in body or "SAVINGS SUMMARY" in body
+    ):
         return "chase_checking"
-    if "CHASE" in head and ("PAYMENTS AND OTHER CREDITS" in text.upper() or "ACCOUNT ACTIVITY" in text.upper()):
+    if "CHASE" in head and ("PAYMENTS AND OTHER CREDITS" in body or "ACCOUNT ACTIVITY" in body):
         return "chase_card"
     return "unknown"
 
@@ -791,10 +800,92 @@ PARSERS = {
 }
 
 
+# ---------- Statement summary (audit control totals) ----------
+# The parser's job is to reconstruct AND self-verify: alongside the transaction
+# rows, capture the statement's own STATED control totals (begin/end balance,
+# deposit/withdrawal totals) so the audit page can reconcile stated-vs-derived
+# independently. Fields are null when a format doesn't print them — or isn't
+# extracted yet (the goal applies to every format; coverage grows as samples
+# arrive). See references/bank_formats.md.
+
+_EMPTY_SUMMARY = {
+    "period_start": None, "period_end": None,
+    "beginning_balance": None, "ending_balance": None,
+    "stated_credits": None, "stated_debits": None,
+}
+
+# Chase Checking summary debit categories (printed negative); summed (abs) into
+# stated_debits. Best-effort — a missing label just contributes 0.
+_CHASE_DEBIT_LABELS = (
+    "Checks Paid",
+    "ATM & Debit Card Withdrawals",
+    "Electronic Withdrawals",
+    "Other Withdrawals",
+    "Fees",
+)
+
+# A money figure as printed in statement summaries. Handles every sign/symbol
+# ordering Chase uses: `342.19`, `$342.19`, `-146.88`, and crucially `-$146.88`
+# (minus BEFORE the dollar — the 2025 layout). _money_or_none strips $ and ,.
+_MONEY = r"(-?\$?-?[\d,]+\.\d{2})"
+
+
+def _period_dates(stmt_str: str):
+    """Parse 'MM/DD/YYYY - MM/DD/YYYY' into (start_iso, end_iso)."""
+    m = re.match(r"\s*(\d{2}/\d{2}/\d{4})\s*-\s*(\d{2}/\d{2}/\d{4})\s*$", stmt_str or "")
+    if not m:
+        return None, None
+
+    def iso(s):
+        mm, dd, yy = s.split("/")
+        return f"{yy}-{mm}-{dd}"
+
+    return iso(m.group(1)), iso(m.group(2))
+
+
+def _money_or_none(s):
+    if s is None:
+        return None
+    return round(float(s.replace(",", "").replace("$", "")), 2)
+
+
+def extract_statement_summary(text: str, issuer: str, stmt_str: str) -> dict:
+    summary = dict(_EMPTY_SUMMARY)
+    summary["period_start"], summary["period_end"] = _period_dates(stmt_str)
+
+    # Bank statements print Beginning/Ending Balance lines (Chase checking,
+    # Gain FCU). Optional leading '$'; allow negative.
+    if issuer in ("chase_checking", "gain_fcu"):
+        m_beg = re.search(r"Beginning Balance\s+" + _MONEY, text)
+        m_end = re.search(r"Ending Balance\s+" + _MONEY, text)
+        if m_beg:
+            summary["beginning_balance"] = _money_or_none(m_beg.group(1))
+        if m_end:
+            summary["ending_balance"] = _money_or_none(m_end.group(1))
+
+    # Chase Checking SUMMARY block prints stated deposit + withdrawal totals.
+    if issuer == "chase_checking":
+        m_dep = re.search(r"Deposits and Additions\s+" + _MONEY, text)
+        if m_dep:
+            summary["stated_credits"] = abs(_money_or_none(m_dep.group(1)))
+        debit_total, found = 0.0, False
+        for lbl in _CHASE_DEBIT_LABELS:
+            m = re.search(re.escape(lbl) + r"\s+" + _MONEY, text)
+            if m:
+                debit_total += abs(_money_or_none(m.group(1)))
+                found = True
+        if found:
+            summary["stated_debits"] = round(debit_total, 2)
+
+    return summary
+
+
 def parse_one(text_path: str, original_pdf_filename: str = None,
-              pdf_path: str = None) -> tuple[list[dict], str, str]:
+              pdf_path: str = None) -> tuple[list[dict], str, str, dict]:
     """
-    Parse one statement and return (transactions, statement_period_string, issuer).
+    Parse one statement and return (transactions, statement_period_string, issuer,
+    summary). `summary` holds the statement-stated audit control totals (see
+    extract_statement_summary); all-null for deferred issuers.
 
     text_path: path to the pdftotext-layout output of the statement
     original_pdf_filename: the original PDF filename (used for the Account label
@@ -811,9 +902,9 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
     text = Path(text_path).read_text(encoding="utf-8", errors="replace")
     issuer = detect_issuer(text)
     if issuer == "jpm_investment":
-        return [], "", "jpm_investment"
+        return [], "", "jpm_investment", dict(_EMPTY_SUMMARY)
     if issuer == "unknown":
-        return [], "", "unknown"
+        return [], "", "unknown", dict(_EMPTY_SUMMARY)
 
     if issuer == "apple_card" and pdf_path:
         txns, stmt_str = parse_apple_card_pdfplumber(pdf_path)
@@ -829,7 +920,8 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
         t["account_number"] = account_number
         t["source_file"] = pdf_name
 
-    return txns, stmt_str, issuer
+    summary = extract_statement_summary(text, issuer, stmt_str)
+    return txns, stmt_str, issuer, summary
 
 
 # ---------- Paystubs ----------

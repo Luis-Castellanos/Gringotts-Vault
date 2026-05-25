@@ -18,6 +18,11 @@ Success:
       "account": "Chase Prime 5678",
       "accountNumber": "5678",
       "statementPeriod": "02/05/2021 - 03/04/2021",
+      "summary": {                      # statement-stated audit control totals
+        "period_start": "2021-02-05", "period_end": "2021-03-04",
+        "beginning_balance": null, "ending_balance": null,
+        "stated_credits": null, "stated_debits": null
+      },
       "transactions": [
         {"date": "2021-02-10", "source": "AMAZON ...", "amount": -42.10, "balance": null}
       ]
@@ -129,7 +134,7 @@ def main():
                 "transactions": [],
             }))
             return
-        txns, stmt_str, issuer = parse_one(
+        txns, stmt_str, issuer, summary = parse_one(
             tmp_txt, original_pdf_filename=original_name, pdf_path=pdf_path
         )
         deferred = issuer in ("jpm_investment", "unknown")
@@ -143,6 +148,7 @@ def main():
             "account": account,
             "accountNumber": account_number or None,
             "statementPeriod": stmt_str or None,
+            "summary": summary,
             "transactions": [
                 {
                     "date": _iso(t.get("date")),

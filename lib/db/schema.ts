@@ -199,6 +199,17 @@ export const imports = pgTable(
     // (removing a file without its data leaves the import + rows intact).
     documentId: uuid('document_id').references((): AnyPgColumn => documents.id, { onDelete: 'set null' }),
     rowCount: integer('row_count').notNull().default(0),
+    // Structured statement bounds (statementPeriod is the human string).
+    periodStart: date('period_start'),
+    periodEnd: date('period_end'),
+    // Statement-stated control totals, captured from the PDF summary independent
+    // of the parsed rows — the audit page reconciles these against the derived
+    // figures (sum of transactions, running-balance chain). Null when the format
+    // doesn't print them or the parser doesn't extract them yet.
+    beginningBalance: numeric('beginning_balance', { precision: 14, scale: 2 }),
+    endingBalance: numeric('ending_balance', { precision: 14, scale: 2 }),
+    statedCredits: numeric('stated_credits', { precision: 14, scale: 2 }),
+    statedDebits: numeric('stated_debits', { precision: 14, scale: 2 }),
     importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
     notes: text('notes'),
   },
@@ -351,6 +362,10 @@ export const transactions = pgTable(
     date: date('date').notNull(),
     postedDate: date('posted_date'),
     amount: numeric('amount', { precision: 14, scale: 2 }).notNull(),
+    // Running account balance printed on the statement row (bank statements
+    // only; null for credit cards). Powers the audit page's row-by-row
+    // balance-chain reconciliation.
+    balance: numeric('balance', { precision: 14, scale: 2 }),
     currency: text('currency').notNull().default('USD'),
 
     rawDescription: text('raw_description').notNull(),

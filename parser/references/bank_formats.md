@@ -10,6 +10,45 @@ Layout patterns for the major issuers the user works with. All examples assume `
 - Inside each section, transactions are typically one per line with the format: `<date> <description> <amount> [<balance>]`.
 - Stop parsing a section when you hit a `Total` line or the next section header.
 
+## Statement summary — audit control totals (parser goal)
+
+> **Goal for every format.** The parser must not only reconstruct the
+> transaction rows — it must also capture the statement's own **stated control
+> totals** so each statement can be reconciled *independently of the rows we
+> parsed*. This is what powers the statement-audit page (stated-vs-derived).
+
+`extract_statement_summary()` returns, per statement (null where the format
+doesn't print a value or extraction isn't implemented yet):
+
+| Field | Meaning |
+|---|---|
+| `period_start` / `period_end` | Statement bounds as real dates (derived from the period string). |
+| `beginning_balance` | Stated opening balance (from the summary block, **not** derived). |
+| `ending_balance` | Stated closing balance. |
+| `stated_credits` | Stated total deposits / payments-in. |
+| `stated_debits` | Stated total withdrawals / charges (abs). |
+
+The audit then checks three things independently:
+1. **Statement math:** `beginning + stated_credits − stated_debits == ending`.
+2. **Capture completeness:** our parsed `sum(inflows) == stated_credits` and `sum(outflows) == stated_debits` (did we drop or duplicate a row?).
+3. **Row chain** (bank statements with a running balance): `balance[i] == balance[i-1] + amount[i]` — a break points at the exact bad row.
+
+**Per-format coverage:**
+
+| Format | Running balance | begin/end | stated totals | Status |
+|---|---|---|---|---|
+| Chase Checking | ✅ per row | ✅ Beginning/Ending Balance lines | ✅ CHECKING SUMMARY | **done** |
+| Gain FCU | ✅ per row | ✅ (best-effort; multi-account) | ⚠️ partial | partial |
+| Chase Card | ❌ | reconcile via ACCOUNT SUMMARY (prev/new balance) | payments/purchases | **TODO** (emit null) |
+| Discover | ❌ | ditto | ditto | **TODO** (emit null) |
+| Apple Card | ❌ | prior/total balance block | payments/charges | **TODO** (emit null) |
+
+Credit cards print no per-row running balance, so their audit is a different
+model (prev balance + purchases − payments + interest + fees == new balance).
+Documented as the goal; implement when sample statements are available — until
+then they emit nulls and the audit page shows coverage + flows + count without a
+balance check.
+
 ## Chase
 
 ### Chase Checking (Total Checking, College Checking, etc.)
