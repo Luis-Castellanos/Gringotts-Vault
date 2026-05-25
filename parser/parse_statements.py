@@ -57,6 +57,12 @@ def detect_issuer(text: str) -> str:
     if "FIDELITY" in head and ("INVESTMENT REPORT" in body
                                or "NATIONAL FINANCIAL SERVICES" in body):
         return "fidelity"
+    # Chase loan statements (mortgage / auto) — check before the Chase
+    # deposit/card branches, which would otherwise claim them on "Chase" alone.
+    if "MORTGAGE STATEMENT" in head and ("UNPAID PRINCIPAL" in body or "CHASE" in body or "ESCROW" in body):
+        return "chase_mortgage"
+    if "CHASE AUTO" in body and ("VEHICLE" in head or "VIN" in body or "LOAN" in body):
+        return "chase_auto"
     # IMPORTANT: check JPM investment BEFORE chase_card, since investment
     # statements contain Chase branding.
     if ("INVESTMENT STATEMENT" in head or "BROKERAGE" in head or
@@ -896,6 +902,24 @@ def _money_or_none(s):
     return round(float(s.replace(",", "").replace("$", "")), 2)
 
 
+def _chase_mortgage_summary(text: str) -> dict:
+    """Recognized Chase mortgage statement: capture the statement date + unpaid
+    principal balance (the authoritative loan balance). `_stmt` is the human
+    period string, popped by parse_one. No transactions are ledgered yet."""
+    s = dict(_EMPTY_SUMMARY)
+    m = re.search(r"Statement date\s+(\d{2})/(\d{2})/(\d{4})", text)
+    if m:
+        mm, dd, yyyy = m.groups()
+        s["period_end"] = f"{yyyy}-{mm}-{dd}"
+        s["_stmt"] = f"{mm}/{dd}/{yyyy}"
+    else:
+        s["_stmt"] = ""
+    mb = re.search(r"Unpaid principal balance\s*\$?\s*([\d,]+\.\d{2})", text)
+    if mb:
+        s["ending_balance"] = round(float(mb.group(1).replace(",", "")), 2)
+    return s
+
+
 def extract_statement_summary(text: str, issuer: str, stmt_str: str) -> dict:
     summary = dict(_EMPTY_SUMMARY)
     summary["period_start"], summary["period_end"] = _period_dates(stmt_str)
@@ -952,6 +976,15 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
     # parse_holdings() separately. Return no transactions here (don't hit PARSERS).
     if issuer in INVESTMENT_ISSUERS or issuer == "unknown":
         return [], "", issuer, dict(_EMPTY_SUMMARY)
+    # Loan statements (mortgage/auto): recognized + the key figures captured, but
+    # NOT auto-ledgered yet — naive payment rows would double-count the
+    # checking-side mortgage split and skew the loan balance (no opening balance).
+    # See references/bank_formats.md (loan-ledger model is an open decision).
+    if issuer == "chase_mortgage":
+        s = _chase_mortgage_summary(text)
+        return [], s.pop("_stmt", ""), "chase_mortgage", s
+    if issuer == "chase_auto":
+        return [], "", "chase_auto", dict(_EMPTY_SUMMARY)
 
     if issuer == "apple_card" and pdf_path:
         txns, stmt_str = parse_apple_card_pdfplumber(pdf_path)

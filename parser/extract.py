@@ -86,8 +86,14 @@ ISSUER_TYPE = {
     "fidelity": "investment",
     "empower": "investment",
     "optum_hsa": "investment",
+    "chase_mortgage": "loan",
+    "chase_auto": "loan",
     "unknown": "unknown",
 }
+
+# Recognized but not auto-ledgered yet (the money movement is captured on the
+# checking side; ledgering loan balances needs a balance-model decision).
+DEFERRED_ISSUERS = {"chase_mortgage", "chase_auto"}
 
 
 def _iso(d):
@@ -174,6 +180,12 @@ def main():
             stmt_str = stmt_str or (holdings[0].get("as_of") if holdings else None)
             # Still deferred only if we recognized it but couldn't extract holdings.
             deferred = len(holdings) == 0
+        elif issuer in DEFERRED_ISSUERS:
+            # Recognized loan statement: claim it + derive a clean account label
+            # from the filename, but don't ledger (avoids double-count + balance skew).
+            deferred = True
+            account = _investment_account_label(original_name) or derive_account_label(original_name, issuer, text)
+            account_number = _last4_from_name(original_name)
         else:
             deferred = issuer == "unknown"
             account = txns[0].get("account") if txns else None

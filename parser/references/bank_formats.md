@@ -297,3 +297,18 @@ Implementation: if `month >= start_month` use start year, else use end year. Thi
 - Disclosure / fine print sections at the end
 
 A reliable filter: a real transaction line has a date AND an amount. If only one is present, it's probably not a transaction.
+
+## Loan statements — Chase Mortgage & Auto (added 2026-05-25)
+
+**Detection:** `chase_mortgage` (`MORTGAGE STATEMENT` in head + Chase/escrow/unpaid-principal markers) and `chase_auto` (`CHASE AUTO` + vehicle/VIN/loan markers). Both checked **before** the Chase deposit/card branches (which would claim them on "Chase" alone). This fixed the auto-loan welcome letter misdetecting as `chase_card`.
+
+**Current behavior:** recognized + **deferred** (type `loan`, stored, clean account label from filename), NOT auto-ledgered. The summary captures statement date → `period_end` and unpaid principal → `ending_balance`.
+
+**Mortgage format** (Chase): page 1 has Account number, Original/Unpaid principal balance, Interest rate, Maturity, Escrow balance, and the Past-payments + Explanation-of-amount-due breakdowns (Principal/Interest/Escrow). Page 2 "Transaction activity" table: `MM/DD/YYYY  PAYMENT  $total  $principal  $interest  $escrow`. **Auto** sample is only a welcome letter (no payment activity yet).
+
+**⚠ Xpdf-layout caveat:** `extract.py` uses the PATH `pdftotext` (Xpdf), which **badly mangles the mortgage's two-column page** — values land on different lines than their labels (e.g. unpaid principal $ separates from its label). Regex field extraction from Xpdf `-layout` is unreliable here; robust extraction needs poppler `-tsv` (coordinate), same as Fidelity/Empower holdings.
+
+**⚠ OPEN DECISION — loan-ledger model (why deferred, not ledgered):** naive payment rows on the loan account corrupt balances + double-count:
+- The loan balance is derived (`-SUM(amount)` / amortization). Emitting only principal payments (no opening-balance row) makes Net Worth show the mortgage as a tiny *asset* (~sum of principal paid), not the ~$191k *debt*.
+- The checking-side mortgage-split feature already moves principal→loan / interest→expense / escrow→escrow when the checking payment is split, so ledgering the mortgage statement too would **double-count** the principal paydown.
+- Clean options to ledger later: (a) **`balance_snapshots`** — store the unpaid principal per statement date + wire balance derivation to prefer the latest snapshot (the table exists for exactly this "incomplete transactions" case); (b) synthetic opening-balance transaction; (c) keep loans statement-recognized only and rely on the checking-side split. Decide with the user before ledgering.
