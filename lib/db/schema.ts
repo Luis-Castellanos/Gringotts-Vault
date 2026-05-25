@@ -176,7 +176,9 @@ export const properties = pgTable(
     acquisitionDate: date('acquisition_date'),
     acquisitionPrice: numeric('acquisition_price', { precision: 14, scale: 2 }),
     marketValue: numeric('market_value', { precision: 14, scale: 2 }), // current estimate (manual)
-    imageUrl: text('image_url'), // optional photo (path under /public or a URL)
+    imageUrl: text('image_url'), // display src: an external URL, or /api/properties/[id]/photo for an upload
+    image: bytea('image'), // uploaded photo bytes (stored in-DB so it travels with the database)
+    imageMime: text('image_mime'),
     // Optional link to the mortgage liability account; its loan terms
     // (originalPrincipal / interestRate / monthlyPayment / maturityDate) drive
     // the amortization table, and its derived balance drives equity.

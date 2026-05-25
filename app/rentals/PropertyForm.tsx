@@ -54,6 +54,7 @@ export function PropertyForm({
   const [marketValue, setMarketValue] = useState(property?.marketValue != null ? String(property.marketValue) : '');
   const [mortgageAccountId, setMortgageAccountId] = useState(property?.mortgage?.accountId ?? '');
   const [imageUrl, setImageUrl] = useState(property?.imageUrl ?? '');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,11 +97,19 @@ export function PropertyForm({
         body: JSON.stringify(body),
       });
       const json = await res.json();
-      setSaving(false);
       if (!res.ok || json.error) {
+        setSaving(false);
         setError(json?.error?.message ?? `HTTP ${res.status}`);
         return;
       }
+      // Upload the photo after the property exists (need its id for the route).
+      const propId = editing ? property!.id : json.data?.id;
+      if (photoFile && propId) {
+        const fd = new FormData();
+        fd.append('file', photoFile);
+        await fetch(`/api/properties/${propId}/photo`, { method: 'POST', body: fd }).catch(() => {});
+      }
+      setSaving(false);
       router.refresh();
       onClose();
     } catch (err) {
@@ -207,10 +216,24 @@ export function PropertyForm({
             </span>
           </label>
 
-          <label className={lbl}>
-            Photo URL <span className="font-normal text-text-muted">(optional)</span>
-            <input className={field} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://… or /property-photos/…" maxLength={2000} />
-          </label>
+          <div className={lbl}>
+            Photo <span className="font-normal text-text-muted">(optional)</span>
+            <div className="flex items-center gap-3">
+              {(photoFile || property?.imageUrl) && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={photoFile ? URL.createObjectURL(photoFile) : property!.imageUrl!}
+                  alt=""
+                  className="size-14 rounded-lg object-cover border border-border-subtle shrink-0"
+                />
+              )}
+              <label className="cursor-pointer rounded-lg bg-surface-2 border border-border-subtle px-3 py-2 text-[13px] text-text-secondary hover:bg-surface-3">
+                {photoFile ? photoFile.name.slice(0, 28) : 'Upload image'}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
+              </label>
+            </div>
+            <input className={field} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="…or paste an image URL" maxLength={2000} />
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
