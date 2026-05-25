@@ -540,7 +540,61 @@ def parse_chase_checking(text: str) -> tuple[list[dict], str]:
     end = date(int(e_year), MONTHS[e_mon.upper()], int(e_day))
     stmt_str = f"{start.strftime('%m/%d/%Y')} - {end.strftime('%m/%d/%Y')}"
 
+    def add(date_str, desc, amt, bal):
+        month, day = [int(x) for x in date_str.split("/")]
+        year = assign_year(month, start.year, end.year, start.month, end.month)
+        transactions.append({
+            "date": date(year, month, day), "source": desc.strip(), "category": "",
+            "subcategory": "", "amount": round(amt, 2),
+            "balance": (None if bal is None else round(bal, 2)), "stmt_period": stmt_str,
+        })
+
     transactions = []
+
+    # Preferred path — derive amounts from the printed RUNNING BALANCE
+    # (`amount[i] = balance[i] - balance[i-1]`) rather than the amount column:
+    # pdftotext -layout detaches deposit amounts onto their own line, so the
+    # amount column is unreliable, but every row prints a running balance.
+    # Bound the list with Chase's *start*/*end* markers so the daily-ending-
+    # balance ledger and the summary stay out. Anchor on the stated beginning
+    # balance.
+    if "*start*transaction detail" in text.lower():
+        mb = re.search(r"Beginning Balance\s+(-?\$?-?[\d,]+\.\d{2})", text)
+        prev_balance = clean_amount(mb.group(1)) if mb else None
+        num_re = re.compile(r"-?\$?[\d,]+\.\d{2}")
+        in_detail = False
+        for raw in text.splitlines():
+            low = raw.strip().lower()
+            if "*start*transaction detail" in low:
+                in_detail = True
+                continue
+            if "*end*transaction detail" in low:
+                in_detail = False
+                continue
+            if not in_detail or not low:
+                continue
+            if low.startswith("beginning balance") or low.startswith("ending balance"):
+                continue
+            m_line = re.match(r"^\s*(\d{2}/\d{2})\s+(.+)$", raw.rstrip())
+            if not m_line:
+                continue  # continuation / orphaned-amount line (no leading date)
+            date_str, rest = m_line.groups()
+            nums = num_re.findall(rest)
+            if not nums:
+                continue  # a dated line with no running balance isn't a transaction
+            bal = clean_amount(nums[-1])
+            desc = re.sub(r"\s*(?:-?\$?[\d,]+\.\d{2}\s*)+$", "", rest).strip()
+            # Derive amount from the balance delta; fall back to the printed
+            # amount column only if we never found an anchor balance.
+            amt = (bal - prev_balance) if prev_balance is not None \
+                else (clean_amount(nums[-2]) if len(nums) >= 2 else 0.0)
+            prev_balance = bal
+            add(date_str, desc, amt, bal)
+        return transactions, stmt_str
+
+    # Legacy fallback (no *start*/*end* markers): match the two-number line
+    # "MM/DD  description  AMOUNT  BALANCE" directly. Preserves prior behavior
+    # for any layout that lacks the markers (and avoids the daily-ledger trap).
     in_detail = False
     for raw in text.splitlines():
         line = raw.rstrip()
@@ -548,33 +602,15 @@ def parse_chase_checking(text: str) -> tuple[list[dict], str]:
         if "TRANSACTION DETAIL" in stripped.upper() and "Beginning" not in stripped:
             in_detail = True
             continue
-        if not in_detail:
+        if not in_detail or not stripped:
             continue
         if stripped.startswith("Beginning Balance") or stripped.startswith("Ending Balance"):
             continue
-        if not stripped:
-            continue
-
-        # Chase checking line: "MM/DD  description...  AMOUNT  BALANCE"
-        # Year inferred from statement period.
         m_line = re.match(r"^\s*(\d{2}/\d{2})\s+(.+?)\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})\s*$", line)
         if not m_line:
-            # Could also be multi-line continuation; skip
             continue
         date_str, desc, amount_str, balance_str = m_line.groups()
-        month, day = [int(x) for x in date_str.split("/")]
-        year = assign_year(month, start.year, end.year, start.month, end.month)
-        txn_date = date(year, month, day)
-        amt = clean_amount(amount_str)
-        bal = clean_amount(balance_str)
-
-        # Chase checking signs amounts directly: deposits positive, withdrawals negative,
-        # which already matches our schema.
-        transactions.append({
-            "date": txn_date, "source": desc.strip(), "category": "",
-            "subcategory": "", "amount": round(amt, 2),
-            "balance": round(bal, 2), "stmt_period": stmt_str,
-        })
+        add(date_str, desc, clean_amount(amount_str), clean_amount(balance_str))
     return transactions, stmt_str
 
 
