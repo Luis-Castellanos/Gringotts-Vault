@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import type { AmortResult } from '@/lib/properties/amortization';
 import type { MortgageAccountOption, PropertyRow } from '@/lib/properties/load';
-import type { FinCategory, PropertyFinancials } from '@/lib/properties/financials';
+import type { FinCategory, PropertyFinancials, TTM } from '@/lib/properties/financials';
 import { StatTile } from '@/components/StatTile';
 import { PropertyForm, propertyTypeLabel } from '../PropertyForm';
 import { addressLine, fmtDate, fmtMoney, fmtMoney0, fmtPct, specLine } from '../format';
@@ -199,6 +199,28 @@ function FinBreakdown({ title, cats, tone }: { title: string; cats: FinCategory[
   );
 }
 
+function ReturnsSection({ property, ttm }: { property: PropertyRow; ttm: TTM }) {
+  const value = property.marketValue ?? property.acquisitionPrice ?? 0;
+  const noi = ttm.noi;
+  const annualDebt = property.mortgage?.monthlyPayment != null ? property.mortgage.monthlyPayment * 12 : null;
+  // Cash invested ≈ down payment (purchase − original loan); no separate field yet.
+  const cashInvested =
+    property.acquisitionPrice != null && property.mortgage?.originalPrincipal != null
+      ? property.acquisitionPrice - property.mortgage.originalPrincipal
+      : null;
+  const capRate = value > 0 ? (noi / value) * 100 : null;
+  const dscr = annualDebt && annualDebt > 0 ? noi / annualDebt : null;
+  const coc = cashInvested && cashInvested > 0 && annualDebt != null ? ((noi - annualDebt) / cashInvested) * 100 : null;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <StatTile label="NOI · TTM" value={fmtMoney0(noi)} tone={noi >= 0 ? 'pos' : 'neg'} sub="income − operating exp." />
+      <StatTile label="Cap rate" value={capRate != null ? fmtPct(capRate) : '—'} sub="NOI ÷ value" />
+      <StatTile label="Cash-on-cash" value={coc != null ? fmtPct(coc) : '—'} sub={cashInvested != null ? `on ${fmtMoney0(cashInvested)} down` : 'needs purchase + loan'} />
+      <StatTile label="DSCR" value={dscr != null ? `${dscr.toFixed(2)}×` : '—'} sub="NOI ÷ debt service" />
+    </div>
+  );
+}
+
 function FinancialsSection({ fin }: { fin: PropertyFinancials }) {
   if (fin.txnCount === 0) {
     return (
@@ -371,6 +393,18 @@ export function PropertyDetailClient({
         <StatTile label="Equity" value={fmtMoney0(property.equity)} tone="pos" sub={ePct != null ? `${fmtPct(ePct)} of value` : undefined} />
         <StatTile label="Monthly payment" value={property.mortgage?.monthlyPayment != null ? fmtMoney(property.mortgage.monthlyPayment) : '—'} sub="P&I (from mortgage)" />
       </div>
+
+      {/* Returns (trailing 12 months) — only once there's attributed activity */}
+      {financials.ttm.hasData && (
+        <>
+          <h2 className="text-[15px] font-semibold mb-3">
+            Returns <span className="text-[12px] font-normal text-text-tertiary">· trailing 12 months</span>
+          </h2>
+          <div className="mb-8">
+            <ReturnsSection property={property} ttm={financials.ttm} />
+          </div>
+        </>
+      )}
 
       {/* Financials (per-property income / expenses / cash flow) */}
       <h2 className="text-[15px] font-semibold mb-3">Financials</h2>

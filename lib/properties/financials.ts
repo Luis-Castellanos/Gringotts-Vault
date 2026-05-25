@@ -15,6 +15,16 @@ import { categories, transactions, transactionSplits } from '@/lib/db/schema';
 
 export type FinCategory = { id: string; name: string; color: string | null; amount: number };
 export type FinMonth = { ym: string; income: number; expenses: number; net: number };
+// Trailing-12-month figures, with operating expenses separated from debt service
+// (mortgage interest from splits), so NOI excludes debt service per convention.
+export type TTM = {
+  income: number;
+  operatingExpenses: number;
+  debtService: number; // mortgage interest (split parts)
+  noi: number; // income − operating expenses
+  netCashFlow: number; // income − operating − debt service
+  hasData: boolean;
+};
 export type PropertyFinancials = {
   income: number;
   expenses: number;
@@ -22,6 +32,7 @@ export type PropertyFinancials = {
   incomeByCategory: FinCategory[];
   expenseByCategory: FinCategory[];
   months: FinMonth[];
+  ttm: TTM;
   txnCount: number;
 };
 
@@ -88,23 +99,42 @@ export async function loadPropertyFinancials(
     else map.set(id, { id, name, color, amount: round2(amt) });
   };
 
-  for (const r of [...regular, ...splits]) {
+  const ttmCutoff = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  let ttmIncome = 0;
+  let ttmOperating = 0;
+  let ttmDebt = 0;
+
+  // isDebt = the row came from a split part (mortgage interest = debt service,
+  // excluded from NOI). Regular attributed outflows are operating expenses.
+  const handle = (
+    r: { date: string; amount: string; flow: string; catId: string; catName: string; catColor: string | null },
+    isDebt: boolean,
+  ) => {
+    if (r.flow === 'transfer') return;
     txnCount += 1;
     const amt = Number(r.amount);
     const ym = r.date.slice(0, 7);
     const m = monthMap.get(ym) ?? { ym, income: 0, expenses: 0, net: 0 };
-    if (r.flow === 'transfer') continue;
+    const inTtm = r.date >= ttmCutoff;
     if (r.flow === 'inflow') {
       income += amt;
       m.income += amt;
       if (amt !== 0) add(incomeMap, r.catId, r.catName, r.catColor, amt);
+      if (inTtm) ttmIncome += amt;
     } else {
       expenses += amt; // stored negative
       m.expenses += Math.abs(amt);
       if (Math.abs(amt) > 0) add(expenseMap, r.catId, r.catName, r.catColor, Math.abs(amt));
+      if (inTtm) { if (isDebt) ttmDebt += Math.abs(amt); else ttmOperating += Math.abs(amt); }
     }
     monthMap.set(ym, m);
-  }
+  };
+  for (const r of regular) handle(r, false);
+  for (const r of splits) handle(r, true);
 
   for (const m of monthMap.values()) {
     m.income = round2(m.income);
@@ -114,6 +144,14 @@ export async function loadPropertyFinancials(
 
   income = round2(income);
   expenses = round2(Math.abs(expenses));
+  const ttm: TTM = {
+    income: round2(ttmIncome),
+    operatingExpenses: round2(ttmOperating),
+    debtService: round2(ttmDebt),
+    noi: round2(ttmIncome - ttmOperating),
+    netCashFlow: round2(ttmIncome - ttmOperating - ttmDebt),
+    hasData: ttmIncome !== 0 || ttmOperating !== 0 || ttmDebt !== 0,
+  };
   return {
     income,
     expenses,
@@ -121,6 +159,7 @@ export async function loadPropertyFinancials(
     incomeByCategory: [...incomeMap.values()].sort((a, b) => b.amount - a.amount),
     expenseByCategory: [...expenseMap.values()].sort((a, b) => b.amount - a.amount),
     months: [...monthMap.values()].sort((a, b) => a.ym.localeCompare(b.ym)),
+    ttm,
     txnCount,
   };
 }

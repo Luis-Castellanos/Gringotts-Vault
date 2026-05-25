@@ -2,6 +2,13 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Real Estate Phase 2: return metrics.** The property detail gains a
+  **Returns (trailing 12 months)** section — **NOI** (income − operating expenses,
+  excluding debt service), **Cap rate** (NOI ÷ value), **Cash-on-cash**, and **DSCR**.
+  The financials loader now computes TTM figures and separates debt service
+  (mortgage interest from splits) from operating expenses, so NOI is correct.
+  Cash invested uses a down-payment proxy (purchase − original loan) — no schema
+  change. Shows only once a property has attributed activity.
 - 2026-05-25 — **Real Estate Phase 1: per-property financials + attribution.** First
   step of the Stessa-parity module. `transactions.property_id` lets you tag a
   transaction to a property (Property picker in the transaction editor); a property

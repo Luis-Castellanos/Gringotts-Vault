@@ -69,8 +69,12 @@ Schedule E worksheet (income, each expense line, depreciation) as Excel/PDF.
    section: income/expense by category, monthly cash-flow chart, net cash flow.
    Folds in non-transfer split parts (mortgage interest). `lib/properties/financials.ts`.
    *Unblocks everything below.* (NOI/return metrics = Phase 2.)
-2. **Return metrics** — add `cash_invested`; compute cap rate / cash-on-cash / DSCR /
-   ROI / GRM on the property detail + a portfolio roll-up.
+2. ✅ **Return metrics — shipped 2026-05-25.** A **Returns (TTM)** section on the
+   property detail: NOI (income − operating exp.), Cap rate (NOI ÷ value),
+   Cash-on-cash, and DSCR — from trailing-12-month financials + mortgage terms.
+   Used a **down-payment proxy** (purchase − original loan) for cash invested
+   rather than adding a `cash_invested` field (avoids a schema change). _Still
+   could add:_ explicit `cash_invested`, GRM, total-ROI breakdown, portfolio roll-up.
 3. **Rent roll** — `leases` model + a Rent Roll view (portfolio + per-property);
    rent income flows into the financials.
 4. **Maintenance** — `maintenance` model + a per-property + portfolio list/board.
