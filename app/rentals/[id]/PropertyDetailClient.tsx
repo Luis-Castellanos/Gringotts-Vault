@@ -10,11 +10,80 @@ import type { FinCategory, PropertyFinancials, TTM } from '@/lib/properties/fina
 import type { LeaseRow } from '@/lib/properties/leases';
 import type { MaintenanceRow } from '@/lib/properties/maintenance';
 import type { ScheduleE } from '@/lib/properties/schedule-e';
+import type { CapexRow } from '@/lib/properties/capex';
+import { computeDepreciation } from '@/lib/properties/depreciation';
 import { StatTile } from '@/components/StatTile';
 import { PropertyForm, propertyTypeLabel } from '../PropertyForm';
 import { addressLine, fmtDate, fmtMoney, fmtMoney0, fmtPct, specLine } from '../format';
 import { LeaseForm } from './LeaseForm';
 import { MaintenanceForm } from './MaintenanceForm';
+import { CapexForm } from './CapexForm';
+
+function DepreciationSection({ property, capexItems }: { property: PropertyRow; capexItems: CapexRow[] }) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<CapexRow | null>(null);
+  const year = new Date().getFullYear();
+  const dep = computeDepreciation(
+    { acquisitionPrice: property.acquisitionPrice, acquisitionDate: property.acquisitionDate, landValuePct: property.landValuePct },
+    capexItems.map((c) => ({ description: c.description, cost: c.cost, placedInService: c.placedInService, usefulLifeYears: c.usefulLifeYears })),
+    year,
+  );
+
+  async function del(c: CapexRow) {
+    if (!confirm(`Delete "${c.description}"?`)) return;
+    const res = await fetch(`/api/capex/${c.id}`, { method: 'DELETE' });
+    if (res.ok) router.refresh();
+    else alert('Could not delete improvement.');
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[15px] font-semibold">Depreciation &amp; capital improvements</h2>
+        <button type="button" onClick={() => setAdding(true)} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">+ Add improvement</button>
+      </div>
+
+      {property.acquisitionPrice == null ? (
+        <div className="rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-6 text-[13px] text-text-tertiary mb-4">
+          Set a purchase price + acquired date (Edit) to compute building depreciation. Land % defaults to 20% — set it on the property to refine the basis.
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <StatTile label="Building basis" value={fmtMoney0(dep.buildingBasis)} sub={`${dep.landValuePct}% land excluded`} />
+          <StatTile label={`Depreciation · ${year}`} value={fmtMoney0(dep.annualTotal)} tone="neg" sub="Schedule E line 18" />
+          <StatTile label="Building / yr" value={fmtMoney0(dep.buildingAnnual)} sub="27.5-yr straight-line" />
+        </div>
+      )}
+
+      {capexItems.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-6 text-[13px] text-text-tertiary">
+          No capital improvements logged. Add roofs, HVAC, renovations — each depreciates over its useful life into Schedule E line 18.
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden text-[13px]">
+          <div className="grid grid-cols-[1.6fr_100px_120px_90px_60px] gap-3 px-4 py-2.5 border-b border-border-subtle text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+            <div>Improvement</div><div className="text-right">Cost</div><div>Placed</div><div className="text-right">Dep/yr</div><div />
+          </div>
+          {capexItems.map((c) => (
+            <div key={c.id} className="grid grid-cols-[1.6fr_100px_120px_90px_60px] gap-3 px-4 py-2.5 border-t border-border-subtle items-center first:border-t-0">
+              <div className="min-w-0 truncate text-text-primary">{c.description} <span className="text-text-muted text-[11.5px]">· {c.usefulLifeYears}yr</span></div>
+              <div className="text-right tabular-nums">{fmtMoney0(c.cost)}</div>
+              <div className="text-text-tertiary text-[12px]">{c.placedInService ? fmtDate(c.placedInService) : '—'}</div>
+              <div className="text-right tabular-nums text-negative">{fmtMoney0(c.cost / (c.usefulLifeYears || 5))}</div>
+              <div className="flex gap-1 justify-end text-[12px]">
+                <button type="button" onClick={() => setEditing(c)} className="text-text-tertiary hover:text-text-primary">Edit</button>
+                <button type="button" onClick={() => del(c)} className="text-text-muted hover:text-negative">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {adding && <CapexForm propertyId={property.id} onClose={() => setAdding(false)} />}
+      {editing && <CapexForm propertyId={property.id} item={editing} onClose={() => setEditing(null)} />}
+    </div>
+  );
+}
 
 function ScheduleESection({ se }: { se: ScheduleE }) {
   const router = useRouter();
@@ -452,6 +521,7 @@ export function PropertyDetailClient({
   leases,
   maintenance,
   scheduleE,
+  capex,
   mortgageOptions,
 }: {
   property: PropertyRow;
@@ -460,6 +530,7 @@ export function PropertyDetailClient({
   leases: LeaseRow[];
   maintenance: MaintenanceRow[];
   scheduleE: ScheduleE;
+  capex: CapexRow[];
   mortgageOptions: MortgageAccountOption[];
 }) {
   const router = useRouter();
@@ -610,6 +681,11 @@ export function PropertyDetailClient({
         <ScheduleESection se={scheduleE} />
       </div>
 
+      {/* Depreciation & capital improvements */}
+      <div className="mb-8">
+        <DepreciationSection property={property} capexItems={capex} />
+      </div>
+
       {/* Mortgage / amortization */}
       <h2 className="text-[15px] font-semibold mb-3">Mortgage</h2>
       {property.mortgage ? (
@@ -621,11 +697,6 @@ export function PropertyDetailClient({
           No mortgage linked. <button type="button" onClick={() => setEditing(true)} className="text-accent-300 underline">Link a mortgage account</button> to see the amortization schedule.
         </div>
       )}
-
-      {/* Roadmap: the rest of the Stessa-parity module. */}
-      <div className="mt-8 rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-5 text-[12.5px] text-text-muted">
-        Coming next: capital-expense &amp; depreciation tracking (Schedule E line 18).
-      </div>
 
       {editing && <PropertyForm property={property} mortgageOptions={mortgageOptions} onClose={() => setEditing(false)} />}
       {selling && <SellModal property={property} onClose={() => setSelling(false)} />}

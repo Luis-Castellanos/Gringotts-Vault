@@ -5,6 +5,7 @@ import { loadPropertyFinancials } from '@/lib/properties/financials';
 import { loadLeases } from '@/lib/properties/leases';
 import { loadMaintenance } from '@/lib/properties/maintenance';
 import { loadScheduleE } from '@/lib/properties/schedule-e';
+import { loadCapex } from '@/lib/properties/capex';
 import { PropertyDetailClient } from './PropertyDetailClient';
 
 export const dynamic = 'force-dynamic';
@@ -31,11 +32,12 @@ export default async function PropertyPage({
     (x): x is string => !!x,
   );
   const taxYear = seYear && /^\d{4}$/.test(seYear) ? Number(seYear) : new Date().getFullYear();
-  const [financials, leases, maintenance, scheduleE] = await Promise.all([
+  const [financials, leases, maintenance, scheduleE, capex] = await Promise.all([
     loadPropertyFinancials(id, rollupAccounts),
     loadLeases(id),
     loadMaintenance(id),
     loadScheduleE(id, taxYear),
+    loadCapex(id),
   ]);
 
   return (
@@ -47,6 +49,7 @@ export default async function PropertyPage({
         leases={leases}
         maintenance={maintenance}
         scheduleE={scheduleE!}
+        capex={capex}
         mortgageOptions={mortgageOptions}
       />
     </main>

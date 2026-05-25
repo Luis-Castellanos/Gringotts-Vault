@@ -11,6 +11,8 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db/client';
 import { categories, properties, transactions, transactionSplits } from '@/lib/db/schema';
+import { computeDepreciation } from './depreciation';
+import { loadCapex } from './capex';
 
 export type ScheduleELine = { line: number; key: string; label: string; amount: number };
 export type ScheduleE = {
@@ -66,7 +68,14 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export async function loadScheduleE(propertyId: string, year: number): Promise<ScheduleE | null> {
   const [prop] = await db
-    .select({ name: properties.name, mortgageAccountId: properties.mortgageAccountId, escrowAccountId: properties.escrowAccountId })
+    .select({
+      name: properties.name,
+      mortgageAccountId: properties.mortgageAccountId,
+      escrowAccountId: properties.escrowAccountId,
+      acquisitionPrice: properties.acquisitionPrice,
+      acquisitionDate: properties.acquisitionDate,
+      landValuePct: properties.landValuePct,
+    })
     .from(properties)
     .where(eq(properties.id, propertyId))
     .limit(1);
@@ -116,6 +125,18 @@ export async function loadScheduleE(propertyId: string, year: number): Promise<S
   }
   // Split parts (mortgage interest) → line 12.
   for (const s of splits) byKey.set('mortgage_interest', (byKey.get('mortgage_interest') ?? 0) + Math.abs(Number(s.amount)));
+
+  // Depreciation → line 18 (building + capital improvements in service this year).
+  const dep = computeDepreciation(
+    {
+      acquisitionPrice: prop.acquisitionPrice != null ? Number(prop.acquisitionPrice) : null,
+      acquisitionDate: prop.acquisitionDate,
+      landValuePct: prop.landValuePct != null ? Number(prop.landValuePct) : null,
+    },
+    (await loadCapex(propertyId)).map((c) => ({ description: c.description, cost: c.cost, placedInService: c.placedInService, usefulLifeYears: c.usefulLifeYears })),
+    year,
+  );
+  if (dep.annualTotal > 0) byKey.set('depreciation', dep.annualTotal);
 
   const lines = LINE_DEFS.map((d) => ({ ...d, amount: round2(byKey.get(d.key) ?? 0) }));
   const totalExpenses = round2(lines.reduce((s, l) => s + l.amount, 0));

@@ -15,6 +15,7 @@ export const propertySchema = z.object({
   sqft: z.number().int().min(0).max(1_000_000).optional().nullable(),
   acquisitionDate: DATE.optional().nullable(),
   acquisitionPrice: z.number().nonnegative().optional().nullable(),
+  landValuePct: z.number().min(0).max(100).optional().nullable(),
   marketValue: z.number().nonnegative().optional().nullable(),
   imageUrl: z.string().max(2000).optional().nullable(),
   mortgageAccountId: z.string().uuid().optional().nullable(),

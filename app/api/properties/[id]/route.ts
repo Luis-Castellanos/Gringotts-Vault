@@ -35,6 +35,7 @@ export const PATCH = handler(async (req: NextRequest, ctx: { params: Promise<{ i
   if ('sqft' in b) set.sqft = b.sqft ?? null;
   if ('baths' in b) set.baths = b.baths != null ? b.baths.toFixed(1) : null;
   if ('acquisitionPrice' in b) set.acquisitionPrice = b.acquisitionPrice != null ? money(b.acquisitionPrice) : null;
+  if ('landValuePct' in b) set.landValuePct = b.landValuePct != null ? b.landValuePct.toFixed(2) : null;
   if ('marketValue' in b) set.marketValue = b.marketValue != null ? money(b.marketValue) : null;
   if ('soldPrice' in b) set.soldPrice = b.soldPrice != null ? money(b.soldPrice) : null;
 

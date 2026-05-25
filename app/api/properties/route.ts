@@ -41,6 +41,7 @@ export const POST = handler(async (req: NextRequest) => {
       sqft: b.sqft ?? null,
       acquisitionDate: b.acquisitionDate ?? null,
       acquisitionPrice: b.acquisitionPrice != null ? b.acquisitionPrice.toFixed(2) : null,
+      landValuePct: b.landValuePct != null ? b.landValuePct.toFixed(2) : null,
       marketValue: b.marketValue != null ? b.marketValue.toFixed(2) : null,
       imageUrl: b.imageUrl ?? null,
       mortgageAccountId: b.mortgageAccountId ?? null,

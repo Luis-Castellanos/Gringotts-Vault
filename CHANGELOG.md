@@ -2,6 +2,16 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Real Estate Phase 6: capex & depreciation.** New `capex` table
+  (description · cost · placed-in-service date · useful life · notes) + CRUD API
+  (`/api/capex`) and a property `land_value_pct` column. The property detail page
+  gains a **Depreciation** section: 27.5-yr straight-line on the building basis
+  (purchase price minus the land share, default 20%) plus a per-item capex log,
+  each improvement depreciated over its own useful life. `lib/properties/depreciation.ts`
+  computes the schedule; Schedule E now folds the annual depreciation total into
+  line 18, completing IRS Schedule E Part I. The property form gains a **Land value %**
+  input. This closes out the Real Estate module — full Stessa parity (financials,
+  amortization, rent roll, maintenance, Schedule E, capex/depreciation).
 - 2026-05-25 — **Real Estate Phase 5: Schedule E export.** `lib/properties/schedule-e.ts`
   maps a property's attributed income/expenses onto IRS Schedule E (Part I) lines —
   a keyword heuristic over category names (Advertising, Cleaning & maintenance,

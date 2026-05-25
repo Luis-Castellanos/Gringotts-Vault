@@ -52,6 +52,7 @@ export function PropertyForm({
     property?.acquisitionPrice != null ? String(property.acquisitionPrice) : '',
   );
   const [marketValue, setMarketValue] = useState(property?.marketValue != null ? String(property.marketValue) : '');
+  const [landValuePct, setLandValuePct] = useState(property?.landValuePct != null ? String(property.landValuePct) : '');
   const [mortgageAccountId, setMortgageAccountId] = useState(property?.mortgage?.accountId ?? '');
   const [imageUrl, setImageUrl] = useState(property?.imageUrl ?? '');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -86,6 +87,7 @@ export function PropertyForm({
       sqft: numOrNull(sqft),
       acquisitionDate: acquisitionDate || null,
       acquisitionPrice: numOrNull(acquisitionPrice),
+      landValuePct: numOrNull(landValuePct),
       marketValue: numOrNull(marketValue),
       mortgageAccountId: mortgageAccountId || null,
       imageUrl: imageUrl.trim() || null,
@@ -198,6 +200,11 @@ export function PropertyForm({
             <label className={lbl}>
               Market value
               <input className={field} value={marketValue} onChange={(e) => setMarketValue(e.target.value)} inputMode="decimal" placeholder="520000" />
+            </label>
+            <label className={lbl}>
+              Land value %
+              <input className={field} value={landValuePct} onChange={(e) => setLandValuePct(e.target.value)} inputMode="decimal" placeholder="20" />
+              <span className="mt-1 text-[11px] text-text-muted">Non-depreciable land share of the purchase price (default 20%).</span>
             </label>
           </div>
 

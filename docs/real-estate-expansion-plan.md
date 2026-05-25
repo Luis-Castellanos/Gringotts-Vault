@@ -90,8 +90,14 @@ Schedule E worksheet (income, each expense line, depreciation) as Excel/PDF.
    lines, total, net) + **Excel export** (`/api/export/schedule-e?propertyId&year`).
    _Refinements later:_ explicit category→line mapping UI, broader rentals reports
    surface (Income Statement / Net Cash Flow filterable by property/date/interval).
-6. **Capital expenses + depreciation** — capex schedule + straight-line depreciation
-   (27.5-yr residential) feeding Schedule E line 18.
+6. ✅ **Capital expenses + depreciation — shipped 2026-05-25.** New `capex` table
+   + CRUD API (`/api/capex`) and a property `land_value_pct` column. Per-property
+   **Depreciation** section: 27.5-yr straight-line on the building basis (purchase
+   price − land share, default 20%) plus a per-item capex log, each improvement
+   depreciated over its own useful life. `lib/properties/depreciation.ts` computes
+   the schedule; the annual total now feeds **Schedule E line 18** (completing
+   Part I). Form gains a **Land value %** input. **Real Estate module complete —
+   full Stessa parity.**
 
 ## Open decisions for sign-off
 1. **Attribution model** — recommend account-rollup + manual tag (above). OK?

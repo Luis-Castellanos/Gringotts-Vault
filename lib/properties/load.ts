@@ -41,6 +41,7 @@ export type PropertyRow = {
   sqft: number | null;
   acquisitionDate: string | null;
   acquisitionPrice: number | null;
+  landValuePct: number | null;
   marketValue: number | null;
   imageUrl: string | null;
   isActive: boolean;
@@ -175,6 +176,7 @@ export async function loadPortfolio(): Promise<Portfolio> {
       sqft: r.sqft,
       acquisitionDate: r.acquisitionDate,
       acquisitionPrice: num(r.acquisitionPrice),
+      landValuePct: num(r.landValuePct),
       marketValue: num(r.marketValue),
       imageUrl: r.imageUrl,
       isActive: r.isActive,
@@ -237,6 +239,7 @@ export async function loadProperty(
     sqft: row.sqft,
     acquisitionDate: row.acquisitionDate,
     acquisitionPrice: num(row.acquisitionPrice),
+    landValuePct: num(row.landValuePct),
     marketValue: num(row.marketValue),
     imageUrl: row.imageUrl,
     isActive: row.isActive,

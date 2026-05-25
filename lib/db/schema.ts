@@ -176,6 +176,7 @@ export const properties = pgTable(
     sqft: integer('sqft'),
     acquisitionDate: date('acquisition_date'),
     acquisitionPrice: numeric('acquisition_price', { precision: 14, scale: 2 }),
+    landValuePct: numeric('land_value_pct', { precision: 5, scale: 2 }), // land % of basis (non-depreciable); default 20% in calc
     marketValue: numeric('market_value', { precision: 14, scale: 2 }), // current estimate (manual)
     imageUrl: text('image_url'), // display src: an external URL, or /api/properties/[id]/photo for an upload
     image: bytea('image'), // uploaded photo bytes (stored in-DB so it travels with the database)
@@ -251,6 +252,28 @@ export const maintenance = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({ propertyIdx: index('maintenance_property_idx').on(t.propertyId) }),
+);
+
+// ---------------------------------------------------------------------------
+// capex — capital improvements (Real Estate Phase 6). Each item depreciates
+// straight-line over its useful life and feeds Schedule E line 18 alongside the
+// building's depreciation (see lib/properties/depreciation.ts).
+// ---------------------------------------------------------------------------
+
+export const capex = pgTable(
+  'capex',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    propertyId: uuid('property_id').notNull().references(() => properties.id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    cost: numeric('cost', { precision: 14, scale: 2 }).notNull(),
+    placedInService: date('placed_in_service'),
+    usefulLifeYears: integer('useful_life_years').notNull().default(5),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ propertyIdx: index('capex_property_idx').on(t.propertyId) }),
 );
 
 // ---------------------------------------------------------------------------
