@@ -320,3 +320,12 @@ New issuer parsers: `amex_checking` (Rewards Checking), `amex_hysa` (Natl Bank H
 **⚠ Critical: these statements need poppler `-layout`, NOT the bundled Xpdf.** Xpdf mangles their multi-column layouts — it drops Citi's main balance-transfer row, splits BOA merchant names onto separate lines, and misaligns Amex's credit/debit/balance columns. Poppler `-layout` reconstructs all of them cleanly (validated: net flows reconcile to the stated ending/new balance — Amex +$678.52, Citi −$3,894.32, BOA −$360.24).
 
 `extract.py` uses a **hybrid**: Xpdf `-layout` by default (the chase/apple/discover/gain parsers are tuned to it — poppler changes their amounts and crashes `chase_card`), but re-extracts via poppler `-layout` for `POPPLER_LAYOUT_ISSUERS` (the five above). Detection runs on the Xpdf text first (keywords survive any layout), then poppler is used for parsing those issuers. `_poppler_layout()` finds a poppler binary (identified by `-tsv` support, which Xpdf lacks).
+
+## Apple Savings / BOA checking / Ally / Schwab (added 2026-05-25)
+
+More asset-account issuers. All use the **poppler-layout hybrid** (multi-column).
+
+- **`apple_savings`** (Goldman) — detect on "DAILY CASH DEPOSIT" + "GOLDMAN" + "SAVINGS" (the statement text has no literal "Apple"; it mentions JPMorgan Chase via ACH transfers, so without specific markers it wrongly fell through to chase_card). Rows: `MM/DD/YYYY <desc> <amount (deposit $ / withdrawal "- $")> <balance>`. Inline signs → parsed directly. ✅ validated (25 txns).
+- **`boa_checking`** — split from `boa_card` (which `BANK OF AMERICA` alone would have grabbed): checking has "Deposits/Withdrawals and other …" sections, card has "New Balance Total"/"Account Summary/Payment Information". Rows carry inline signs (withdrawals already `-`). ✅ validated.
+- **`ally`** + **`schwab_checking`** — **recognized but DEFERRED** (not ledgered). They print debits in a *separate column with no inline minus*, so deposits parse positive but withdrawals would too — booking them would corrupt the ledger. The fix is **balance-delta signing** (amount = running-balance[i] − [i−1], reset per account in Ally's combined multi-account statement). `parse_ally` / `parse_schwab_checking` exist (deposits correct) but are out of PARSERS pending that. Schwab also has a statement-period year bug to fix (2021 stmts dated 2026). Detect: Ally = "ALLY BANK"+"CUSTOMER STATEMENT"; Schwab = "SCHWAB BANK"/"CHARLES SCHWAB".
+- **Wealthfront** = Green Dot Bank cash account — not yet built (format TBD).

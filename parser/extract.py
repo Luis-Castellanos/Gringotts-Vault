@@ -52,7 +52,8 @@ from parse_statements import (  # noqa: E402
 # poppler -layout reconstructs cleanly. The existing parsers (chase/apple/
 # discover/gain) are tuned to Xpdf and stay on it; only these re-extract via
 # poppler for parsing.
-POPPLER_LAYOUT_ISSUERS = {"amex_checking", "amex_hysa", "citi_card", "boa_card", "capital_one"}
+POPPLER_LAYOUT_ISSUERS = {"amex_checking", "amex_hysa", "citi_card", "boa_card", "capital_one",
+                          "apple_savings", "boa_checking", "schwab_checking", "ally"}
 
 
 def _poppler_candidates():
@@ -115,6 +116,10 @@ ISSUER_TYPE = {
     "amex_checking": "bank",
     "amex_hysa": "bank",
     "capital_one": "bank",
+    "apple_savings": "bank",
+    "boa_checking": "bank",
+    "schwab_checking": "bank",
+    "ally": "bank",
     "citi_card": "credit_card",
     "boa_card": "credit_card",
     "jpm_investment": "investment",
@@ -128,7 +133,7 @@ ISSUER_TYPE = {
 
 # Recognized but not auto-ledgered yet (the money movement is captured on the
 # checking side; ledgering loan balances needs a balance-model decision).
-DEFERRED_ISSUERS = {"chase_mortgage", "chase_auto"}
+DEFERRED_ISSUERS = {"chase_mortgage", "chase_auto", "ally", "schwab_checking"}
 
 
 def _iso(d):

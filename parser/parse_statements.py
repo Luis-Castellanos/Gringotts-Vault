@@ -67,7 +67,16 @@ def detect_issuer(text: str) -> str:
         return "citi_card"
     if "CAPITAL ONE 360" in body or ("CAPITAL ONE" in body and "CAPITALONE.COM" in body):
         return "capital_one"
+    if "DAILY CASH DEPOSIT" in body and "GOLDMAN" in body and "SAVINGS" in body and "APPLE CARD" not in head:
+        return "apple_savings"
+    if ("ALLY BANK" in body or "ALLY.COM" in body) and ("CUSTOMER STATEMENT" in body or "ENDING BALANCE" in body):
+        return "ally"
+    if "SCHWAB BANK" in body or "CHARLES SCHWAB" in body:
+        return "schwab_checking"
     if "BANK OF AMERICA" in body or "BANKOFAMERICA.COM" in body:
+        # Checking vs credit card — distinct sections.
+        if "DEPOSITS AND OTHER ADDITIONS" in body or "WITHDRAWALS AND OTHER SUBTRACTIONS" in body:
+            return "boa_checking"
         return "boa_card"
     # Chase loan statements (mortgage / auto) — check before the Chase
     # deposit/card branches, which would otherwise claim them on "Chase" alone.
@@ -144,6 +153,17 @@ def derive_account_info(filename: str, issuer: str, text: str = "") -> tuple[str
         "discover": "Discover",
         "gain_fcu": "Gain FCU",
         "jpm_investment": "JPM Investment",
+        "amex_checking": "Amex Checking",
+        "amex_hysa": "Amex HYSA",
+        "citi_card": "Citi",
+        "capital_one": "Capital One",
+        "boa_card": "BOA Card",
+        "boa_checking": "Bank of America",
+        "apple_savings": "Apple Savings",
+        "schwab_checking": "Schwab Checking",
+        "ally": "Ally",
+        "chase_mortgage": "Chase Mortgage",
+        "chase_auto": "Chase Auto",
         "unknown": "Unknown",
     }.get(issuer, issuer)
 
@@ -995,6 +1015,121 @@ def parse_capital_one(text: str):
     return txns, stmt_str
 
 
+def parse_apple_savings(text: str):
+    """Apple Savings (Goldman). Rows: `MM/DD/YYYY <desc> <amount (deposit $ /
+    withdrawal - $)>  <running balance>`."""
+    txns = []
+    pm = re.search(r"([A-Z][a-z]{2} \d{1,2}, \d{4})\s*[-–]\s*([A-Z][a-z]{2} \d{1,2}, \d{4})", text)
+    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
+    amt_re = re.compile(r"-\s?\$[\d,]+\.\d{2}|\$[\d,]+\.\d{2}")
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(r"(\d{2}/\d{2}/\d{4})\s+(.+)", s)
+        if not m:
+            continue
+        rest = m.group(2)
+        low = rest.lower()
+        if "opening balance" in low or "closing balance" in low or "ending balance" in low:
+            continue
+        hits = list(amt_re.finditer(rest))
+        if len(hits) < 2:
+            continue
+        amount = _smoney(hits[0].group())
+        balance = _smoney(hits[-1].group())
+        if amount is None or balance is None:
+            continue
+        desc = rest[: hits[0].start()].strip()
+        txns.append({"date": _iso_mdy(m.group(1)), "source": desc, "amount": round(amount, 2), "balance": round(balance, 2)})
+    return txns, stmt_str
+
+
+def parse_boa_checking(text: str):
+    """Bank of America checking. Rows: `MM/DD/YY <desc> <amount>` — deposits
+    print positive, withdrawals already carry a leading minus, so the row's
+    signed amount is used directly (positive = money in)."""
+    txns = []
+    pm = re.search(r"(\w+ \d{1,2}, \d{4})\s+to\s+(\w+ \d{1,2}, \d{4})", text)
+    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(r"(\d{2})/(\d{2})/(\d{2})\s+(.+?)\s+(-?[\d,]+\.\d{2})\s*$", s)
+        if not m:
+            continue
+        desc = m.group(4).strip()
+        low = desc.lower()
+        if low.startswith(("total ", "beginning balance", "ending balance")):
+            continue
+        amount = _smoney(m.group(5))
+        if amount is None:
+            continue
+        txns.append({"date": f"20{m.group(3)}-{m.group(1)}-{m.group(2)}", "source": desc, "amount": round(amount, 2), "balance": None})
+    return txns, stmt_str
+
+
+def _stmt_year_range(text: str):
+    """(start_year, end_year, start_month, end_month) from a 'Month D, YYYY to
+    Month D, YYYY' period, for MM/DD rows that omit the year."""
+    m = re.search(r"(\w+) \d{1,2}, (\d{4})\s+to\s+(\w+) \d{1,2}, (\d{4})", text)
+    if not m:
+        return None
+    sm = MONTHS.get(m.group(1).upper()[:3]) or MONTHS.get(m.group(1).upper())
+    em = MONTHS.get(m.group(3).upper()[:3]) or MONTHS.get(m.group(3).upper())
+    return int(m.group(2)), int(m.group(4)), sm or 1, em or 12
+
+
+def parse_schwab_checking(text: str):
+    """Schwab Bank checking. Rows: `MM/DD <desc> <amount> <running balance>`
+    (MM/DD omits the year — taken from the statement period)."""
+    txns = []
+    yr = _stmt_year_range(text)
+    pm = re.search(r"(\w+ \d{1,2}, \d{4})\s+to\s+(\w+ \d{1,2}, \d{4})", text)
+    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(r"(\d{1,2})/(\d{1,2})\s+([A-Za-z].+?)\s+(-?\$?[\d,]+\.\d{2})(?:\s+(-?\$?[\d,]+\.\d{2}))?\s*$", s)
+        if not m:
+            continue
+        low = m.group(3).lower()
+        if low.startswith(("beginning balance", "ending balance", "total ", "interest")):
+            continue
+        amount = _smoney(m.group(4))
+        if amount is None:
+            continue
+        bal = _smoney(m.group(5)) if m.group(5) else None
+        year = assign_year(int(m.group(1)), yr[0], yr[1], yr[2], yr[3]) if yr else datetime.now().year
+        txns.append({"date": f"{year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}", "source": m.group(3).strip(), "amount": round(amount, 2), "balance": round(bal, 2) if bal is not None else None})
+    return txns, stmt_str
+
+
+def parse_ally(text: str):
+    """Ally Bank combined customer statement (savings + checking in one PDF).
+    Rows: `MM/DD/YYYY <desc> <amount> <running balance>`. Deposits print
+    positive, withdrawals negative."""
+    txns = []
+    pm = re.search(r"(\d{2}/\d{2}/\d{4})\s+thru\s+(\d{2}/\d{2}/\d{4})", text, re.IGNORECASE)
+    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
+    amt_re = re.compile(r"-?\$[\d,]+\.\d{2}")
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(r"(\d{2}/\d{2}/\d{4})\s+(.+)", s)
+        if not m:
+            continue
+        rest = m.group(2)
+        low = rest.lower()
+        if "beginning balance" in low or "ending balance" in low or low.startswith("total "):
+            continue
+        hits = amt_re.findall(rest)
+        if len(hits) < 2:
+            continue
+        amount = _smoney(hits[0])
+        balance = _smoney(hits[-1])
+        if amount is None or balance is None:
+            continue
+        desc = rest[: rest.find(hits[0])].strip()
+        txns.append({"date": _iso_mdy(m.group(1)), "source": desc, "amount": round(amount, 2), "balance": round(balance, 2)})
+    return txns, stmt_str
+
+
 PARSERS = {
     "apple_card": parse_apple_card,
     "chase_checking": parse_chase_checking,
@@ -1005,7 +1140,12 @@ PARSERS = {
     "amex_hysa": parse_amex_hysa,
     "citi_card": parse_citi_card,
     "boa_card": parse_boa_card,
+    "boa_checking": parse_boa_checking,
     "capital_one": parse_capital_one,
+    "apple_savings": parse_apple_savings,
+    # ally + schwab_checking are recognized but deferred in parse_one (need
+    # balance-delta signing); parse_ally / parse_schwab_checking are kept above
+    # for when that lands.
 }
 
 
@@ -1141,6 +1281,12 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
         return [], s.pop("_stmt", ""), "chase_mortgage", s
     if issuer == "chase_auto":
         return [], "", "chase_auto", dict(_EMPTY_SUMMARY)
+    # Ally (combined multi-account) + Schwab print debits in a separate column
+    # without an inline minus, so the signed amount must come from the running
+    # balance delta (not yet implemented) — recognize but don't ledger, to avoid
+    # booking withdrawals as deposits. Deposits-only parsing would be half-wrong.
+    if issuer in ("ally", "schwab_checking"):
+        return [], "", issuer, dict(_EMPTY_SUMMARY)
 
     if issuer == "apple_card" and pdf_path:
         txns, stmt_str = parse_apple_card_pdfplumber(pdf_path)
