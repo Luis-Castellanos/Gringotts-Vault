@@ -27,6 +27,7 @@ Failure:
     {"ok": false, "error": "..."}   (exit code 1)
 """
 
+import glob
 import json
 import os
 import subprocess
@@ -38,6 +39,32 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from parse_statements import parse_one, detect_paystub, parse_paystub  # noqa: E402
+
+
+def _tsv_text(pdf_path):
+    """Return `pdftotext -tsv` output (per-word coordinates) for the paystub
+    coordinate parser. The PATH pdftotext may be Xpdf (no -tsv), so try a
+    poppler binary: PDFTOTEXT_BIN override, then PATH, then common install
+    locations. Returns "" if none can emit TSV (parser falls back to text)."""
+    candidates = []
+    for env in ("PDFTOTEXT_TSV_BIN", "PDFTOTEXT_BIN", "POPPLER_PDFTOTEXT"):
+        if os.environ.get(env):
+            candidates.append(os.environ[env])
+    candidates.append("pdftotext")  # PATH — poppler if installed
+    candidates += glob.glob(os.path.expanduser(
+        "~/AppData/Local/Microsoft/WinGet/Packages/*Poppler*/poppler-*/Library/bin/pdftotext.exe"))
+    candidates += [
+        r"C:\Program Files\poppler\Library\bin\pdftotext.exe",
+        "/usr/bin/pdftotext", "/usr/local/bin/pdftotext", "/opt/homebrew/bin/pdftotext",
+    ]
+    for c in candidates:
+        try:
+            r = subprocess.run([c, "-tsv", pdf_path, "-"], capture_output=True, text=True, encoding="utf-8")
+        except (OSError, ValueError):
+            continue
+        if r.returncode == 0 and r.stdout.startswith("level\tpage_num"):
+            return r.stdout
+    return ""
 
 # Coarse type the router reports for each issuer. The DB account *type* is
 # inferred separately during ingest; this is just metadata for the Files page.
@@ -85,22 +112,11 @@ def main():
         )
         text = Path(tmp_txt).read_text(encoding="utf-8", errors="replace")
         if detect_paystub(text):
-            # Paystub line items extract far more reliably from the reading-order
-            # text (no -layout), where each section's labels collapse onto one
-            # line. Run a second pass and hand both to parse_paystub.
-            raw_text = ""
-            try:
-                fd2, tmp_raw = tempfile.mkstemp(suffix=".raw.txt")
-                os.close(fd2)
-                subprocess.run(
-                    ["pdftotext", "-enc", "UTF-8", pdf_path, tmp_raw],
-                    check=True, capture_output=True,
-                )
-                raw_text = Path(tmp_raw).read_text(encoding="utf-8", errors="replace")
-                os.remove(tmp_raw)
-            except Exception:
-                pass
-            ps = parse_paystub(text, raw_text)
+            # Paystubs are a dense two-column form whose blocks reflow with
+            # content; coordinate-based parsing (pdftotext -tsv) is far more
+            # reliable than flat text. Pass both — parse_paystub uses TSV when
+            # available and falls back to the -layout text otherwise.
+            ps = parse_paystub(text, _tsv_text(pdf_path))
             print(json.dumps({
                 "ok": True,
                 "issuer": "paystub",
