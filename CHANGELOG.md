@@ -2,6 +2,16 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Investments groundwork: holdings schema + market-data seam.** Data
+  strategy locked: holdings come from the brokerage-statement **parser**; market
+  value + index benchmarks come from a **live feed**. Added the `holdings` table
+  (the parser's write target: account · symbol · asset class · quantity · cost
+  basis · statement price/value · as-of) and `lib/market/quotes.ts` — a
+  provider-agnostic quotes/series/benchmark service (default **Twelve Data**,
+  swappable; key via Settings `market_data_key` or `MARKET_DATA_KEY`; cached for
+  rate limits; benchmark via SPY ETF proxy; degrades to statement values when
+  unconfigured). The rich Investments UI (holdings, gain/loss, asset allocation,
+  benchmark overlay) lights up once the parser emits holdings + a key is set.
 - 2026-05-25 — **Real Estate Phase 2: return metrics.** The property detail gains a
   **Returns (trailing 12 months)** section — **NOI** (income − operating expenses,
   excluding debt service), **Cap rate** (NOI ÷ value), **Cash-on-cash**, and **DSCR**.

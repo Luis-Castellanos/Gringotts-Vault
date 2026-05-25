@@ -465,6 +465,36 @@ export const transactions = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// holdings — investment positions, the target the brokerage-statement parser
+// writes into (Investments page). Market value + benchmarks come from a live
+// market-data feed (lib/market/quotes.ts), not stored here; statement_price /
+// statement_value are the as-reported fallback when no live price is available.
+// ---------------------------------------------------------------------------
+
+export const holdings = pgTable(
+  'holdings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+    symbol: text('symbol'), // ticker (null for cash / unlisted)
+    name: text('name').notNull(),
+    assetClass: text('asset_class').notNull().default('equity'), // equity/etf/mutual_fund/bond/cash/crypto/option/other
+    quantity: numeric('quantity', { precision: 20, scale: 6 }),
+    costBasis: numeric('cost_basis', { precision: 14, scale: 2 }), // total, if known
+    statementPrice: numeric('statement_price', { precision: 14, scale: 4 }),
+    statementValue: numeric('statement_value', { precision: 14, scale: 2 }),
+    asOf: date('as_of'), // statement date this position is from
+    importId: uuid('import_id').references(() => imports.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    accountIdx: index('holdings_account_idx').on(t.accountId),
+    symbolIdx: index('holdings_symbol_idx').on(t.symbol),
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // transaction_splits — break one transaction into categorized parts.
 //
 // The parent transaction's `amount` is left untouched, so account balances are
