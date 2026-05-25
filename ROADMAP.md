@@ -358,15 +358,25 @@ Ideas for later, in no particular order. May or may not get built.
   `docs/real-estate-expansion-plan.md` (all 6 phases marked shipped).
 
 - [ ] Tags as a cross-cutting label system (separate from categories)
-- [ ] **Forecasting** — Projection Labs-style scenario modeling (portfolio growth,
-  retirement, savings rate, what-ifs). Placeholder for now; Projection Labs change
-  log PDF captured as scoping reference.
-- [ ] Anomaly detection ("this category is 3x last month, FYI")
-- [ ] Custom report builder (saved queries, parameterized views)
-- [ ] CSV/PDF export
-- [ ] **Tax engine** — tax-prep-lite tailored to a single accountant's actual
-  return. Build vs integrate Aiwyn's tax engine is an open question; annual rules
-  updates required either way. Year-end summary view falls out of this naturally.
+- [~] **Forecasting** — **first pass shipped 2026-05-25** (`/forecasting`, out of
+  "Not started"). Interactive net-worth/retirement projection: current net worth +
+  trailing-12mo savings seed adjustable scenario inputs (monthly contribution,
+  return %, inflation %, annual raise, horizon) → nominal + real (today's-$)
+  trajectory, FI number (25× expenses), FI year, $-milestones. `lib/forecasting/
+  {load,project}.ts`. _Later:_ Monte Carlo, per-event scenarios (raise/kid/home),
+  inflation toggle UI.
+- [x] **Anomaly detection** — shipped (Reports → Anomalies tab).
+- [x] **Custom report builder** — shipped (Reports → Custom tab; saved queries).
+- [x] CSV/PDF export — Excel export shipped (Reports, Schedule E, Settings).
+- [~] **Tax engine** — **first pass shipped 2026-05-25** (`/tax`, out of "Not
+  started"). Build-vs-integrate RESOLVED: Aiwyn's tax engine is **MCP-only** (no
+  runtime API the app can call — its public REST API is billing/practice-mgmt
+  only), so the app does a native **year-end summary** — W-2 wages + withholding
+  from paystubs, investment income + itemizable deductions from transactions, and
+  a federal liability estimate (`lib/tax/brackets.ts`, 2024/2025 brackets +
+  standard deduction by filing status). Aiwyn prepares an *actual* return
+  interactively via Claude. _Later:_ quarterly estimates, cap-gains worksheet,
+  state tax, credits; add each year's brackets every January.
 - [~] **Investment analysis** — **first pass shipped 2026-05-25** (`/investments`,
   moved to "Under development"): total portfolio value + value-over-time area
   chart (Fidelity-style) from transaction history, per-account balances with
