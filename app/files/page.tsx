@@ -43,6 +43,19 @@ export default async function FilesPage() {
     .where(eq(accountTypes.isArchived, false))
     .orderBy(asc(accountTypes.sortOrder));
 
+  // All accounts — for the per-row account picker.
+  const allAccounts = await db
+    .select({ id: accounts.id, label: accounts.displayName, number: accounts.accountNumber, institution: accounts.institution, type: accounts.type })
+    .from(accounts)
+    .orderBy(asc(accounts.displayName));
+  const accountOptions = allAccounts.map((a) => ({
+    value: a.id,
+    label: a.label,
+    last4: a.number ?? null,
+    institution: a.institution ?? null,
+    type: a.type,
+  }));
+
   const rows: FileRow[] = docs.map((d) => {
     const accountId = d.accountIds?.[0] ?? null;
     const acct = accountId ? acctMap.get(accountId) : undefined;
@@ -69,7 +82,7 @@ export default async function FilesPage() {
       <Sidebar />
       <div className="flex-1 flex justify-center">
         <main className="w-full max-w-[1400px] px-10 pt-8 pb-20">
-          <FilesClient rows={rows} typeOptions={typeOptions} />
+          <FilesClient rows={rows} typeOptions={typeOptions} accountOptions={accountOptions} />
         </main>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { IconSearch, IconUpload } from '@/components/nav-icons';
 import { faviconUrl, instDomain, instInitials } from '@/lib/institution-logo';
+import { Select } from '@/components/Select';
 
 export type FileRow = {
   id: string;
@@ -114,12 +115,16 @@ function TrashIcon() {
   );
 }
 
+type AccountOption = { value: string; label: string; last4: string | null; institution: string | null; type: string };
+
 export function FilesClient({
   rows: initialRows,
   typeOptions,
+  accountOptions,
 }: {
   rows: FileRow[];
   typeOptions: { slug: string; label: string }[];
+  accountOptions: AccountOption[];
 }) {
   const [rows, setRows] = useState<FileRow[]>(initialRows);
   const [confirm, setConfirm] = useState<FileRow | null>(null);
@@ -128,6 +133,12 @@ export function FilesClient({
   const [w, setW] = useState(DEFAULT_W);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'uploaded', dir: 'desc' });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const acctById = useMemo(() => new Map(accountOptions.map((a) => [a.value, a])), [accountOptions]);
+  const acctSelectOptions = useMemo(() => accountOptions.map((a) => ({ value: a.value, label: a.label })), [accountOptions]);
+  const typeSelectOptions = useMemo(() => typeOptions.map((o) => ({ value: o.slug, label: o.label })), [typeOptions]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -168,8 +179,65 @@ export function FilesClient({
   }, [w]);
 
   const gridStyle = {
-    gridTemplateColumns: `minmax(160px,1fr) ${w.type}px ${w.account}px ${w.period}px ${w.txns}px ${w.status}px ${w.uploaded}px 44px`,
+    gridTemplateColumns: `34px minmax(160px,1fr) ${w.type}px ${w.account}px ${w.period}px ${w.txns}px ${w.status}px ${w.uploaded}px 44px`,
   };
+
+  function applyAccountLocal(rowId: string, accountId: string) {
+    const opt = acctById.get(accountId);
+    setRows((rs) => rs.map((r) => (r.id === rowId
+      ? { ...r, accountId, institution: opt?.institution ?? null, last4: opt?.last4 ?? null, accountType: opt?.type ?? r.accountType }
+      : r)));
+  }
+  async function reassignAccount(row: FileRow, accountId: string) {
+    if (!accountId || accountId === row.accountId) return;
+    const prev = { accountId: row.accountId, institution: row.institution, last4: row.last4, accountType: row.accountType };
+    applyAccountLocal(row.id, accountId);
+    setError(null);
+    const res = await fetch(`/api/documents/${row.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (json.error) {
+      setError(json.error.message ?? 'Could not reassign account.');
+      setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, ...prev } : r)));
+    }
+  }
+
+  const allVisibleSelected = visible.length > 0 && visible.every((r) => selected.has(r.id));
+  function toggleSelectAll() {
+    setSelected(() => (allVisibleSelected ? new Set() : new Set(visible.map((r) => r.id))));
+  }
+  function toggleSelect(id: string) {
+    setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  const selectedRows = () => rows.filter((r) => selected.has(r.id));
+
+  async function bulkSetType(slug: string) {
+    setBulkBusy(true); setError(null);
+    for (const r of selectedRows()) {
+      if (!r.accountId) continue;
+      setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, accountType: slug } : x)));
+      await fetch(`/api/accounts/${r.accountId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: slug }) });
+    }
+    setBulkBusy(false);
+  }
+  async function bulkSetAccount(accountId: string) {
+    setBulkBusy(true); setError(null);
+    for (const r of selectedRows()) {
+      applyAccountLocal(r.id, accountId);
+      await fetch(`/api/documents/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId }) });
+    }
+    setBulkBusy(false);
+  }
+  async function bulkRemove() {
+    const n = selected.size;
+    if (!window.confirm(`Remove ${n} file${n === 1 ? '' : 's'}? The imported transactions are kept.`)) return;
+    setBulkBusy(true); setError(null);
+    for (const id of [...selected]) await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+    setRows((rs) => rs.filter((r) => !selected.has(r.id)));
+    setSelected(new Set());
+    setBulkBusy(false);
+  }
 
   function startResize(e: React.PointerEvent, key: ColKey) {
     e.preventDefault();
@@ -303,11 +371,32 @@ export function FilesClient({
               />
             </div>
           </div>
+          {selected.size > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-accent-border bg-accent-soft px-4 py-2.5">
+              <span className="text-[13px] font-medium text-text-primary">{selected.size} selected</span>
+              <div className="flex items-center gap-2 text-[12px] text-text-tertiary">
+                <span>Set type</span>
+                <Select value="" onChange={bulkSetType} options={typeSelectOptions} className="vsel-sm" placeholder="Choose…" ariaLabel="Set type for selected" />
+                <span>· account</span>
+                <Select value="" onChange={bulkSetAccount} options={acctSelectOptions} className="vsel-sm" placeholder="Choose…" ariaLabel="Set account for selected" />
+              </div>
+              <div className="flex-1" />
+              <button type="button" onClick={bulkRemove} disabled={bulkBusy} className="rounded-md border border-negative/30 text-negative hover:bg-negative/10 text-[12px] font-medium px-3 py-1.5 transition-colors disabled:opacity-50">
+                Remove
+              </button>
+              <button type="button" onClick={() => setSelected(new Set())} className="text-[12px] text-text-tertiary hover:text-text-primary transition-colors">
+                Clear
+              </button>
+            </div>
+          )}
           <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden">
           <div
             style={gridStyle}
             className="grid gap-3 px-4 py-2.5 border-b border-border-subtle text-[10.5px] font-semibold uppercase tracking-[0.07em] text-text-muted text-center"
           >
+            <div className="flex items-center justify-center">
+              <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} aria-label="Select all" style={{ accentColor: 'var(--color-accent-500)' }} />
+            </div>
             <button type="button" onClick={() => toggleSort('fileName')} className="inline-flex items-center gap-1 text-left uppercase hover:text-text-secondary transition-colors">File Name {caret('fileName')}</button>
             <div className="relative"><button type="button" onClick={() => toggleSort('type')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Type {caret('type')}</button>{handle('type')}</div>
             <div className="relative"><button type="button" onClick={() => toggleSort('account')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Account {caret('account')}</button>{handle('account')}</div>
@@ -324,6 +413,15 @@ export function FilesClient({
                 style={gridStyle}
                 className="grid gap-3 px-4 py-3 border-t border-border-subtle items-center text-[13px] text-center first:border-t-0"
               >
+                <div className="flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(r.id)}
+                    onChange={() => toggleSelect(r.id)}
+                    aria-label={`Select ${r.fileName}`}
+                    style={{ accentColor: 'var(--color-accent-500)' }}
+                  />
+                </div>
                 <a
                   href={`/api/documents/${r.id}`}
                   target="_blank"
@@ -333,21 +431,9 @@ export function FilesClient({
                 >
                   {r.fileName}
                 </a>
-                <div className="min-w-0">
+                <div className="flex justify-center min-w-0">
                   {r.accountId ? (
-                    <select
-                      value={r.accountType ?? ''}
-                      onChange={(e) => changeType(r, e.target.value)}
-                      className="mx-auto max-w-full rounded-md border border-border-subtle bg-surface-1 px-1.5 py-0.5 text-[12px] text-text-secondary focus:outline-none focus:border-border-strong"
-                      title="Account type — changing this re-types the account"
-                    >
-                      {r.accountType && !typeOptions.some((o) => o.slug === r.accountType) && (
-                        <option value={r.accountType}>{r.accountType}</option>
-                      )}
-                      {typeOptions.map((o) => (
-                        <option key={o.slug} value={o.slug}>{o.label}</option>
-                      ))}
-                    </select>
+                    <Select value={r.accountType ?? ''} onChange={(v) => changeType(r, v)} options={typeSelectOptions} className="vsel-sm" ariaLabel="Account type" />
                   ) : (
                     <span className="text-text-secondary truncate" title={r.detectedIssuer ?? undefined}>
                       {TYPE_LABEL[r.detectedType] ?? r.detectedType}
@@ -355,21 +441,8 @@ export function FilesClient({
                   )}
                 </div>
                 <div className="flex items-center justify-center gap-1.5 min-w-0">
-                  {r.last4 || r.institution ? (
-                    r.accountId ? (
-                      <Link href={`/accounts/${r.accountId}`} className="flex items-center gap-1.5 hover:text-accent-500 transition-colors min-w-0">
-                        <InstLogo institution={r.institution ?? ''} />
-                        <span className="text-text-secondary truncate">{r.last4 ? `····${r.last4}` : r.institution}</span>
-                      </Link>
-                    ) : (
-                      <>
-                        <InstLogo institution={r.institution ?? ''} />
-                        <span className="text-text-secondary truncate">{r.last4 ? `····${r.last4}` : r.institution}</span>
-                      </>
-                    )
-                  ) : (
-                    <span className="text-text-muted">—</span>
-                  )}
+                  {(r.institution || r.last4) && <InstLogo institution={r.institution ?? ''} />}
+                  <Select value={r.accountId ?? ''} onChange={(v) => reassignAccount(r, v)} options={acctSelectOptions} className="vsel-sm min-w-0" ariaLabel="Account" placeholder="Unassigned" />
                 </div>
                 <div className="text-text-tertiary tabular-nums truncate" title={r.statementPeriod ?? undefined}>
                   {r.statementPeriod ?? '—'}
