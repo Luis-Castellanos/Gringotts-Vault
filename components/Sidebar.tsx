@@ -78,8 +78,10 @@ const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'Under development',
     items: [
+      { href: '/', label: 'Dashboard', Icon: IconDashboard },
       { href: '/net-worth', label: 'Net Worth', Icon: IconNetWorth },
       { href: '/cashflow', label: 'Cashflow', Icon: IconCashflow },
+      { href: '/reports', label: 'Reports', Icon: IconReports },
       { href: '/transfers', label: 'Transfers', Icon: IconTransfers },
       { href: '/rentals', label: 'Real Estate', Icon: IconRentals },
     ],
@@ -101,8 +103,6 @@ const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'Not started',
     items: [
-      { href: '/', label: 'Dashboard', Icon: IconDashboard },
-      { href: '/reports', label: 'Reports', Icon: IconReports },
       { href: '/investments', label: 'Investments', Icon: IconInvestments },
       { href: '/tax', label: 'Tax', Icon: IconTax },
       { href: '/forecasting', label: 'Forecasting', Icon: IconForecasting },

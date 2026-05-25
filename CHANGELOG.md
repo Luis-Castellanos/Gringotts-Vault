@@ -2,6 +2,12 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Reports (first pass).** `/reports` is now a year-end summary
+  instead of a placeholder: a year picker (URL-driven via `?year=`), summary tiles
+  (income / spending / net / savings rate), a monthly income-vs-spending bar chart,
+  and income-by-source + spending-by-category breakdowns with tinted bars.
+  `lib/reports/load.ts` aggregates the year (transfers excluded). Export links to
+  Settings for now. Sidebar: Dashboard + Reports moved to "Under development".
 - 2026-05-25 — **Dashboard (first pass).** The default landing page (`/`) is now
   real instead of a placeholder: net-worth headline + 30-day delta + an SVG area
   sparkline of the cumulative net-worth series; this-month cashflow tiles (income
