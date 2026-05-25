@@ -34,6 +34,7 @@ import {
   IconSettings,
   IconTax,
   IconTransactions,
+  IconTransfers,
   IconUpload,
 } from './nav-icons';
 
@@ -53,7 +54,8 @@ type NavHref =
   | '/forecasting'
   | '/categories'
   | '/upload'
-  | '/files';
+  | '/files'
+  | '/transfers';
 
 type NavItem = {
   href: NavHref;
@@ -78,6 +80,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: '/net-worth', label: 'Net Worth', Icon: IconNetWorth },
       { href: '/cashflow', label: 'Cashflow', Icon: IconCashflow },
+      { href: '/transfers', label: 'Transfers', Icon: IconTransfers },
     ],
   },
   {

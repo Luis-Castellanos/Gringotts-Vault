@@ -45,6 +45,15 @@ export function IconCategories({ className, size = 18 }: IconProps) {
   );
 }
 
+export function IconTransfers({ className, size = 18 }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <path d="M7 4v13M7 4L4 7M7 4l3 3" />
+      <path d="M17 20V7M17 20l-3-3M17 20l3-3" />
+    </svg>
+  );
+}
+
 export function IconUpload({ className, size = 18 }: IconProps) {
   return (
     <svg {...base(size, className)}>
