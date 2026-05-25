@@ -472,7 +472,7 @@ function AllStubsView({
   const filters: YearFilter[] = ['all', ...years];
 
   return (
-    <>
+    <div className="stubs-wrap">
       <div className="stub-bar">
         <div className="stub-bar-l">
           <div className="stub-date">All pay stubs</div>
@@ -518,7 +518,6 @@ function AllStubsView({
               <div key={s.id} className="stub-list-row" onClick={() => onJumpToStub(s.id)}>
                 <div className="col-date">
                   <span className="d">{fmtDate(s.date)}</span>
-                  <span className="v">{s.voucher}</span>
                 </div>
                 <div className="col-period">
                   <span className="p">{s.period}</span>
@@ -530,7 +529,7 @@ function AllStubsView({
                     </span>
                   ))}
                 </div>
-                <div className="amt muted">{fmtMoney(s.gross)}</div>
+                <div className="amt gross">{fmtMoney(s.gross)}</div>
                 <div className="amt col-change">
                   {delta !== 0 ? (
                     <span className={'mom-chip ' + (delta > 0 ? 'up' : 'down')}>
@@ -561,7 +560,7 @@ function AllStubsView({
             </div>
             <div className="col-period" />
             <div className="col-events" />
-            <div className="amt muted">{fmtMoney(rows.reduce((a, s) => a + s.gross, 0))}</div>
+            <div className="amt gross">{fmtMoney(rows.reduce((a, s) => a + s.gross, 0))}</div>
             <div className="amt col-change" />
             <div className="amt blue">{fmtMoney(rows.reduce((a, s) => a + s.deductionsTotal, 0))}</div>
             <div className="amt red">{fmtMoney(rows.reduce((a, s) => a + s.taxesTotal, 0))}</div>

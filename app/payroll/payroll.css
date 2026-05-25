@@ -211,9 +211,9 @@
   .pill.amber  { background: var(--amber-tint);  color: var(--amber-text); }
   .evt-chip {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 2px 7px;
+    padding: 3px 9px;
     border-radius: 999px;
-    font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
     line-height: 1.3;
   }
   .evt-chip.green  { background: var(--green-tint);  color: var(--green-text); }
@@ -513,16 +513,18 @@
 
   /* ─── All-stubs list ───────────────────────────────── */
   .stubs-list { padding: 0; }
-  /* Compact, content-hugging table: the card shrink-wraps the columns rather
-     than stretching across the page. */
-  .stubs-list { width: fit-content; max-width: 100%; }
+  /* Compact, content-hugging table. The wrapper shrink-wraps to the table
+     width so the year tabs above (in .stub-bar) line up with the table's
+     right edge instead of stretching to the page edge. */
+  .stubs-wrap { width: max-content; max-width: 100%; }
+  .stubs-list { width: 100%; }
   .stubs-list-hd {
     display: grid;
-    grid-template-columns: 112px 150px 104px 90px 82px 94px 84px 98px;
-    gap: 10px;
-    padding: 10px 16px;
+    grid-template-columns: 118px 178px 116px 100px 90px 110px 96px 112px;
+    gap: 12px;
+    padding: 12px 18px;
     border-bottom: 1px solid var(--line);
-    font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
     color: var(--text-3);
     text-align: center;
   }
@@ -530,9 +532,9 @@
   .stubs-list-body { display: flex; flex-direction: column; }
   .stub-list-row {
     display: grid;
-    grid-template-columns: 112px 150px 104px 90px 82px 94px 84px 98px;
-    gap: 10px;
-    padding: 12px 16px;
+    grid-template-columns: 118px 178px 116px 100px 90px 110px 96px 112px;
+    gap: 12px;
+    padding: 15px 18px;
     border-top: 1px solid var(--line);
     align-items: center;
     cursor: pointer;
@@ -544,31 +546,32 @@
     display: flex; flex-direction: column; gap: 1px;
   }
   .stub-list-row .col-date .d {
-    font-size: 14px; font-weight: 600; color: var(--text-1); letter-spacing: -0.005em;
+    font-size: 15.5px; font-weight: 600; color: var(--text-1); letter-spacing: -0.005em;
   }
-  .stub-list-row .col-date .v { font-size: 11px; color: var(--text-3); }
   .stub-list-row .col-period {
     display: flex; flex-direction: column; gap: 2px;
     overflow: hidden;
   }
+  /* Period reads in the same weight/color/size as the Date. */
   .stub-list-row .col-period .p {
-    font-size: 13px; color: var(--text-2);
+    font-size: 15.5px; font-weight: 600; color: var(--text-1); letter-spacing: -0.005em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  .stub-list-row .col-events { justify-content: center; }
   .stub-list-row .col-events {
     display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
   }
-  .stub-list-row .col-change { justify-content: center; }
+  .stub-list-row .col-change { align-items: center; }
   .stub-list-row .amt {
     display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
-    font-size: 14px; font-weight: 600; color: var(--text-1);
+    font-size: 15.5px; font-weight: 600; color: var(--text-1);
   }
   .stub-list-row .amt.green { color: var(--green-text); }
   .stub-list-row .amt.red   { color: var(--red-text); }
   .stub-list-row .amt.blue  { color: var(--blue-text); }
   .stub-list-row .amt.muted { color: var(--text-2); font-weight: 500; }
   .stub-list-row .amt .amt-sub {
-    font-size: 10.5px; font-weight: 500; color: var(--text-3); letter-spacing: 0;
+    font-size: 11.5px; font-weight: 500; color: var(--text-3); letter-spacing: 0;
   }
   .stub-list-row .amt .mom-chip {
     font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
