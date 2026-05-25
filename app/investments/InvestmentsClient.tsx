@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 
-import type { InvAccount, InvestmentsData, ValuePoint } from '@/lib/investments/load';
+import type { Holdings, InvAccount, InvestmentsData, ValuePoint } from '@/lib/investments/load';
 import { accountTypeLabel } from '@/lib/account-types';
+import { assetClassLabel } from '@/lib/investments/asset-class';
 import { PageHeader } from '@/components/PageHeader';
-import { fmtMoney0 as money0, fmtSigned0 as moneySigned } from '@/lib/format';
+import { StatTile } from '@/components/StatTile';
+import { fmtMoney0 as money0, fmtMoney, fmtSigned0 as moneySigned } from '@/lib/format';
 
 const PALETTE = ['var(--color-cat-blue)', 'var(--color-cat-purple)', 'var(--color-cat-cyan)', 'var(--color-cat-emerald)', 'var(--color-cat-amber)', 'var(--color-cat-pink)'];
 
@@ -66,8 +68,79 @@ function AccountRow({ a, color }: { a: InvAccount; color: string }) {
   );
 }
 
+const ALLOC_PALETTE = ['var(--color-cat-blue)', 'var(--color-cat-purple)', 'var(--color-cat-emerald)', 'var(--color-cat-amber)', 'var(--color-cat-cyan)', 'var(--color-cat-pink)'];
+
+function HoldingsSection({ holdings }: { holdings: Holdings }) {
+  const { rows, totalValue, totalCost, totalGain, allocation, anyLive } = holdings;
+  const gainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : null;
+  return (
+    <section className="mb-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[15px] font-semibold">Holdings</h2>
+        <span className="text-[11.5px] text-text-muted">{anyLive ? 'Live prices' : 'Statement values'}</span>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
+        <StatTile size="lg" label="Market value" value={money0(totalValue)} />
+        <StatTile size="lg" label="Cost basis" value={totalCost > 0 ? money0(totalCost) : '—'} />
+        <StatTile size="lg" label="Total gain" value={totalCost > 0 ? moneySigned(totalGain) : '—'} tone={totalGain >= 0 ? 'pos' : 'neg'} sub={gainPct != null ? `${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%` : undefined} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5">
+        {/* Positions */}
+        <div className="rounded-xl bg-surface-1 border border-border-subtle overflow-hidden">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 text-[10.5px] uppercase tracking-[0.06em] text-text-muted border-b border-border-subtle">
+            <span>Holding</span>
+            <span className="text-right">Value</span>
+            <span className="text-right w-20">Gain</span>
+          </div>
+          <div className="divide-y divide-border-subtle">
+            {rows.map((h) => (
+              <div key={h.id} className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2.5 items-center">
+                <div className="min-w-0">
+                  <div className="text-[13.5px] font-medium text-text-primary truncate">
+                    {h.symbol ? <span className="tabular-nums">{h.symbol}</span> : h.name}
+                    {h.symbol && <span className="text-text-tertiary font-normal"> · {h.name}</span>}
+                  </div>
+                  <div className="text-[11.5px] text-text-tertiary tabular-nums">
+                    {h.quantity != null ? `${h.quantity} ` : ''}{h.price != null ? `@ ${fmtMoney(h.price)}` : ''} · {h.accountName}
+                  </div>
+                </div>
+                <div className="text-right text-[13.5px] font-semibold tabular-nums">{money0(h.marketValue)}</div>
+                <div className={`text-right w-20 text-[12.5px] tabular-nums ${h.gain == null ? 'text-text-muted' : h.gain >= 0 ? 'text-positive' : 'text-negative'}`}>
+                  {h.gain == null ? '—' : `${h.gainPct != null ? (h.gainPct >= 0 ? '+' : '') + h.gainPct.toFixed(1) + '%' : moneySigned(h.gain)}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Asset-class allocation */}
+        <div className="rounded-xl bg-surface-1 border border-border-subtle p-5">
+          <h3 className="text-[14px] font-semibold mb-4">Asset allocation</h3>
+          <div className="flex h-3 rounded-full overflow-hidden mb-4">
+            {allocation.map((a, i) => (
+              <div key={a.assetClass} style={{ width: `${a.share}%`, background: ALLOC_PALETTE[i % ALLOC_PALETTE.length] }} title={`${assetClassLabel(a.assetClass)} ${a.share}%`} />
+            ))}
+          </div>
+          <div className="flex flex-col gap-2">
+            {allocation.map((a, i) => (
+              <div key={a.assetClass} className="flex items-center gap-2 text-[12.5px]">
+                <span className="size-2.5 rounded-full shrink-0" style={{ background: ALLOC_PALETTE[i % ALLOC_PALETTE.length] }} />
+                <span className="flex-1 truncate text-text-secondary">{assetClassLabel(a.assetClass)}</span>
+                <span className="tabular-nums text-text-tertiary">{money0(a.value)}</span>
+                <span className="tabular-nums text-text-muted w-10 text-right">{a.share}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function InvestmentsClient({ data }: { data: InvestmentsData }) {
-  const { totalValue, delta30, accounts, series, benchmark } = data;
+  const { totalValue, delta30, accounts, series, benchmark, holdings } = data;
 
   if (accounts.length === 0) {
     return (
@@ -120,6 +193,8 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
         <AreaChart series={series} />
       </section>
 
+      {holdings.rows.length > 0 && <HoldingsSection holdings={holdings} />}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
         {/* Accounts */}
         <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
@@ -149,7 +224,9 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
             ))}
           </div>
           <p className="text-[11.5px] text-text-muted mt-5 leading-relaxed">
-            Allocation is by account today. Asset-class allocation, holdings, cost basis, and true performance need a holdings model — on the roadmap.
+            {holdings.rows.length > 0
+              ? 'Allocation by account. See Holdings above for per-position market value, cost basis, and asset-class allocation.'
+              : 'Allocation is by account today. Per-holding market value, cost basis, and asset-class allocation appear here once the brokerage-statement parser populates holdings.'}
           </p>
         </section>
       </div>

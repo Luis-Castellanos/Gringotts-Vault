@@ -2,6 +2,15 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Investments: holdings view (groundwork, parser-gated).** The
+  Investments page now reads the `holdings` table, enriches each position with a
+  **live quote** (lib/market/quotes) for market value + gain/loss (falling back to
+  the statement value), and renders a **Holdings** section — per-position value
+  and gain, market-value/cost-basis/total-gain tiles, and an **asset-class
+  allocation** bar — plus latest-position-per-symbol dedup. It stays hidden and
+  the page keeps its account-based view until the brokerage-statement parser
+  populates holdings, at which point it lights up automatically. `loadHoldings()`
+  in lib/investments/load.ts; pure `assetClassLabel` split into a db-free module.
 - 2026-05-25 — **Query caching: account-taxonomy reference reads.** `loadTaxonomyStyle`
   (group colors/labels + per-type icons/colors, rendered on Accounts / Net Worth)
   is now `unstable_cache`d with a `TAXONOMY_TAG` and a 1-hour TTL backstop;
