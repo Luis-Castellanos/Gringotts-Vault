@@ -2,6 +2,12 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Query caching: account-taxonomy reference reads.** `loadTaxonomyStyle`
+  (group colors/labels + per-type icons/colors, rendered on Accounts / Net Worth)
+  is now `unstable_cache`d with a `TAXONOMY_TAG` and a 1-hour TTL backstop;
+  the account-type / group editor routes call `revalidateTag` so edits show
+  instantly. Scoped conservatively to this pure reference getter — the ledger
+  loaders use SQL joins on live data and were intentionally left uncached.
 - 2026-05-25 — **logo.dev brand logos (env-gated).** When
   `NEXT_PUBLIC_LOGO_DEV_TOKEN` is set, merchant logos (`VendorLogo`) and
   institution logos (`faviconUrl`) render full-fidelity brand images from

@@ -7,12 +7,14 @@
  */
 
 import { NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 
 import { db } from '@/lib/db/client';
 import { accountTypes } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { slugify } from '@/lib/transactions/taxonomy';
+import { TAXONOMY_TAG } from '@/lib/taxonomy-style';
 
 const bodySchema = z.object({
   label: z.string().min(1).max(40),
@@ -38,5 +40,6 @@ export const POST = handler(async (req: NextRequest) => {
     .values({ slug, label: body.label.trim(), groupKey: body.group, assetClass: body.assetClass, icon: '📁', sortOrder: nextOrder, isBuiltin: false })
     .returning();
 
+  revalidateTag(TAXONOMY_TAG);
   return ok(row);
 });

@@ -5,12 +5,14 @@
  */
 
 import { NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db/client';
 import { accountTypes, accounts } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
+import { TAXONOMY_TAG } from '@/lib/taxonomy-style';
 
 const patchSchema = z.object({
   label: z.string().min(1).max(40).optional(),
@@ -38,6 +40,7 @@ export const PATCH = handler(async (req: NextRequest, ctx: { params: Promise<{ s
 
   const updated = await db.update(accountTypes).set(patch).where(eq(accountTypes.slug, slug)).returning();
   if (updated.length === 0) return fail('not_found', 'Account type not found.', 404);
+  revalidateTag(TAXONOMY_TAG);
   return ok(updated[0]);
 });
 
@@ -57,5 +60,6 @@ export const DELETE = handler(async (_req: NextRequest, ctx: { params: Promise<{
   }
 
   await db.delete(accountTypes).where(eq(accountTypes.slug, slug));
+  revalidateTag(TAXONOMY_TAG);
   return ok({ slug });
 });
