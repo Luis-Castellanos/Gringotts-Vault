@@ -133,7 +133,7 @@ ISSUER_TYPE = {
 
 # Recognized but not auto-ledgered yet (the money movement is captured on the
 # checking side; ledgering loan balances needs a balance-model decision).
-DEFERRED_ISSUERS = {"chase_mortgage", "chase_auto", "ally", "schwab_checking"}
+DEFERRED_ISSUERS = {"chase_mortgage", "chase_auto"}
 
 
 def _iso(d):

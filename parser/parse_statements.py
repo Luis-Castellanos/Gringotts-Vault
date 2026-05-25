@@ -1066,68 +1066,80 @@ def parse_boa_checking(text: str):
     return txns, stmt_str
 
 
-def _stmt_year_range(text: str):
-    """(start_year, end_year, start_month, end_month) from a 'Month D, YYYY to
-    Month D, YYYY' period, for MM/DD rows that omit the year."""
-    m = re.search(r"(\w+) \d{1,2}, (\d{4})\s+to\s+(\w+) \d{1,2}, (\d{4})", text)
-    if not m:
-        return None
-    sm = MONTHS.get(m.group(1).upper()[:3]) or MONTHS.get(m.group(1).upper())
-    em = MONTHS.get(m.group(3).upper()[:3]) or MONTHS.get(m.group(3).upper())
-    return int(m.group(2)), int(m.group(4)), sm or 1, em or 12
+def _schwab_period(text: str):
+    """(start_year, end_year, start_month, end_month, stmt_str) from a Schwab
+    statement period — monthly 'January 1-31, 2022' or quarterly 'January 1, 2026
+    to March 31, 2026'. For MM/DD rows that omit the year."""
+    m = re.search(r"([A-Z][a-z]+) \d{1,2}\s*-\s*\d{1,2}, (\d{4})", text)
+    if m:
+        mo = MONTHS.get(m.group(1).upper()) or 1
+        y = int(m.group(2))
+        return y, y, mo, mo, m.group(0)
+    m = re.search(r"([A-Z][a-z]+) \d{1,2}, (\d{4})\s+to\s+([A-Z][a-z]+) \d{1,2}, (\d{4})", text)
+    if m:
+        sm = MONTHS.get(m.group(1).upper()) or 1
+        em = MONTHS.get(m.group(3).upper()) or 12
+        return int(m.group(2)), int(m.group(4)), sm, em, f"{m.group(1)} {m.group(2)} - {m.group(3)} {m.group(4)}"
+    return None
+
+
+# Generic running-balance-delta bank parser: the signed amount is the change in
+# the printed running balance (correct regardless of separate debit/credit
+# columns or whether withdrawals carry an inline minus). Used by Ally + Schwab.
+def _parse_balance_delta(text: str, date_re: str, year_fn, stmt_str: str):
+    txns = []
+    amt_re = re.compile(r"-?\$[\d,]+\.\d{2}")
+    prev = None
+    for raw in text.splitlines():
+        s = raw.strip()
+        m = re.match(date_re + r"\s+(.+)", s)
+        if not m:
+            continue
+        rest = m.group(m.lastindex)
+        low = rest.lower()
+        nums = amt_re.findall(rest)
+        if not nums:
+            continue
+        balance = _smoney(nums[-1])
+        if balance is None:
+            continue
+        if "beginning balance" in low:
+            prev = balance
+            continue
+        if "ending balance" in low:
+            prev = None  # end of this account's section (combined statements)
+            continue
+        if prev is None or low.startswith(("total ", "interest rate", "annual percentage")):
+            continue
+        amount = round(balance - prev, 2)
+        prev = balance
+        desc = rest[: rest.find(nums[0])].strip()
+        txns.append({"date": year_fn(m), "source": desc, "amount": amount, "balance": balance})
+    return txns, stmt_str
 
 
 def parse_schwab_checking(text: str):
-    """Schwab Bank checking. Rows: `MM/DD <desc> <amount> <running balance>`
-    (MM/DD omits the year — taken from the statement period)."""
-    txns = []
-    yr = _stmt_year_range(text)
-    pm = re.search(r"(\w+ \d{1,2}, \d{4})\s+to\s+(\w+ \d{1,2}, \d{4})", text)
-    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
-    for raw in text.splitlines():
-        s = raw.strip()
-        m = re.match(r"(\d{1,2})/(\d{1,2})\s+([A-Za-z].+?)\s+(-?\$?[\d,]+\.\d{2})(?:\s+(-?\$?[\d,]+\.\d{2}))?\s*$", s)
-        if not m:
-            continue
-        low = m.group(3).lower()
-        if low.startswith(("beginning balance", "ending balance", "total ", "interest")):
-            continue
-        amount = _smoney(m.group(4))
-        if amount is None:
-            continue
-        bal = _smoney(m.group(5)) if m.group(5) else None
-        year = assign_year(int(m.group(1)), yr[0], yr[1], yr[2], yr[3]) if yr else datetime.now().year
-        txns.append({"date": f"{year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}", "source": m.group(3).strip(), "amount": round(amount, 2), "balance": round(bal, 2) if bal is not None else None})
-    return txns, stmt_str
+    """Schwab Bank checking. Separate deposit/withdrawal columns with no inline
+    minus → sign from the running-balance delta. MM/DD rows; year from the
+    statement period (monthly or quarterly)."""
+    yr = _schwab_period(text)
+    stmt_str = yr[4] if yr else ""
+
+    def year_fn(m):
+        mo = int(m.group(1))
+        year = assign_year(mo, yr[0], yr[1], yr[2], yr[3]) if yr else datetime.now().year
+        return f"{year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}"
+
+    return _parse_balance_delta(text, r"(\d{1,2})/(\d{1,2})", year_fn, stmt_str)
 
 
 def parse_ally(text: str):
     """Ally Bank combined customer statement (savings + checking in one PDF).
-    Rows: `MM/DD/YYYY <desc> <amount> <running balance>`. Deposits print
-    positive, withdrawals negative."""
-    txns = []
-    pm = re.search(r"(\d{2}/\d{2}/\d{4})\s+thru\s+(\d{2}/\d{2}/\d{4})", text, re.IGNORECASE)
-    stmt_str = f"{pm.group(1)} - {pm.group(2)}" if pm else ""
-    amt_re = re.compile(r"-?\$[\d,]+\.\d{2}")
-    for raw in text.splitlines():
-        s = raw.strip()
-        m = re.match(r"(\d{2}/\d{2}/\d{4})\s+(.+)", s)
-        if not m:
-            continue
-        rest = m.group(2)
-        low = rest.lower()
-        if "beginning balance" in low or "ending balance" in low or low.startswith("total "):
-            continue
-        hits = amt_re.findall(rest)
-        if len(hits) < 2:
-            continue
-        amount = _smoney(hits[0])
-        balance = _smoney(hits[-1])
-        if amount is None or balance is None:
-            continue
-        desc = rest[: rest.find(hits[0])].strip()
-        txns.append({"date": _iso_mdy(m.group(1)), "source": desc, "amount": round(amount, 2), "balance": round(balance, 2)})
-    return txns, stmt_str
+    Columns are `<deposit> <withdrawal(-)> <balance>`; signed amount comes from
+    the running-balance delta, reset at each account section's Beginning Balance."""
+    starts = re.findall(r"as of (\d{2}/\d{2}/\d{4})", text)
+    stmt_str = f"{starts[0]} - {starts[-1]}" if len(starts) >= 2 else ""
+    return _parse_balance_delta(text, r"(\d{2}/\d{2}/\d{4})", lambda m: _iso_mdy(m.group(1)), stmt_str)
 
 
 PARSERS = {
@@ -1143,9 +1155,8 @@ PARSERS = {
     "boa_checking": parse_boa_checking,
     "capital_one": parse_capital_one,
     "apple_savings": parse_apple_savings,
-    # ally + schwab_checking are recognized but deferred in parse_one (need
-    # balance-delta signing); parse_ally / parse_schwab_checking are kept above
-    # for when that lands.
+    "schwab_checking": parse_schwab_checking,
+    "ally": parse_ally,
 }
 
 
@@ -1281,12 +1292,6 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
         return [], s.pop("_stmt", ""), "chase_mortgage", s
     if issuer == "chase_auto":
         return [], "", "chase_auto", dict(_EMPTY_SUMMARY)
-    # Ally (combined multi-account) + Schwab print debits in a separate column
-    # without an inline minus, so the signed amount must come from the running
-    # balance delta (not yet implemented) — recognize but don't ledger, to avoid
-    # booking withdrawals as deposits. Deposits-only parsing would be half-wrong.
-    if issuer in ("ally", "schwab_checking"):
-        return [], "", issuer, dict(_EMPTY_SUMMARY)
 
     if issuer == "apple_card" and pdf_path:
         txns, stmt_str = parse_apple_card_pdfplumber(pdf_path)
