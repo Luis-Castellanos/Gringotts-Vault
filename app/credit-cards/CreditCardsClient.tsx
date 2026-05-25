@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ACCOUNT_TYPES } from '@/lib/account-types';
+import { fmtMoney, fmtMoney0, fmtPct } from '@/lib/format';
 
 // ─── Data shape ────────────────────────────────────────────────────────────
 // Phase B (in progress): credit_limit + apr are now in the schema and
@@ -67,27 +68,8 @@ type SortId = (typeof SORT_OPTIONS)[number]['id'];
 type FilterId = (typeof FILTER_OPTIONS)[number]['id'];
 
 // ─── Formatters ────────────────────────────────────────────────────────────
-function fmtMoney(
-  n: number | null | undefined,
-  { decimals = 2, sign = false }: { decimals?: number; sign?: boolean } = {},
-): string {
-  if (n == null || Number.isNaN(n)) return '—';
-  const neg = n < 0;
-  const abs = Math.abs(n);
-  const s = abs.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  if (sign && !neg && n > 0) return `+$${s}`;
-  return (neg ? '-$' : '$') + s;
-}
-function fmtMoney0(n: number | null | undefined): string {
-  return fmtMoney(n, { decimals: 0 });
-}
-function fmtPct(n: number | null | undefined, d = 1): string {
-  if (n == null || Number.isNaN(n)) return '—';
-  return n.toFixed(d) + '%';
-}
+// fmtMoney / fmtMoney0 / fmtPct are shared (lib/format). fmtDate stays local —
+// it has a card-specific {short} option the shared one doesn't.
 function fmtDate(iso: string | null, { short = false }: { short?: boolean } = {}): string {
   if (!iso) return '—';
   const d = new Date(iso + 'T00:00:00');
