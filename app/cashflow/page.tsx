@@ -3,6 +3,7 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db/client';
 import { accounts, categories, transactions } from '@/lib/db/schema';
+import { loadSplitContributions } from '@/lib/transactions/split';
 import { CashflowClient, type AcctLite, type CatAgg } from './CashflowClient';
 import './cashflow.css';
 
@@ -42,12 +43,16 @@ export default async function CashflowPage() {
     // are normal rows and still show in the transfers section.
     .where(eq(transactions.isSplit, false));
 
+  // Non-transfer split parts (e.g. mortgage interest) — folded back in so split
+  // payments still contribute their real spend/income (the parent was excluded).
+  const splitContribs = await loadSplitContributions();
+
   // Aggregate per (month, account, category) so the client can re-derive the
   // chart series + breakdown for any account selection without a round-trip.
   const catMap = new Map<string, CatAgg>();
   const acctNames = new Map<string, string>();
 
-  for (const r of rows) {
+  for (const r of [...rows, ...splitContribs]) {
     const ym = r.date.slice(0, 7); // 'YYYY-MM'
     const amt = Number(r.amount);
     const flow: 'inflow' | 'outflow' | 'transfer' =

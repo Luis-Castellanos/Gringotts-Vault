@@ -8,6 +8,7 @@ import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { categories, transactions } from '@/lib/db/schema';
+import { loadSplitContributions } from '@/lib/transactions/split';
 
 export type ReportCategory = { id: string; name: string; color: string | null; amount: number };
 export type MonthPoint = { month: number; income: number; spending: number; net: number };
@@ -37,7 +38,7 @@ export async function loadAnnualReport(year: number): Promise<AnnualReport> {
   const start = `${year}-01-01`;
   const end = `${year}-12-31`;
 
-  const [byCat, byMonth] = await Promise.all([
+  const [byCat, byMonth, splitContribs] = await Promise.all([
     db
       .select({
         id: sql<string>`COALESCE(${categories.id}::text, 'uncat')`,
@@ -61,26 +62,36 @@ export async function loadAnnualReport(year: number): Promise<AnnualReport> {
       .where(and(gte(transactions.date, start), lte(transactions.date, end), eq(transactions.isTransfer, false), eq(transactions.isSplit, false)))
       .groupBy(sql`EXTRACT(MONTH FROM ${transactions.date})`, categories.flowType)
       .orderBy(asc(sql`EXTRACT(MONTH FROM ${transactions.date})`)),
+    loadSplitContributions({ from: start, to: end }),
   ]);
 
-  const incomeByCategory: ReportCategory[] = [];
-  const spendingByCategory: ReportCategory[] = [];
+  // Income/spending by category — accumulate into maps so split parts (which
+  // arrive per-row, not pre-aggregated) merge into the same category buckets.
+  const incomeMap = new Map<string, ReportCategory>();
+  const spendMap = new Map<string, ReportCategory>();
   let income = 0;
   let spending = 0;
+  const addCat = (map: Map<string, ReportCategory>, id: string, name: string, color: string | null, amt: number) => {
+    const e = map.get(id);
+    if (e) e.amount = round2(e.amount + amt);
+    else map.set(id, { id, name, color, amount: round2(amt) });
+  };
   for (const c of byCat) {
     if (c.flow === 'transfer') continue;
     const amt = Number(c.total);
-    if (c.flow === 'inflow') {
-      income += amt;
-      if (amt !== 0) incomeByCategory.push({ id: c.id, name: c.name, color: c.color, amount: round2(amt) });
-    } else {
-      spending += amt;
-      const abs = Math.abs(amt);
-      if (abs > 0) spendingByCategory.push({ id: c.id, name: c.name, color: c.color, amount: round2(abs) });
-    }
+    if (c.flow === 'inflow') { income += amt; if (amt !== 0) addCat(incomeMap, c.id, c.name, c.color, amt); }
+    else { spending += amt; if (Math.abs(amt) > 0) addCat(spendMap, c.id, c.name, c.color, Math.abs(amt)); }
   }
-  incomeByCategory.sort((a, b) => b.amount - a.amount);
-  spendingByCategory.sort((a, b) => b.amount - a.amount);
+  for (const s of splitContribs) {
+    const flow = s.flowType === 'inflow' ? 'inflow' : s.flowType === 'transfer' ? 'transfer' : 'outflow';
+    if (flow === 'transfer') continue;
+    const id = s.catId ?? 'uncat';
+    const name = s.catName ?? 'Uncategorized';
+    if (flow === 'inflow') { income += s.amount; if (s.amount !== 0) addCat(incomeMap, id, name, s.catColor, s.amount); }
+    else { spending += s.amount; if (Math.abs(s.amount) > 0) addCat(spendMap, id, name, s.catColor, Math.abs(s.amount)); }
+  }
+  const incomeByCategory = [...incomeMap.values()].sort((a, b) => b.amount - a.amount);
+  const spendingByCategory = [...spendMap.values()].sort((a, b) => b.amount - a.amount);
 
   const months: MonthPoint[] = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, income: 0, spending: 0, net: 0 }));
   for (const r of byMonth) {
@@ -90,6 +101,13 @@ export async function loadAnnualReport(year: number): Promise<AnnualReport> {
     const amt = Number(r.total);
     if (r.flow === 'inflow') months[idx]!.income += amt;
     else months[idx]!.spending += Math.abs(amt);
+  }
+  for (const s of splitContribs) {
+    const idx = Number(s.date.slice(5, 7)) - 1;
+    if (idx < 0 || idx > 11) continue;
+    const flow = s.flowType === 'inflow' ? 'inflow' : s.flowType === 'transfer' ? 'transfer' : 'outflow';
+    if (flow === 'inflow') months[idx]!.income += s.amount;
+    else if (flow !== 'transfer') months[idx]!.spending += Math.abs(s.amount);
   }
   for (const m of months) {
     m.income = round2(m.income);

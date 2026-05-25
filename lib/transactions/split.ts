@@ -12,10 +12,11 @@
  * First consumer: the mortgage payment split (see proposeMortgageSplit).
  */
 
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db/client';
-import { accounts, properties, transactions, transactionSplits } from '@/lib/db/schema';
+import { accounts, categories, properties, transactions, transactionSplits } from '@/lib/db/schema';
 import { amortize } from '@/lib/properties/amortization';
 
 export type SplitKind = 'expense' | 'principal' | 'escrow' | 'transfer';
@@ -131,6 +132,71 @@ export async function splitTransaction(
 
   await db.update(transactions).set({ isSplit: true, updatedAt: new Date() }).where(eq(transactions.id, txnId));
   return { ok: true };
+}
+
+// A non-transfer split part (e.g. mortgage interest), shaped like a Cashflow row
+// so spend/income reports can fold these in where they exclude the split parent.
+// Transfer parts (principal/escrow) are omitted — their destination legs already
+// carry them. The flow comes from the part's category (null → outflow).
+export type SplitContribution = {
+  date: string;
+  amount: number;
+  isTransfer: false;
+  flowType: 'inflow' | 'outflow' | 'transfer' | null;
+  catId: string | null;
+  catName: string | null;
+  catColor: string | null;
+  parentId: string | null;
+  parentName: string | null;
+  parentColor: string | null;
+  accountId: string | null;
+  accountName: string | null;
+};
+
+export async function loadSplitContributions(
+  opts: { from?: string | null; to?: string | null; accountIds?: string[] } = {},
+): Promise<SplitContribution[]> {
+  const parent = alias(categories, 'split_parent_cat');
+  const conds = [eq(transactions.isSplit, true), eq(transactionSplits.isTransfer, false)];
+  if (opts.from) conds.push(gte(transactions.date, opts.from));
+  if (opts.to) conds.push(lte(transactions.date, opts.to));
+  if (opts.accountIds?.length) conds.push(inArray(transactions.accountId, opts.accountIds));
+
+  const rows = await db
+    .select({
+      date: transactions.date,
+      amount: transactionSplits.amount,
+      flowType: categories.flowType,
+      catId: categories.id,
+      catName: categories.name,
+      catColor: categories.color,
+      parentId: parent.id,
+      parentName: parent.name,
+      parentColor: parent.color,
+      accountId: transactions.accountId,
+      accountName: accounts.name,
+    })
+    .from(transactionSplits)
+    .innerJoin(transactions, eq(transactionSplits.transactionId, transactions.id))
+    .leftJoin(categories, eq(transactionSplits.categoryId, categories.id))
+    .leftJoin(parent, eq(categories.parentId, parent.id))
+    .leftJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(and(...conds));
+
+  return rows.map((r) => ({
+    date: r.date,
+    amount: Number(r.amount),
+    isTransfer: false as const,
+    flowType: r.flowType,
+    catId: r.catId,
+    catName: r.catName,
+    catColor: r.catColor,
+    parentId: r.parentId,
+    parentName: r.parentName,
+    parentColor: r.parentColor,
+    accountId: r.accountId,
+    accountName: r.accountName,
+  }));
 }
 
 export type ProposedPart = { kind: SplitKind; label: string; amount: number };

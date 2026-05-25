@@ -2,6 +2,12 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Split parts now expand into spend reports.** Cashflow, Reports,
+  and Dashboard previously *excluded* split parents (so a split mortgage payment's
+  interest wasn't counted as spending). They now fold in the non-transfer split
+  parts via `loadSplitContributions()` — interest counts under its category,
+  principal/escrow stay out (their destination legs handle them). Closes the
+  accuracy gap from the split's first pass.
 - 2026-05-25 — **Mortgage payment split — UI + report-awareness.** Completes the
   split feature: a **Split / Edit split** action in the Transactions expand-editor
   opens a modal that pre-fills principal / interest / escrow from the chosen

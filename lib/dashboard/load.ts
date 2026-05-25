@@ -8,6 +8,7 @@ import { and, asc, eq, gte, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { accounts, categories, transactions } from '@/lib/db/schema';
+import { loadSplitContributions } from '@/lib/transactions/split';
 
 export type NWPoint = { date: string; value: number };
 export type TopCategory = { id: string; name: string; color: string | null; amount: number };
@@ -37,7 +38,7 @@ export async function loadDashboard(): Promise<DashboardData> {
   const today = todayISO();
   const thirtyAgo = new Date(Date.now() - 30 * MS_DAY).toISOString().slice(0, 10);
 
-  const [dailyRows, acctRows, monthFlows, topCats, reviewRows] = await Promise.all([
+  const [dailyRows, acctRows, monthFlows, topCats, reviewRows, splitContribs] = await Promise.all([
     // Daily net across all accounts → cumulative net-worth series.
     db
       .select({ date: transactions.date, net: sql<string>`SUM(${transactions.amount})::text` })
@@ -90,6 +91,9 @@ export async function loadDashboard(): Promise<DashboardData> {
       .select({ n: sql<number>`count(*)::int` })
       .from(transactions)
       .where(eq(transactions.needsReview, true)),
+    // Non-transfer split parts this month (e.g. mortgage interest) — folded into
+    // cashflow + top categories below, since split parents are excluded.
+    loadSplitContributions({ from: monthStart }),
   ]);
 
   // Net-worth series (cumulative).
@@ -116,13 +120,28 @@ export async function loadDashboard(): Promise<DashboardData> {
     else if (r.flow === 'transfer') continue;
     else spending += v; // outflow (and null) — stored negative
   }
+  // Fold in non-transfer split parts (split parents were excluded above).
+  for (const s of splitContribs) {
+    if (s.flowType === 'inflow') income += s.amount;
+    else if (s.flowType !== 'transfer') spending += s.amount;
+  }
   income = round2(income);
   spending = round2(Math.abs(spending));
   const net = round2(income - spending);
 
   // Top spending categories (outflow amounts are negative → abs, sort desc).
-  const topCategories: TopCategory[] = topCats
-    .map((c) => ({ id: c.id, name: c.name, color: c.color, amount: round2(Math.abs(Number(c.total))) }))
+  const catSpend = new Map<string, TopCategory>();
+  const bumpCat = (id: string, name: string, color: string | null, amt: number) => {
+    const e = catSpend.get(id);
+    if (e) e.amount = round2(e.amount + amt);
+    else catSpend.set(id, { id, name, color, amount: round2(amt) });
+  };
+  for (const c of topCats) bumpCat(c.id, c.name, c.color, Math.abs(Number(c.total)));
+  for (const s of splitContribs) {
+    if (s.flowType === 'inflow' || s.flowType === 'transfer') continue;
+    bumpCat(s.catId ?? 'uncat', s.catName ?? 'Uncategorized', s.catColor, Math.abs(s.amount));
+  }
+  const topCategories: TopCategory[] = [...catSpend.values()]
     .filter((c) => c.amount > 0)
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 6);
