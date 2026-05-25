@@ -193,10 +193,13 @@ export function FilesClient({
   const handle = (key: ColKey) => (
     <span
       onPointerDown={(e) => startResize(e, key)}
-      className="group absolute right-[-7px] top-0 z-10 flex h-full w-3.5 cursor-col-resize items-center justify-center"
+      onClick={(e) => e.stopPropagation()}
+      className="group absolute right-[-6px] top-0 z-20 flex h-full w-3 cursor-col-resize items-center justify-center"
       aria-hidden
+      title="Drag to resize"
     >
-      <span className="h-3.5 w-px bg-transparent group-hover:bg-accent-500 transition-colors" />
+      {/* always-visible divider so the column edge reads as draggable */}
+      <span className="h-1/2 w-[1.5px] rounded bg-border-strong group-hover:bg-accent-500 group-hover:h-full transition-all" />
     </span>
   );
 
