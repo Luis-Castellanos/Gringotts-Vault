@@ -240,7 +240,7 @@ export function deriveEvents(stubs: Stub[]): PayrollEvent[] {
     }
     const hasEspp = s.deductions.some((d) => d.label.toUpperCase().includes('ESPP'));
     if (hasEspp && !esppSeen) {
-      events.push({ stubDate: s.date, label: 'ESPP active', tone: 'blue', desc: 'Stock purchase started' });
+      events.push({ stubDate: s.date, label: 'ESPP', tone: 'blue', desc: 'Stock purchase started' });
       esppSeen = true;
     }
     // W-4 elections changed vs the prior stub.
@@ -255,7 +255,7 @@ export function deriveEvents(stubs: Stub[]): PayrollEvent[] {
         changes.push(`Add'l allowances ${prevTax.additionalAllowances ?? 0} → ${t.additionalAllowances ?? 0}`);
       if (t.filingStatus !== prevTax.filingStatus)
         changes.push(`Filing ${prevTax.filingStatus ?? '—'} → ${t.filingStatus ?? '—'}`);
-      if (changes.length) events.push({ stubDate: s.date, label: 'W-4 updated', tone: 'amber', desc: changes.join(' · ') });
+      if (changes.length) events.push({ stubDate: s.date, label: 'W-4', tone: 'amber', desc: changes.join(' · ') });
     }
     if (s.baseComp > 0) prevBase = s.baseComp;
     if (s.taxSettings) prevTax = s.taxSettings;
