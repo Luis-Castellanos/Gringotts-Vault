@@ -43,7 +43,10 @@ from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from parse_statements import parse_one, detect_paystub, parse_paystub  # noqa: E402
+from parse_statements import (  # noqa: E402
+    parse_one, detect_paystub, parse_paystub,
+    parse_holdings, derive_account_label, INVESTMENT_ISSUERS,
+)
 
 
 def _tsv_text(pdf_path):
@@ -80,6 +83,9 @@ ISSUER_TYPE = {
     "chase_checking": "bank",
     "gain_fcu": "bank",
     "jpm_investment": "investment",
+    "fidelity": "investment",
+    "empower": "investment",
+    "optum_hsa": "investment",
     "unknown": "unknown",
 }
 
@@ -88,6 +94,14 @@ def _iso(d):
     if isinstance(d, (date, datetime)):
         return d.isoformat()[:10]
     return d
+
+
+def _last4_from_name(name):
+    """Last-4 account number from an investment filename, e.g.
+    'Fidelity Roth IRA #6856 (...)' -> '6856'. None if absent."""
+    import re as _re
+    m = _re.search(r"#\s*(\d{3,6})", name or "")
+    return m.group(1) if m else None
 
 
 def _fail(msg, code=1):
@@ -137,9 +151,23 @@ def main():
         txns, stmt_str, issuer, summary = parse_one(
             tmp_txt, original_pdf_filename=original_name, pdf_path=pdf_path
         )
-        deferred = issuer in ("jpm_investment", "unknown")
-        account = txns[0].get("account") if txns else None
-        account_number = txns[0].get("account_number") if txns else None
+
+        # Investment issuers carry holdings (positions), not bank transactions.
+        # Extract them with coordinate (-tsv) data; derive the account from the
+        # filename since there are no transaction rows to carry it.
+        holdings = []
+        if issuer in INVESTMENT_ISSUERS:
+            holdings = parse_holdings(text, issuer, _tsv_text(pdf_path))
+            account = derive_account_label(original_name, issuer, text)
+            account_number = _last4_from_name(original_name)
+            stmt_str = stmt_str or (holdings[0].get("as_of") if holdings else None)
+            # Still deferred only if we recognized it but couldn't extract holdings.
+            deferred = len(holdings) == 0
+        else:
+            deferred = issuer == "unknown"
+            account = txns[0].get("account") if txns else None
+            account_number = txns[0].get("account_number") if txns else None
+
         out = {
             "ok": True,
             "issuer": issuer,
@@ -157,6 +185,19 @@ def main():
                     "balance": t.get("balance"),
                 }
                 for t in txns
+            ],
+            "holdings": [
+                {
+                    "symbol": h.get("symbol"),
+                    "name": h.get("name"),
+                    "assetClass": h.get("asset_class", "other"),
+                    "quantity": h.get("quantity"),
+                    "price": h.get("price"),
+                    "value": h.get("value"),
+                    "costBasis": h.get("cost_basis"),
+                    "asOf": h.get("as_of"),
+                }
+                for h in holdings
             ],
         }
         print(json.dumps(out))

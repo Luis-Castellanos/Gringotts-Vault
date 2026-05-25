@@ -37,23 +37,32 @@ from pathlib import Path
 # ---------- Issuer detection ----------
 def detect_issuer(text: str) -> str:
     head = text[:5000].upper()
+    body = text.upper()  # full-body scan; some markers fall past the 5000-char head
     if "APPLE CARD" in head and "GOLDMAN" in head:
         return "apple_card"
     if "DISCOVER IT" in head or "DISCOVER CARD" in head:
         return "discover"
     if "GAIN FEDERAL CREDIT UNION" in head or "GAINFCU" in head:
         return "gain_fcu"
+    # Investment / brokerage issuers (holdings statements). Checked before the
+    # bank/card branches since some carry overlapping brand text.
+    if "FIDELITY" in head and ("INVESTMENT REPORT" in head or "HOLDINGS" in head
+                               or "FIDELITY 500" in body or "ROTH IRA" in head
+                               or "NATIONAL FINANCIAL SERVICES" in body):
+        return "fidelity"
+    if "EMPOWER" in head and ("HOW IS MY ACCOUNT INVESTED" in body
+                              or "PLAN NUMBER" in head or "VESTED BALANCE" in body):
+        return "empower"
+    if "OPTUM" in head and ("HSA" in head or "HEALTH SAVINGS" in body):
+        return "optum_hsa"
     # IMPORTANT: check JPM investment BEFORE chase_card, since investment
     # statements contain Chase branding.
     if ("INVESTMENT STATEMENT" in head or "BROKERAGE" in head or
         "J.P. MORGAN SECURITIES" in head or "ACCOUNT VALUE" in head):
         return "jpm_investment"
-    # Scan the FULL body, not just the 5000-char head: Chase's 2025 statement
-    # layout pushes the account-type label + TRANSACTION DETAIL section past
-    # char 5000 (the old `head[:8000]` check was a no-op since head is already
-    # capped at 5000). These markers are specific to deposit statements — cards
-    # use ACCOUNT ACTIVITY / PAYMENTS AND OTHER CREDITS, handled just below.
-    body = text.upper()
+    # Chase deposit-statement markers can fall past the 5000-char head, so these
+    # use the full body. Specific to deposit statements — cards use ACCOUNT
+    # ACTIVITY / PAYMENTS AND OTHER CREDITS, handled just below.
     if "JPMORGAN CHASE" in head and (
         "CHECKING" in head or "TRANSACTION DETAIL" in body
         or "CHECKING SUMMARY" in body or "SAVINGS SUMMARY" in body
@@ -937,10 +946,10 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
     # a stray byte crash the read (Windows would otherwise default to cp1252).
     text = Path(text_path).read_text(encoding="utf-8", errors="replace")
     issuer = detect_issuer(text)
-    if issuer == "jpm_investment":
-        return [], "", "jpm_investment", dict(_EMPTY_SUMMARY)
-    if issuer == "unknown":
-        return [], "", "unknown", dict(_EMPTY_SUMMARY)
+    # Investment issuers carry holdings, not bank transactions — extract.py calls
+    # parse_holdings() separately. Return no transactions here (don't hit PARSERS).
+    if issuer in INVESTMENT_ISSUERS or issuer == "unknown":
+        return [], "", issuer, dict(_EMPTY_SUMMARY)
 
     if issuer == "apple_card" and pdf_path:
         txns, stmt_str = parse_apple_card_pdfplumber(pdf_path)
@@ -958,6 +967,164 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
 
     summary = extract_statement_summary(text, issuer, stmt_str)
     return txns, stmt_str, issuer, summary
+
+
+# ---------- Investment holdings ----------
+# Investment/brokerage statements carry positions (the `holdings` table), not
+# bank transactions. extract.py routes these issuers to parse_holdings().
+INVESTMENT_ISSUERS = {"jpm_investment", "fidelity", "empower", "optum_hsa"}
+
+_HOLD_NUM_RE = re.compile(r"^-?\$?[\d,]+(?:\.\d+)?%?$")
+
+
+def _to_num(tok: str):
+    """Money/number token → float, or None for blanks/dashes/non-numbers."""
+    t = tok.replace("$", "").replace(",", "").replace("%", "").strip()
+    if t in ("", "-", "--", "N/A"):
+        return None
+    try:
+        return float(t)
+    except ValueError:
+        return None
+
+
+def _tsv_lines(tsv_text: str):
+    """Parse `pdftotext -tsv` into logical lines, grouped by poppler's own
+    (page, block, line) detection — which reconstructs rows correctly even where
+    `-layout` interleaves columns or the page has rotated banners. Returns
+    [{page, top, words: [(left, text)], text}]."""
+    lines = []
+    cur_key = None
+    cur = None
+    for raw in tsv_text.splitlines()[1:]:  # skip the TSV header row
+        parts = raw.split("\t")
+        if len(parts) < 12:
+            continue
+        page, block, line, left, top, text = parts[1], parts[3], parts[4], parts[6], parts[7], parts[11]
+        if not text or text.startswith("###"):
+            continue
+        try:
+            left_f, top_f = float(left), float(top)
+        except ValueError:
+            continue
+        key = (page, block, line)
+        if key != cur_key:
+            if cur:
+                cur["text"] = " ".join(w for _, w in cur["words"])
+                lines.append(cur)
+            cur = {"page": int(page), "top": top_f, "words": []}
+            cur_key = key
+        cur["words"].append((left_f, text))
+    if cur:
+        cur["text"] = " ".join(w for _, w in cur["words"])
+        lines.append(cur)
+    return lines
+
+
+def parse_holdings(text: str, issuer: str, tsv_text: str = "") -> list[dict]:
+    """Dispatch to a per-issuer holdings extractor. Returns a list of position
+    dicts: {symbol, name, asset_class, quantity, price, value, cost_basis,
+    as_of}. Empty list if the issuer has no holdings parser or none are found."""
+    if issuer == "fidelity":
+        return _parse_fidelity_holdings(text, tsv_text)
+    if issuer == "empower":
+        return _parse_empower_holdings(text)
+    return []
+
+
+# Fidelity NFS statement — data-row column x-centers (the template is stable;
+# values are right-aligned just left of the header word). Each numeric cell is
+# bucketed to the nearest anchor within tolerance, so blank/"-" columns are
+# handled and the Beginning-MV / Gain / EAI columns (other x's) are ignored.
+_FID_COLS = {"quantity": 316.0, "price": 375.0, "value": 463.0, "cost": 542.0}
+_FID_COL_TOL = 45.0
+_FID_SECTIONS = [
+    ("CORE ACCOUNT", "cash"), ("MONEY MARKET", "cash"), ("CASH", "cash"),
+    ("STOCK FUNDS", "mutual_fund"), ("BOND FUNDS", "mutual_fund"),
+    ("OTHER FUNDS", "mutual_fund"), ("MUTUAL FUNDS", "mutual_fund"),
+    ("EXCHANGE TRADED", "etf"), ("ETPS", "etf"), ("ETFS", "etf"),
+    ("STOCKS", "equity"), ("EQUITIES", "equity"),
+    ("BONDS", "bond"), ("OPTIONS", "option"),
+]
+
+
+def _fid_col(words, anchor, tol=_FID_COL_TOL):
+    """Numeric value whose x is nearest `anchor` within `tol`, else None."""
+    best, best_d = None, tol
+    for left, w in words:
+        n = _to_num(w)
+        if n is None:
+            continue
+        d = abs(left - anchor)
+        if d < best_d:
+            best, best_d = n, d
+    return best
+
+
+def _fid_period_end(text: str):
+    """ISO period-end date from 'August 1, 2021 - September 30, 2021'."""
+    m = re.search(r"([A-Za-z]+ \d{1,2}, \d{4})\s*[-–]\s*([A-Za-z]+ \d{1,2}, \d{4})", text)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(2), "%B %d, %Y").date().isoformat()
+    except ValueError:
+        return None
+
+
+def _parse_fidelity_holdings(text: str, tsv_text: str) -> list[dict]:
+    if not tsv_text:
+        return []  # robust holdings extraction needs coordinate (-tsv) data
+    as_of = _fid_period_end(text)
+    lines = _tsv_lines(tsv_text)
+    out = []
+    section = "other"
+    seen = set()
+    for ln in lines:
+        t = ln["text"].strip()
+        tu = t.upper()
+        if "TOTAL HOLDINGS" in tu:
+            break  # end of the Holdings section
+        # Track the current asset-class section header (skip "Total ..." rollups).
+        if "TOTAL" not in tu:
+            for label, cls in _FID_SECTIONS:
+                if tu.startswith(label):
+                    section = cls
+                    break
+        # A position row carries a (TICKER) plus values sitting in the holdings
+        # columns. Requiring the Ending-MV column AND a quantity/price column
+        # filters out stray "(TICKER)" mentions elsewhere in the statement.
+        m = re.search(r"\(([A-Z]{1,6})\)", t)
+        if not m or tu.startswith("TOTAL"):
+            continue
+        words = ln["words"]
+        value = _fid_col(words, _FID_COLS["value"])
+        quantity = _fid_col(words, _FID_COLS["quantity"])
+        price = _fid_col(words, _FID_COLS["price"])
+        if value is None or (quantity is None and price is None):
+            continue
+        symbol = m.group(1)
+        if symbol in seen:
+            continue
+        seen.add(symbol)
+        name = re.sub(r"\s+", " ", t[: m.start()]).strip()
+        out.append({
+            "symbol": symbol,
+            "name": name or symbol,
+            "asset_class": section,
+            "quantity": quantity,
+            "price": price,
+            "value": value,
+            "cost_basis": _fid_col(words, _FID_COLS["cost"]),
+            "as_of": as_of,
+        })
+    return out
+
+
+def _parse_empower_holdings(text: str) -> list[dict]:
+    # TODO: "How is my account invested?" section (fund name, units/shares,
+    # ending balance). Implemented in a follow-up pass.
+    return []
 
 
 # ---------- Paystubs ----------
