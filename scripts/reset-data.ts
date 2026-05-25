@@ -1,28 +1,44 @@
 /**
- * DESTRUCTIVE. Wipes data so you can experiment from a clean slate.
+ * DESTRUCTIVE. Clears ingested data for a clean dry run.
  *
- *   npx tsx scripts/reset-data.ts                 # dry run (prints counts)
- *   npx tsx scripts/reset-data.ts --yes           # wipe transactions + imports + categories
- *   npx tsx scripts/reset-data.ts --yes --accounts# also wipe accounts + balance snapshots (full reset)
+ *   npx tsx scripts/reset-data.ts                  # dry run (prints counts only)
+ *   npx tsx scripts/reset-data.ts --yes            # wipe transactions/imports/documents/paystubs (KEEP accounts)
+ *   npx tsx scripts/reset-data.ts --yes --accounts # also wipe accounts + balance snapshots (full clean slate)
  *
  * npm aliases:
- *   npm run db:reset        # wipe data, KEEP accounts (re-run db:load-master to repopulate)
- *   npm run db:reset:all    # full clean slate, incl. accounts (then preload-accounts + load-master)
+ *   npm run db:reset        # wipe ingested data, KEEP accounts
+ *   npm run db:reset:all    # full clean slate, incl. accounts
  *
- * The master.xlsx is the source of truth, so transactions/categories are
- * recoverable via db:load-master; accounts via preload-accounts.
+ * ALWAYS KEPT (the canonical defaults): categories, account_types,
+ * account_type_groups, vendor_rules, app_settings. Restore categories from the
+ * versioned snapshot with `npm run db:seed` if you ever need to.
+ *
+ * Deletion order respects FKs: transactions reference accounts with onDelete
+ * 'restrict', so they go first; balance snapshots cascade off accounts.
  */
 
 import 'dotenv/config';
-import { isNotNull, isNull, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
+import type { PgTable } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db/client';
-import { accounts, balanceSnapshots, categories, imports, transactions } from '@/lib/db/schema';
+import {
+  accounts,
+  balanceSnapshots,
+  documents,
+  imports,
+  paystubs,
+  transactions,
+} from '@/lib/db/schema';
 
-type Table = typeof transactions | typeof imports | typeof categories | typeof accounts | typeof balanceSnapshots;
-async function count(table: Table) {
+async function count(table: PgTable) {
   const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(table);
   return row.n;
+}
+
+async function wipe(label: string, table: PgTable) {
+  const deleted = await db.delete(table).returning({ one: sql<number>`1` });
+  console.log(`  ${label.padEnd(18)} deleted: ${deleted.length}`);
 }
 
 async function main() {
@@ -30,37 +46,34 @@ async function main() {
   const wipeAccounts = process.argv.includes('--accounts');
 
   console.log('Current state:');
-  console.log(`  transactions: ${await count(transactions)}`);
-  console.log(`  imports:      ${await count(imports)}`);
-  console.log(`  categories:   ${await count(categories)}`);
-  console.log(`  accounts:     ${await count(accounts)}${wipeAccounts ? '  → WILL be wiped' : '  (kept)'}`);
+  console.log(`  transactions:      ${await count(transactions)}`);
+  console.log(`  imports:           ${await count(imports)}`);
+  console.log(`  documents:         ${await count(documents)}`);
+  console.log(`  paystubs:          ${await count(paystubs)}`);
+  console.log(`  balance snapshots: ${await count(balanceSnapshots)}`);
+  console.log(`  accounts:          ${await count(accounts)}${wipeAccounts ? '  → WILL be wiped' : '  (kept)'}`);
+  console.log('  categories / account_types / vendor_rules / settings: kept');
 
   if (!confirmed) {
-    console.log(`\nDRY RUN — nothing deleted.`);
-    console.log(`  Re-run with --yes to wipe data (keeps accounts).`);
-    console.log(`  Add --accounts for a full clean slate.`);
+    console.log('\nDRY RUN — nothing deleted.');
+    console.log('  Re-run with --yes to wipe ingested data (keeps accounts).');
+    console.log('  Add --accounts for a full clean slate.');
     process.exit(0);
   }
 
   console.log('\nDeleting...');
-  const dtx = await db.delete(transactions).returning({ id: transactions.id });
-  console.log(`  transactions deleted: ${dtx.length}`);
-  const dim = await db.delete(imports).returning({ id: imports.id });
-  console.log(`  imports deleted:      ${dim.length}`);
-  // Children reference parents (onDelete restrict), so delete children first.
-  const dch = await db.delete(categories).where(isNotNull(categories.parentId)).returning({ id: categories.id });
-  console.log(`  categories (children) deleted: ${dch.length}`);
-  const dpar = await db.delete(categories).where(isNull(categories.parentId)).returning({ id: categories.id });
-  console.log(`  categories (parents) deleted:  ${dpar.length}`);
+  // transactions first (restrict FK on accounts), then the rest.
+  await wipe('transactions', transactions);
+  await wipe('paystubs', paystubs);
+  await wipe('imports', imports);
+  await wipe('documents', documents);
 
   if (wipeAccounts) {
-    const dsnap = await db.delete(balanceSnapshots).returning({ id: balanceSnapshots.id });
-    console.log(`  balance snapshots deleted: ${dsnap.length}`);
-    const dacc = await db.delete(accounts).returning({ id: accounts.id });
-    console.log(`  accounts deleted:          ${dacc.length}`);
-    console.log(`\nFull clean slate. Next: npm run db:seed (or preload-accounts) + db:load-master.`);
+    await wipe('balance snapshots', balanceSnapshots);
+    await wipe('accounts', accounts);
+    console.log('\nFull clean slate. Taxonomies kept. Upload a statement to start fresh.');
   } else {
-    console.log(`\nData wiped (accounts kept). Next: npm run db:load-master "<path>".`);
+    console.log('\nIngested data wiped (accounts kept). Upload a statement to repopulate.');
   }
   process.exit(0);
 }

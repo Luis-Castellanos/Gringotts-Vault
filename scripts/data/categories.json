@@ -1,0 +1,1312 @@
+[
+  {
+    "slug": "inflows-wages",
+    "name": "Wages",
+    "parentSlug": null,
+    "color": "#10b981",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-investment_income",
+    "name": "Investment Income",
+    "parentSlug": null,
+    "color": "#3b82f6",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-rewards_bonuses",
+    "name": "Rewards & Bonuses",
+    "parentSlug": null,
+    "color": "#f97316",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-zelle",
+    "name": "Zelle",
+    "parentSlug": null,
+    "color": "#ec4899",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-other_inflows",
+    "name": "Other Inflows",
+    "parentSlug": null,
+    "color": "#a855f7",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-zelle",
+    "name": "Zelle",
+    "parentSlug": null,
+    "color": "#06b6d4",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-housing",
+    "name": "Housing",
+    "parentSlug": null,
+    "color": "#ef4444",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-auto_transport",
+    "name": "Auto & Transport",
+    "parentSlug": null,
+    "color": "#d946ef",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 7,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-food_dining",
+    "name": "Food & Dining",
+    "parentSlug": null,
+    "color": "#14b8a6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 8,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-bills_utilities",
+    "name": "Bills & Utilities",
+    "parentSlug": null,
+    "color": "#64748b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 9,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-shopping",
+    "name": "Shopping",
+    "parentSlug": null,
+    "color": "#0ea5e9",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 10,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-entertainment",
+    "name": "Entertainment",
+    "parentSlug": null,
+    "color": "#84cc16",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 11,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-health_wellness",
+    "name": "Health & Wellness",
+    "parentSlug": null,
+    "color": "#f59e0b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 12,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-travel",
+    "name": "Travel",
+    "parentSlug": null,
+    "color": "#8b5cf6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 13,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-education",
+    "name": "Education",
+    "parentSlug": null,
+    "color": "#22c55e",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 14,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-pets",
+    "name": "Pets",
+    "parentSlug": null,
+    "color": "#fb7185",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 15,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-gifts_donations",
+    "name": "Gifts & Donations",
+    "parentSlug": null,
+    "color": "#38bdf8",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 16,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-financial",
+    "name": "Financial",
+    "parentSlug": null,
+    "color": "#a3e635",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 17,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-other",
+    "name": "Other",
+    "parentSlug": null,
+    "color": "#10b981",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 18,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_in",
+    "name": "Transfers In",
+    "parentSlug": null,
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 19,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_out",
+    "name": "Transfers Out",
+    "parentSlug": null,
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 20,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-investment_income-dividends_qualified",
+    "name": "Dividends (Qualified)",
+    "parentSlug": "inflows-investment_income",
+    "color": "#3b82f6",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-other_inflows-tax_refund",
+    "name": "Tax Refund",
+    "parentSlug": "inflows-other_inflows",
+    "color": "#a855f7",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-rewards_bonuses-credit_card_sign_up_bonus",
+    "name": "Credit Card Sign-up Bonus",
+    "parentSlug": "inflows-rewards_bonuses",
+    "color": "#f97316",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-wages-paycheck",
+    "name": "Paycheck",
+    "parentSlug": "inflows-wages",
+    "color": "#10b981",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-zelle-mom_julia",
+    "name": "Mom - Julia",
+    "parentSlug": "inflows-zelle",
+    "color": "#ec4899",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-investment_income-dividends_ordinary",
+    "name": "Dividends (Ordinary)",
+    "parentSlug": "inflows-investment_income",
+    "color": "#3b82f6",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-other_inflows-reimbursement",
+    "name": "Reimbursement",
+    "parentSlug": "inflows-other_inflows",
+    "color": "#a855f7",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-rewards_bonuses-credit_card_cashback_points",
+    "name": "Credit Card Cashback/Points",
+    "parentSlug": "inflows-rewards_bonuses",
+    "color": "#f97316",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-wages-401_k_contribution",
+    "name": "401(k) Contribution",
+    "parentSlug": "inflows-wages",
+    "color": "#10b981",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-zelle-gramps_hector",
+    "name": "Gramps - Hector",
+    "parentSlug": "inflows-zelle",
+    "color": "#ec4899",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-investment_income-interest",
+    "name": "Interest",
+    "parentSlug": "inflows-investment_income",
+    "color": "#3b82f6",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-other_inflows-gift_received",
+    "name": "Gift Received",
+    "parentSlug": "inflows-other_inflows",
+    "color": "#a855f7",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-rewards_bonuses-bank_account_bonus",
+    "name": "Bank Account Bonus",
+    "parentSlug": "inflows-rewards_bonuses",
+    "color": "#f97316",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-wages-401_k_match",
+    "name": "401(k) Match",
+    "parentSlug": "inflows-wages",
+    "color": "#10b981",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-zelle-other",
+    "name": "Other",
+    "parentSlug": "inflows-zelle",
+    "color": "#ec4899",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-other_inflows-check_deposit",
+    "name": "Check Deposit",
+    "parentSlug": "inflows-other_inflows",
+    "color": "#a855f7",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-wages-hsa_contribution_you",
+    "name": "HSA Contribution (You)",
+    "parentSlug": "inflows-wages",
+    "color": "#10b981",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-other_inflows-atm_cash_deposit",
+    "name": "ATM Cash Deposit",
+    "parentSlug": "inflows-other_inflows",
+    "color": "#a855f7",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-wages-hsa_contribution_employer",
+    "name": "HSA Contribution (Employer)",
+    "parentSlug": "inflows-wages",
+    "color": "#10b981",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-other_inflows-reselling_income",
+    "name": "Reselling Income",
+    "parentSlug": "inflows-other_inflows",
+    "color": "#a855f7",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "inflows-wages-employee_stock_purchase_plan_espp",
+    "name": "Employee Stock Purchase Plan (ESPP)",
+    "parentSlug": "inflows-wages",
+    "color": "#10b981",
+    "flowType": "inflow",
+    "isIncome": true,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-auto_transport-auto_payment",
+    "name": "Auto Payment",
+    "parentSlug": "outflows-auto_transport",
+    "color": "#d946ef",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-bills_utilities-phone",
+    "name": "Phone",
+    "parentSlug": "outflows-bills_utilities",
+    "color": "#64748b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-education-tuition_fees",
+    "name": "Tuition & Fees",
+    "parentSlug": "outflows-education",
+    "color": "#22c55e",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-entertainment-games",
+    "name": "Games",
+    "parentSlug": "outflows-entertainment",
+    "color": "#84cc16",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-financial-life_insurance",
+    "name": "Life Insurance",
+    "parentSlug": "outflows-financial",
+    "color": "#a3e635",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-food_dining-groceries",
+    "name": "Groceries",
+    "parentSlug": "outflows-food_dining",
+    "color": "#14b8a6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-gifts_donations-charity",
+    "name": "Charity",
+    "parentSlug": "outflows-gifts_donations",
+    "color": "#38bdf8",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-health_wellness-health_insurance",
+    "name": "Health Insurance",
+    "parentSlug": "outflows-health_wellness",
+    "color": "#f59e0b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-housing-mortgage",
+    "name": "Mortgage",
+    "parentSlug": "outflows-housing",
+    "color": "#ef4444",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-other-reimbursements",
+    "name": "Reimbursements",
+    "parentSlug": "outflows-other",
+    "color": "#10b981",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-pets-pet_food_supplies",
+    "name": "Pet Food & Supplies",
+    "parentSlug": "outflows-pets",
+    "color": "#fb7185",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-shopping-online_shopping",
+    "name": "Online Shopping",
+    "parentSlug": "outflows-shopping",
+    "color": "#0ea5e9",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-travel-flights",
+    "name": "Flights",
+    "parentSlug": "outflows-travel",
+    "color": "#8b5cf6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-zelle-mom_julia",
+    "name": "Mom - Julia",
+    "parentSlug": "outflows-zelle",
+    "color": "#06b6d4",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-auto_transport-auto_insurance",
+    "name": "Auto Insurance",
+    "parentSlug": "outflows-auto_transport",
+    "color": "#d946ef",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-bills_utilities-internet_mobile",
+    "name": "Internet & Mobile",
+    "parentSlug": "outflows-bills_utilities",
+    "color": "#64748b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-education-books_course_materials",
+    "name": "Books & Course Materials",
+    "parentSlug": "outflows-education",
+    "color": "#22c55e",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-entertainment-movies",
+    "name": "Movies",
+    "parentSlug": "outflows-entertainment",
+    "color": "#84cc16",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-financial-taxes",
+    "name": "Taxes",
+    "parentSlug": "outflows-financial",
+    "color": "#a3e635",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-food_dining-restaurants",
+    "name": "Restaurants",
+    "parentSlug": "outflows-food_dining",
+    "color": "#14b8a6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-gifts_donations-gifts",
+    "name": "Gifts",
+    "parentSlug": "outflows-gifts_donations",
+    "color": "#38bdf8",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-health_wellness-dental_vision_insurance",
+    "name": "Dental & Vision Insurance",
+    "parentSlug": "outflows-health_wellness",
+    "color": "#f59e0b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-housing-rent",
+    "name": "Rent",
+    "parentSlug": "outflows-housing",
+    "color": "#ef4444",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-other-miscellaneous",
+    "name": "Miscellaneous",
+    "parentSlug": "outflows-other",
+    "color": "#10b981",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-pets-vet",
+    "name": "Vet",
+    "parentSlug": "outflows-pets",
+    "color": "#fb7185",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-shopping-clothing_accessories",
+    "name": "Clothing & Accessories",
+    "parentSlug": "outflows-shopping",
+    "color": "#0ea5e9",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-travel-hotels",
+    "name": "Hotels",
+    "parentSlug": "outflows-travel",
+    "color": "#8b5cf6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-zelle-gramps_hector",
+    "name": "Gramps - Hector",
+    "parentSlug": "outflows-zelle",
+    "color": "#06b6d4",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-auto_transport-gas_charging",
+    "name": "Gas & Charging",
+    "parentSlug": "outflows-auto_transport",
+    "color": "#d946ef",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-bills_utilities-utilities",
+    "name": "Utilities",
+    "parentSlug": "outflows-bills_utilities",
+    "color": "#64748b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-education-student_housing_meal_plan",
+    "name": "Student Housing & Meal Plan",
+    "parentSlug": "outflows-education",
+    "color": "#22c55e",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-entertainment-music",
+    "name": "Music",
+    "parentSlug": "outflows-entertainment",
+    "color": "#84cc16",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-financial-financial_legal_services",
+    "name": "Financial & Legal Services",
+    "parentSlug": "outflows-financial",
+    "color": "#a3e635",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-food_dining-fast_food",
+    "name": "Fast Food",
+    "parentSlug": "outflows-food_dining",
+    "color": "#14b8a6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-health_wellness-doctor",
+    "name": "Doctor",
+    "parentSlug": "outflows-health_wellness",
+    "color": "#f59e0b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-housing-renters_home_insurance",
+    "name": "Renters/Home Insurance",
+    "parentSlug": "outflows-housing",
+    "color": "#ef4444",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-other-uncategorized",
+    "name": "Uncategorized",
+    "parentSlug": "outflows-other",
+    "color": "#10b981",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-shopping-electronics",
+    "name": "Electronics",
+    "parentSlug": "outflows-shopping",
+    "color": "#0ea5e9",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-travel-rental_car",
+    "name": "Rental Car",
+    "parentSlug": "outflows-travel",
+    "color": "#8b5cf6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-zelle-other",
+    "name": "Other",
+    "parentSlug": "outflows-zelle",
+    "color": "#06b6d4",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-auto_transport-auto_maintenance",
+    "name": "Auto Maintenance",
+    "parentSlug": "outflows-auto_transport",
+    "color": "#d946ef",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-bills_utilities-streaming",
+    "name": "Streaming",
+    "parentSlug": "outflows-bills_utilities",
+    "color": "#64748b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-education-online_courses_certifications",
+    "name": "Online Courses & Certifications",
+    "parentSlug": "outflows-education",
+    "color": "#22c55e",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-entertainment-books_reading",
+    "name": "Books & Reading",
+    "parentSlug": "outflows-entertainment",
+    "color": "#84cc16",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-financial-financial_fees",
+    "name": "Financial Fees",
+    "parentSlug": "outflows-financial",
+    "color": "#a3e635",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-food_dining-food_delivery",
+    "name": "Food Delivery",
+    "parentSlug": "outflows-food_dining",
+    "color": "#14b8a6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-health_wellness-dental",
+    "name": "Dental",
+    "parentSlug": "outflows-health_wellness",
+    "color": "#f59e0b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-housing-repairs_maintenance",
+    "name": "Repairs & Maintenance",
+    "parentSlug": "outflows-housing",
+    "color": "#ef4444",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-shopping-home_furniture",
+    "name": "Home & Furniture",
+    "parentSlug": "outflows-shopping",
+    "color": "#0ea5e9",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-travel-vacation",
+    "name": "Vacation",
+    "parentSlug": "outflows-travel",
+    "color": "#8b5cf6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-auto_transport-parking",
+    "name": "Parking",
+    "parentSlug": "outflows-auto_transport",
+    "color": "#d946ef",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-bills_utilities-subscriptions",
+    "name": "Subscriptions",
+    "parentSlug": "outflows-bills_utilities",
+    "color": "#64748b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-education-tutoring_test_prep",
+    "name": "Tutoring & Test Prep",
+    "parentSlug": "outflows-education",
+    "color": "#22c55e",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-entertainment-events_tickets",
+    "name": "Events & Tickets",
+    "parentSlug": "outflows-entertainment",
+    "color": "#84cc16",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-financial-credit_card_annual_fees",
+    "name": "Credit Card Annual Fees",
+    "parentSlug": "outflows-financial",
+    "color": "#a3e635",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-food_dining-coffee_tea",
+    "name": "Coffee & Tea",
+    "parentSlug": "outflows-food_dining",
+    "color": "#14b8a6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-health_wellness-pharmacy",
+    "name": "Pharmacy",
+    "parentSlug": "outflows-health_wellness",
+    "color": "#f59e0b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-housing-improvements",
+    "name": "Improvements",
+    "parentSlug": "outflows-housing",
+    "color": "#ef4444",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-shopping-general_merchandise",
+    "name": "General Merchandise",
+    "parentSlug": "outflows-shopping",
+    "color": "#0ea5e9",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-auto_transport-fees_tickets",
+    "name": "Fees & Tickets",
+    "parentSlug": "outflows-auto_transport",
+    "color": "#d946ef",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-education-student_loan_interest",
+    "name": "Student Loan Interest",
+    "parentSlug": "outflows-education",
+    "color": "#22c55e",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-entertainment-attractions",
+    "name": "Attractions",
+    "parentSlug": "outflows-entertainment",
+    "color": "#84cc16",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-financial-cash_atm",
+    "name": "Cash & ATM",
+    "parentSlug": "outflows-financial",
+    "color": "#a3e635",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-food_dining-alcohol_bars",
+    "name": "Alcohol & Bars",
+    "parentSlug": "outflows-food_dining",
+    "color": "#14b8a6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-health_wellness-gym_fitness",
+    "name": "Gym & Fitness",
+    "parentSlug": "outflows-health_wellness",
+    "color": "#f59e0b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-shopping-sporting_goods",
+    "name": "Sporting Goods",
+    "parentSlug": "outflows-shopping",
+    "color": "#0ea5e9",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-auto_transport-public_transit",
+    "name": "Public Transit",
+    "parentSlug": "outflows-auto_transport",
+    "color": "#d946ef",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-education-other_education",
+    "name": "Other Education",
+    "parentSlug": "outflows-education",
+    "color": "#22c55e",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-entertainment-news_media",
+    "name": "News & Media",
+    "parentSlug": "outflows-entertainment",
+    "color": "#84cc16",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-financial-check",
+    "name": "Check",
+    "parentSlug": "outflows-financial",
+    "color": "#a3e635",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-food_dining-snacks_pastries_bakery",
+    "name": "Snacks, Pastries & Bakery",
+    "parentSlug": "outflows-food_dining",
+    "color": "#14b8a6",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-health_wellness-wellness",
+    "name": "Wellness",
+    "parentSlug": "outflows-health_wellness",
+    "color": "#f59e0b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-shopping-office_shipping",
+    "name": "Office & Shipping",
+    "parentSlug": "outflows-shopping",
+    "color": "#0ea5e9",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-auto_transport-taxi_ride_shares",
+    "name": "Taxi & Ride Shares",
+    "parentSlug": "outflows-auto_transport",
+    "color": "#d946ef",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 7,
+    "isArchived": false
+  },
+  {
+    "slug": "outflows-health_wellness-personal_care",
+    "name": "Personal Care",
+    "parentSlug": "outflows-health_wellness",
+    "color": "#f59e0b",
+    "flowType": "outflow",
+    "isIncome": false,
+    "sortOrder": 7,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_in-account_transfer",
+    "name": "Account Transfer",
+    "parentSlug": "transfers-transfers_in",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_out-account_transfer",
+    "name": "Account Transfer",
+    "parentSlug": "transfers-transfers_out",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 0,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_in-credit_card_payment",
+    "name": "Credit Card Payment",
+    "parentSlug": "transfers-transfers_in",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_out-credit_card_payment",
+    "name": "Credit Card Payment",
+    "parentSlug": "transfers-transfers_out",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 1,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_in-loan_payment",
+    "name": "Loan Payment",
+    "parentSlug": "transfers-transfers_in",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_out-loan_payment",
+    "name": "Loan Payment",
+    "parentSlug": "transfers-transfers_out",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 2,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_in-student_loan_payment",
+    "name": "Student Loan Payment",
+    "parentSlug": "transfers-transfers_in",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_out-student_loan_payment",
+    "name": "Student Loan Payment",
+    "parentSlug": "transfers-transfers_out",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 3,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_in-loan_proceeds",
+    "name": "Loan Proceeds",
+    "parentSlug": "transfers-transfers_in",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_out-loan_proceeds",
+    "name": "Loan Proceeds",
+    "parentSlug": "transfers-transfers_out",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 4,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_in-investment_transfer",
+    "name": "Investment Transfer",
+    "parentSlug": "transfers-transfers_in",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_out-investment_transfer",
+    "name": "Investment Transfer",
+    "parentSlug": "transfers-transfers_out",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 5,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_in-check",
+    "name": "Check",
+    "parentSlug": "transfers-transfers_in",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  },
+  {
+    "slug": "transfers-transfers_out-check",
+    "name": "Check",
+    "parentSlug": "transfers-transfers_out",
+    "color": "#3b82f6",
+    "flowType": "transfer",
+    "isIncome": false,
+    "sortOrder": 6,
+    "isArchived": false
+  }
+]
