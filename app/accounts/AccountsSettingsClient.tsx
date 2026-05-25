@@ -136,11 +136,9 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
           <Caret open={open} small />
           <InstLogo institution={a.institution} />
           <span className="acctset-name">
-            <span style={{ marginRight: 6 }}>{a.icon}</span>{a.name}
+            {a.name}
+            {a.last4 && <span className="acctset-last4">····{a.last4}</span>}
             {!a.isActive && <span className="acctset-badge">Closed</span>}
-            <span className="acctset-rowsub">
-              {a.institution || '—'}{a.last4 ? ` · ····${a.last4}` : ''} · {accountTypeLabel(a.type)}
-            </span>
           </span>
           <span className="acctset-bal numeric">{usd.format(a.balance)}</span>
           <span className="acctset-txns numeric">{a.count.toLocaleString()} txns</span>
@@ -188,7 +186,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
           <InstLogo institution={a.institution} />
           <div className="acctset-card-id">
             <span className="acctset-card-name">
-              <span style={{ marginRight: 6 }}>{a.icon}</span>{a.name}{!a.isActive && <span className="acctset-badge">Closed</span>}
+              {a.name}{!a.isActive && <span className="acctset-badge">Closed</span>}
             </span>
             <span className="acctset-card-sub">{a.institution || '—'}{a.last4 ? ` ····${a.last4}` : ''}</span>
           </div>
@@ -312,8 +310,8 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
         return (
           <section key={top} className={`acctset-section${isCollapsed ? ' collapsed' : ''}`}>
             <button className="acctset-section-head" onClick={() => toggleGroup(top)} aria-expanded={!isCollapsed}>
-              <Caret open={!isCollapsed} />
               <h2>{top} <span className="acctset-count">{accts.length}</span></h2>
+              <Caret open={!isCollapsed} />
               <span className="acctset-section-total numeric">{usd.format(total)}</span>
             </button>
             {!isCollapsed &&
@@ -332,7 +330,7 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
                       onClick={() => toggleGroup(subKey)}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGroup(subKey); } }}
                     >
-                      <span className="acctset-subgroup-name"><Caret open={subOpen} small /> {accountTypeLabel(t)}</span>
+                      <span className="acctset-subgroup-name">{accountTypeLabel(t)} <Caret open={subOpen} small /></span>
                       <span className="acctset-subgroup-count">{typeRows.length}</span>
                       <span className="acctset-subgroup-total numeric">{usd.format(typeTotal)}</span>
                     </div>

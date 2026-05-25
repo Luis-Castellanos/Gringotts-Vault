@@ -100,9 +100,9 @@
   appearance: none; border: 0; background: transparent; color: inherit; font: inherit;
   padding: 8px 4px; cursor: pointer; text-align: left;
 }
-.acctset-section-head h2 { margin: 0; font-size: 15px; font-weight: 700; flex: 1; }
+.acctset-section-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
 .acctset-count { margin-left: 6px; font-size: 12px; font-weight: 600; color: var(--text-3); }
-.acctset-section-total { font-size: 13.5px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.acctset-section-total { margin-left: auto; font-size: 13.5px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
 
 /* Type sub-groups within Assets / Liabilities */
 .acctset-subgroup { margin-top: 6px; }
@@ -114,6 +114,9 @@
 }
 .acctset-subgroup-name {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -140,7 +143,7 @@
 
 .acctset-row {
   display: grid;
-  grid-template-columns: 14px 32px 1fr auto auto;
+  grid-template-columns: 14px 40px 1fr auto auto;
   align-items: center;
   gap: 12px;
   padding: 10px 8px;
@@ -152,14 +155,16 @@
 .acctset-item.open .acctset-row:hover { background: transparent; }
 
 .acctset-logo {
-  width: 32px; height: 32px; border-radius: 50%; background: var(--surface);
+  width: 40px; height: 40px; border-radius: 50%; background: var(--surface);
   display: inline-flex; align-items: center; justify-content: center;
-  flex-shrink: 0; overflow: hidden; box-shadow: inset 0 0 0 0.5px var(--line);
+  flex-shrink: 0; overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--line-strong), 0 1px 3px rgba(0, 0, 0, 0.12);
 }
-.acctset-logo img { width: 20px; height: 20px; object-fit: contain; display: block; }
-.acctset-logo-fb { font-size: 11px; font-weight: 700; color: var(--text-2); }
+.acctset-logo img { width: 26px; height: 26px; object-fit: contain; display: block; }
+.acctset-logo-fb { font-size: 14px; font-weight: 700; color: var(--text-2); }
 
-.acctset-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14.5px; font-weight: 600; color: var(--text-1); }
+.acctset-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 14.5px; font-weight: 600; color: var(--text-1); }
+.acctset-last4 { font-size: 14.5px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .acctset-rowsub { font-size: 12.5px; font-weight: 400; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .acctset-badge {
   display: inline-block; margin-left: 8px; font-size: 10px; font-weight: 700;
