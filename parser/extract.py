@@ -85,7 +85,22 @@ def main():
         )
         text = Path(tmp_txt).read_text(encoding="utf-8", errors="replace")
         if detect_paystub(text):
-            ps = parse_paystub(text)
+            # Paystub line items extract far more reliably from the reading-order
+            # text (no -layout), where each section's labels collapse onto one
+            # line. Run a second pass and hand both to parse_paystub.
+            raw_text = ""
+            try:
+                fd2, tmp_raw = tempfile.mkstemp(suffix=".raw.txt")
+                os.close(fd2)
+                subprocess.run(
+                    ["pdftotext", "-enc", "UTF-8", pdf_path, tmp_raw],
+                    check=True, capture_output=True,
+                )
+                raw_text = Path(tmp_raw).read_text(encoding="utf-8", errors="replace")
+                os.remove(tmp_raw)
+            except Exception:
+                pass
+            ps = parse_paystub(text, raw_text)
             print(json.dumps({
                 "ok": True,
                 "issuer": "paystub",

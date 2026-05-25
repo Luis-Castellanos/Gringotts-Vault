@@ -20,6 +20,8 @@ export type ExtractedTxn = {
   balance: number | null;
 };
 
+export type ExtractedPaystubLine = { label: string; amount: number };
+
 export type ExtractedPaystub = {
   pay_date: string | null;
   pay_period: string | null;
@@ -31,8 +33,14 @@ export type ExtractedPaystub = {
   employer_total: number | null;
   deductions_total: number | null;
   taxes_total: number | null;
+  non_cash_fringe: number | null;
   employer: string | null;
   deposits: { bank: string; last4: string; amount: number }[];
+  earnings: ExtractedPaystubLine[];
+  deductions: ExtractedPaystubLine[];
+  taxes: ExtractedPaystubLine[];
+  employer_contributions: ExtractedPaystubLine[];
+  imputed: ExtractedPaystubLine[];
 };
 
 export type ExtractResult =

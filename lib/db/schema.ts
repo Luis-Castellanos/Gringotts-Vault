@@ -276,6 +276,8 @@ export const vendorRules = pgTable(
 // to the source document. Feeds the Payroll page once wired.
 // ---------------------------------------------------------------------------
 
+export type PaystubLine = { label: string; amount: number };
+
 export const paystubs = pgTable(
   'paystubs',
   {
@@ -292,7 +294,16 @@ export const paystubs = pgTable(
     taxesTotal: numeric('taxes_total', { precision: 14, scale: 2 }),
     employerTotal: numeric('employer_total', { precision: 14, scale: 2 }),
     hours: numeric('hours', { precision: 8, scale: 2 }),
+    nonCashFringe: numeric('non_cash_fringe', { precision: 14, scale: 2 }),
     deposits: jsonb('deposits').$type<{ bank: string; last4: string; amount: number }[]>(),
+    // Per-line breakdowns extracted from the stub. Each is [{label, amount}].
+    // Only populated when their sum reconciles to the section total (parser-side
+    // gate), so a present array can be trusted to add up.
+    earnings: jsonb('earnings').$type<PaystubLine[]>(),
+    deductions: jsonb('deductions').$type<PaystubLine[]>(),
+    taxes: jsonb('taxes').$type<PaystubLine[]>(),
+    employerContributions: jsonb('employer_contributions').$type<PaystubLine[]>(),
+    imputed: jsonb('imputed').$type<PaystubLine[]>(),
     sourceFile: text('source_file'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

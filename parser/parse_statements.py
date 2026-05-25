@@ -843,9 +843,61 @@ def detect_paystub(text: str) -> bool:
     )
 
 
-def parse_paystub(text: str) -> dict:
-    """Extract the headline paystub fields from the pdftotext -layout output.
-    The grid is interleaved, so we rely on uniquely-labeled rows + ordered totals.
+# Imputed (non-cash) earnings that the IRS counts as income but don't hit net
+# pay — listed among earnings but reported separately as a fringe benefit.
+_IMPUTED_LABELS = {"GTLI", "LTD"}
+
+# Multi-word line-item labels to keep intact when splitting a whitespace-joined
+# label run (reading-order text collapses each section's labels onto one line).
+_MULTIWORD_LABELS = [
+    "CR ILLNESS", "CRITICAL ILLNESS", "LONG TERM", "SHORT TERM", "GROUP TERM",
+    "ACCIDENT INS", "LEGAL PLAN", "PET INS", "HOSP INDEM",
+]
+
+_NUM_RE = re.compile(r"-?[\d,]+\.\d{2}")
+
+
+def _nums(s):
+    return [round(float(x.replace(",", "")), 2) for x in _NUM_RE.findall(s)]
+
+
+def _split_labels(s):
+    """Split a label run into labels, preserving known multi-word labels."""
+    s = s.strip()
+    holders = {}
+    for i, mw in enumerate(_MULTIWORD_LABELS):
+        if mw in s:
+            key = f"\x00{i}\x00"
+            holders[key] = mw
+            s = s.replace(mw, key)
+    return [holders.get(t, t) for t in s.split()]
+
+
+def _zip_items(labels, values):
+    """Positional zip label↔value. If fewer values than labels (a zeroed leading
+    line, e.g. FIT withholding of $0 is omitted), right-align so values fill the
+    trailing labels and the missing leading ones become 0."""
+    if len(values) < len(labels):
+        values = [0.0] * (len(labels) - len(values)) + values
+    return [{"label": l, "amount": v} for l, v in zip(labels, values[: len(labels)])]
+
+
+def _reconciles(items, total, tol=0.02):
+    if total is None or not items:
+        return False
+    return abs(round(sum(i["amount"] for i in items), 2) - total) <= tol
+
+
+def parse_paystub(text: str, raw_text: str = "") -> dict:
+    """Extract paystub headline fields + per-line breakdowns.
+
+    Two inputs: `text` is `pdftotext -layout` output (reliable for the section
+    TOTALS, header fields, and deposits via anchored regex); `raw_text` is the
+    reading-order output (no -layout), where each section's labels collapse onto
+    one line followed by a "Current ..." value run — far cleaner for line items.
+
+    Line items are only emitted for a section when their sum reconciles to the
+    independently-parsed total, so we never surface a misleading breakdown.
     """
     def money(s):
         return round(float(s.replace(",", "")), 2)
@@ -866,6 +918,8 @@ def parse_paystub(text: str) -> dict:
     net = find(r"Net Pay\s+([\d,]+\.\d{2})")
     hours = find(r"Hours Paid\s+([\d.]+)")
     employer = find(r"([A-Z][A-Z&'.\- ]+(?:LLC|INC|CORP|GROUP|COMPANY))")
+    fringe_m = re.search(r"Non[- ]Cash Fringe Benefit\s+([\d,]+\.\d{2})", text)
+    non_cash_fringe = money(fringe_m.group(1)) if fringe_m else None
 
     # Section totals — the grid interleaves a "Tax Allowance Settings" column,
     # so anchor each total rather than relying on order.
@@ -887,6 +941,66 @@ def parse_paystub(text: str) -> dict:
     for m in re.finditer(r"([A-Za-z][A-Za-z .&/]+?)\s*\((\d{4})\)\s+([\d,]+\.\d{2})", text):
         deposits.append({"bank": m.group(1).strip(), "last4": m.group(2), "amount": money(m.group(3))})
 
+    # ---- Per-line breakdowns (from the reading-order text) ----
+    earnings, deductions, taxes, employer_lines, imputed = [], [], [], [], []
+    if raw_text:
+        rlines = [l.strip() for l in raw_text.splitlines() if l.strip()]
+
+        def labels_after(anchor):
+            for i, l in enumerate(rlines):
+                if anchor in l and i + 1 < len(rlines):
+                    return _split_labels(rlines[i + 1]), i + 1
+            return [], None
+
+        def find_label_line(pred):
+            for i, l in enumerate(rlines):
+                if pred(l):
+                    return _split_labels(l), i
+            return [], None
+
+        def current_values_after(idx, maxscan=24):
+            if idx is None:
+                return []
+            for j in range(idx, min(idx + maxscan, len(rlines))):
+                if re.match(r"Current\b", rlines[j]):
+                    v = _nums(rlines[j])
+                    if v:
+                        return v
+                    for k in range(j + 1, min(j + 4, len(rlines))):
+                        v = _nums(rlines[k])
+                        if v:
+                            return v
+            return []
+
+        # Deductions
+        dl, di = labels_after("Deductions")
+        cand = _zip_items(dl, current_values_after(di))
+        deductions = cand if _reconciles(cand, deductions_total) else []
+
+        # Employer contributions — its label line carries the employer-only
+        # FUTA + SUTA taxes, which uniquely identifies it.
+        fl, fi = find_label_line(lambda l: "FUTA" in l and "SUTA" in l)
+        cand = _zip_items(fl, current_values_after(fi))
+        employer_lines = cand if _reconciles(cand, employer_total) else []
+
+        # Taxes withheld
+        tl, ti = labels_after("Taxes Withheld")
+        cand = _zip_items(tl, current_values_after(ti))
+        taxes = cand if _reconciles(cand, taxes_total) else []
+
+        # Earnings + imputed: the earnings label run mixes cash earnings with
+        # imputed lines (GTLI/LTD). The "Current" run holds the imputed values;
+        # cash earnings sum to gross.
+        el, ei = labels_after("Earnings")
+        evals = current_values_after(ei)
+        imp_labels = [l for l in el if l in _IMPUTED_LABELS]
+        imputed = _zip_items(imp_labels, evals[: len(imp_labels)])
+        cash_labels = [l for l in el if l not in _IMPUTED_LABELS]
+        if gross is not None:
+            earnings = [{"label": cash_labels[0] if cash_labels else "SALARY", "amount": money(gross)}]
+        if non_cash_fringe is None and imputed:
+            non_cash_fringe = round(sum(i["amount"] for i in imputed), 2)
+
     return {
         "pay_date": pay_date,
         "pay_period": period.replace(" ", "") if period else None,
@@ -898,8 +1012,14 @@ def parse_paystub(text: str) -> dict:
         "employer_total": employer_total,
         "deductions_total": deductions_total,
         "taxes_total": taxes_total,
+        "non_cash_fringe": non_cash_fringe,
         "employer": employer.strip() if employer else None,
         "deposits": deposits,
+        "earnings": earnings,
+        "deductions": deductions,
+        "taxes": taxes,
+        "employer_contributions": employer_lines,
+        "imputed": imputed,
     }
 
 

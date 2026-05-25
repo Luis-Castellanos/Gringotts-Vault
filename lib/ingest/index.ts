@@ -219,6 +219,8 @@ export async function ingestParsedStatement(args: {
 // Paystubs
 // ---------------------------------------------------------------------------
 
+export type ParsedPaystubLine = { label: string; amount: number };
+
 export type ParsedPaystub = {
   pay_date: string | null;
   pay_period: string | null;
@@ -230,12 +232,19 @@ export type ParsedPaystub = {
   employer_total: number | null;
   deductions_total: number | null;
   taxes_total: number | null;
+  non_cash_fringe: number | null;
   employer: string | null;
   deposits: { bank: string; last4: string; amount: number }[];
+  earnings: ParsedPaystubLine[];
+  deductions: ParsedPaystubLine[];
+  taxes: ParsedPaystubLine[];
+  employer_contributions: ParsedPaystubLine[];
+  imputed: ParsedPaystubLine[];
 };
 
 export async function ingestPaystub(documentId: string, ps: ParsedPaystub, sourceFile: string): Promise<{ id: string | null }> {
   const num = (n: number | null | undefined) => (n == null ? null : n.toFixed(2));
+  const lines = (a: ParsedPaystubLine[] | undefined) => (a && a.length ? a : null);
   const [row] = await db
     .insert(paystubs)
     .values({
@@ -251,7 +260,13 @@ export async function ingestPaystub(documentId: string, ps: ParsedPaystub, sourc
       taxesTotal: num(ps.taxes_total),
       employerTotal: num(ps.employer_total),
       hours: ps.hours != null ? ps.hours.toFixed(2) : null,
+      nonCashFringe: num(ps.non_cash_fringe),
       deposits: ps.deposits ?? [],
+      earnings: lines(ps.earnings),
+      deductions: lines(ps.deductions),
+      taxes: lines(ps.taxes),
+      employerContributions: lines(ps.employer_contributions),
+      imputed: lines(ps.imputed),
       sourceFile,
     })
     .onConflictDoNothing({ target: paystubs.voucher })
