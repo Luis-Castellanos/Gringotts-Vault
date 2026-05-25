@@ -2,6 +2,14 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Real Estate Phase 5: Schedule E export.** `lib/properties/schedule-e.ts`
+  maps a property's attributed income/expenses onto IRS Schedule E (Part I) lines —
+  a keyword heuristic over category names (Advertising, Cleaning & maintenance,
+  Insurance, Management, Repairs, Taxes, Utilities, etc.), with mortgage-payment
+  split parts → line 12. The property detail page gains a **Tax · Schedule E** section
+  (year picker + worksheet: rents, expense lines, total, net income) and an **Excel
+  export** (`/api/export/schedule-e?propertyId&year`). Reuses the xlsx export pattern.
+  Mapping is heuristic (review before filing); depreciation (line 18) lands with Phase 6.
 - 2026-05-25 — **Real Estate Phase 4: maintenance.** New `maintenance` table (title ·
   status · category · vendor · cost · opened/completed dates) + CRUD API
   (`/api/maintenance`). The property detail page gains a **Maintenance** work-order

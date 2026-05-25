@@ -9,11 +9,67 @@ import type { MortgageAccountOption, PropertyRow } from '@/lib/properties/load';
 import type { FinCategory, PropertyFinancials, TTM } from '@/lib/properties/financials';
 import type { LeaseRow } from '@/lib/properties/leases';
 import type { MaintenanceRow } from '@/lib/properties/maintenance';
+import type { ScheduleE } from '@/lib/properties/schedule-e';
 import { StatTile } from '@/components/StatTile';
 import { PropertyForm, propertyTypeLabel } from '../PropertyForm';
 import { addressLine, fmtDate, fmtMoney, fmtMoney0, fmtPct, specLine } from '../format';
 import { LeaseForm } from './LeaseForm';
 import { MaintenanceForm } from './MaintenanceForm';
+
+function ScheduleESection({ se }: { se: ScheduleE }) {
+  const router = useRouter();
+  const cur = new Date().getFullYear();
+  const years = Array.from({ length: 6 }, (_, i) => cur - i);
+  const expenseLines = se.lines.filter((l) => l.amount !== 0);
+  const hasData = se.rents !== 0 || se.totalExpenses !== 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h2 className="text-[15px] font-semibold">Tax · Schedule E <span className="text-[12px] font-normal text-text-tertiary">· {se.year}</span></h2>
+        <div className="flex items-center gap-2">
+          <select
+            className="rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500"
+            value={se.year}
+            onChange={(e) => router.push(`/rentals/${se.propertyId}?seYear=${e.target.value}`)}
+            aria-label="Tax year"
+          >
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <a href={`/api/export/schedule-e?propertyId=${se.propertyId}&year=${se.year}`} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">
+            Export ↓
+          </a>
+        </div>
+      </div>
+      {!hasData ? (
+        <div className="rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-8 text-[13px] text-text-tertiary">
+          No income or expenses attributed to this property in {se.year}. Tag transactions to it (and add rent) to build the Schedule E worksheet.
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden text-[13px]">
+          <div className="flex justify-between px-4 py-2.5 border-b border-border-subtle">
+            <span className="text-text-secondary">Rents received <span className="text-text-muted">(line 3)</span></span>
+            <span className="tabular-nums text-positive">{fmtMoney0(se.rents)}</span>
+          </div>
+          {expenseLines.map((l) => (
+            <div key={l.key} className="flex justify-between px-4 py-2 border-b border-border-subtle">
+              <span className="text-text-tertiary">{l.label} <span className="text-text-muted">(line {l.line})</span></span>
+              <span className="tabular-nums text-negative">{fmtMoney0(l.amount)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between px-4 py-2.5 border-b border-border-subtle font-medium">
+            <span>Total expenses</span>
+            <span className="tabular-nums text-negative">{fmtMoney0(se.totalExpenses)}</span>
+          </div>
+          <div className="flex justify-between px-4 py-2.5 font-semibold">
+            <span>Net income / (loss)</span>
+            <span className={`tabular-nums ${se.netIncome >= 0 ? 'text-positive' : 'text-negative'}`}>{fmtMoney0(se.netIncome)}</span>
+          </div>
+        </div>
+      )}
+      <p className="text-[11px] text-text-muted mt-2">Heuristic mapping from your categories to Schedule E lines — review before filing. Depreciation (line 18) is coming.</p>
+    </div>
+  );
+}
 
 const MAINT_STATUS: Record<string, { label: string; cls: string }> = {
   open: { label: 'Open', cls: 'text-amber-400' },
@@ -395,6 +451,7 @@ export function PropertyDetailClient({
   financials,
   leases,
   maintenance,
+  scheduleE,
   mortgageOptions,
 }: {
   property: PropertyRow;
@@ -402,6 +459,7 @@ export function PropertyDetailClient({
   financials: PropertyFinancials;
   leases: LeaseRow[];
   maintenance: MaintenanceRow[];
+  scheduleE: ScheduleE;
   mortgageOptions: MortgageAccountOption[];
 }) {
   const router = useRouter();
@@ -547,6 +605,11 @@ export function PropertyDetailClient({
         <MaintenanceSection propertyId={property.id} items={maintenance} />
       </div>
 
+      {/* Schedule E */}
+      <div className="mb-8">
+        <ScheduleESection se={scheduleE} />
+      </div>
+
       {/* Mortgage / amortization */}
       <h2 className="text-[15px] font-semibold mb-3">Mortgage</h2>
       {property.mortgage ? (
@@ -561,7 +624,7 @@ export function PropertyDetailClient({
 
       {/* Roadmap: the rest of the Stessa-parity module. */}
       <div className="mt-8 rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-5 text-[12.5px] text-text-muted">
-        Coming next: a Schedule E tax export + capital-expense / depreciation tracking.
+        Coming next: capital-expense &amp; depreciation tracking (Schedule E line 18).
       </div>
 
       {editing && <PropertyForm property={property} mortgageOptions={mortgageOptions} onClose={() => setEditing(false)} />}

@@ -83,9 +83,13 @@ Schedule E worksheet (income, each expense line, depreciation) as Excel/PDF.
    category · vendor · cost · opened/completed dates) + CRUD API
    (`/api/maintenance`). Per-property **Maintenance** work-order log (status,
    add/edit/delete, open count). `lib/properties/maintenance.ts`.
-5. **Reports + Schedule E export** — a Reports surface for `/rentals` (Net Cash Flow,
-   Income Statement, Schedule E) with Excel export (reuse the xlsx export pattern),
-   filterable by property/date/interval.
+5. ✅ **Schedule E export — shipped 2026-05-25.** `lib/properties/schedule-e.ts`
+   maps attributed income/expenses onto Schedule E lines (keyword heuristic on
+   category name; split parts → line 12 mortgage interest). Per-property **Tax ·
+   Schedule E** section on the detail page (year picker + worksheet: rents, expense
+   lines, total, net) + **Excel export** (`/api/export/schedule-e?propertyId&year`).
+   _Refinements later:_ explicit category→line mapping UI, broader rentals reports
+   surface (Income Statement / Net Cash Flow filterable by property/date/interval).
 6. **Capital expenses + depreciation** — capex schedule + straight-line depreciation
    (27.5-yr residential) feeding Schedule E line 18.
 

@@ -4,6 +4,7 @@ import { loadMortgageAccountOptions, loadProperty } from '@/lib/properties/load'
 import { loadPropertyFinancials } from '@/lib/properties/financials';
 import { loadLeases } from '@/lib/properties/leases';
 import { loadMaintenance } from '@/lib/properties/maintenance';
+import { loadScheduleE } from '@/lib/properties/schedule-e';
 import { PropertyDetailClient } from './PropertyDetailClient';
 
 export const dynamic = 'force-dynamic';
@@ -14,18 +15,27 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: data ? `${data.property.name} · Vault` : 'Property · Vault' };
 }
 
-export default async function PropertyPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PropertyPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ seYear?: string }>;
+}) {
   const { id } = await params;
+  const { seYear } = await searchParams;
   const [data, mortgageOptions] = await Promise.all([loadProperty(id), loadMortgageAccountOptions()]);
   if (!data) notFound();
 
   const rollupAccounts = [data.property.mortgage?.accountId, data.property.escrowAccountId].filter(
     (x): x is string => !!x,
   );
-  const [financials, leases, maintenance] = await Promise.all([
+  const taxYear = seYear && /^\d{4}$/.test(seYear) ? Number(seYear) : new Date().getFullYear();
+  const [financials, leases, maintenance, scheduleE] = await Promise.all([
     loadPropertyFinancials(id, rollupAccounts),
     loadLeases(id),
     loadMaintenance(id),
+    loadScheduleE(id, taxYear),
   ]);
 
   return (
@@ -36,6 +46,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         financials={financials}
         leases={leases}
         maintenance={maintenance}
+        scheduleE={scheduleE!}
         mortgageOptions={mortgageOptions}
       />
     </main>
