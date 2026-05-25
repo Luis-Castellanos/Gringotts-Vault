@@ -2,6 +2,14 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **UI consistency pass (shared primitives).** Started extracting the
+  repeated page furniture into shared components so every page reads the same:
+  `lib/format.ts` (one canonical `fmtMoney`/`fmtMoney0`/`fmtSigned0`/`fmtPct`/
+  `fmtDate` — pages used to each define their own), `components/StatTile.tsx` (the
+  label · big-number · sub metric card), and `components/PageHeader.tsx` (title +
+  subtitle + actions). Adopted across the new pages (Dashboard, Reports,
+  Investments, Real Estate). Converged pages (Credit Cards, Transactions, etc.)
+  migrate next.
 - 2026-05-25 — **Investments (first pass).** `/investments` replaces its
   placeholder: total portfolio value + 30-day delta + a Fidelity-style
   value-over-time area chart built from investment-account transaction history,

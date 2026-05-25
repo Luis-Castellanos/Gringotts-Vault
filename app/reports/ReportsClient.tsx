@@ -4,21 +4,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import type { AnnualReport, ReportCategory } from '@/lib/reports/load';
+import { PageHeader } from '@/components/PageHeader';
+import { StatTile } from '@/components/StatTile';
+import { fmtMoney0 as money0 } from '@/lib/format';
 
-function money0(n: number): string {
-  return (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
-}
 const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-
-function Tile({ label, value, tone }: { label: string; value: string; tone?: 'pos' | 'neg' | 'blue' }) {
-  const color = tone === 'pos' ? 'text-positive' : tone === 'neg' ? 'text-negative' : tone === 'blue' ? 'text-cat-blue' : 'text-text-primary';
-  return (
-    <section className="rounded-xl bg-surface-1 border border-border-subtle px-5 py-4">
-      <div className="text-[11px] uppercase tracking-[0.07em] text-text-muted mb-1.5">{label}</div>
-      <div className={`text-[22px] font-semibold tracking-[-0.01em] tabular-nums ${color}`}>{value}</div>
-    </section>
-  );
-}
 
 function Breakdown({ title, cats, tone }: { title: string; cats: ReportCategory[]; tone: 'pos' | 'neg' }) {
   const max = cats.length ? Math.max(...cats.map((c) => c.amount)) : 1;
@@ -75,33 +65,33 @@ export function ReportsClient({ years, report }: { years: number[]; report: Annu
   const router = useRouter();
   return (
     <>
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-[-0.01em]">Reports</h1>
-          <p className="text-[13px] text-text-tertiary mt-0.5">Year-end summary — income, spending, and where it went.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            className="rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500"
-            value={report.year}
-            onChange={(e) => router.push(`/reports?year=${e.target.value}`)}
-            aria-label="Report year"
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-          <Link href="/settings" className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">
-            Export →
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Reports"
+        subtitle="Year-end summary — income, spending, and where it went."
+        actions={
+          <>
+            <select
+              className="rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500"
+              value={report.year}
+              onChange={(e) => router.push(`/reports?year=${e.target.value}`)}
+              aria-label="Report year"
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <Link href="/settings" className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">
+              Export →
+            </Link>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-        <Tile label="Income" value={money0(report.income)} tone="blue" />
-        <Tile label="Spending" value={money0(report.spending)} tone="neg" />
-        <Tile label="Net" value={money0(report.net)} tone={report.net >= 0 ? 'pos' : 'neg'} />
-        <Tile label="Savings rate" value={report.savingsRate != null ? `${report.savingsRate}%` : '—'} />
+        <StatTile label="Income" value={money0(report.income)} tone="blue" />
+        <StatTile label="Spending" value={money0(report.spending)} tone="neg" />
+        <StatTile label="Net" value={money0(report.net)} tone={report.net >= 0 ? 'pos' : 'neg'} />
+        <StatTile label="Savings rate" value={report.savingsRate != null ? `${report.savingsRate}%` : '—'} />
       </div>
 
       <div className="mb-5">

@@ -6,19 +6,9 @@ import { useState } from 'react';
 
 import type { AmortResult } from '@/lib/properties/amortization';
 import type { MortgageAccountOption, PropertyRow } from '@/lib/properties/load';
+import { StatTile } from '@/components/StatTile';
 import { PropertyForm, propertyTypeLabel } from '../PropertyForm';
 import { addressLine, fmtDate, fmtMoney, fmtMoney0, fmtPct, specLine } from '../format';
-
-function Metric({ label, value, tone, sub }: { label: string; value: string; tone?: 'pos' | 'neg'; sub?: string }) {
-  const color = tone === 'pos' ? 'text-positive' : tone === 'neg' ? 'text-negative' : 'text-text-primary';
-  return (
-    <section className="rounded-xl bg-surface-1 border border-border-subtle px-5 py-4">
-      <div className="text-[11px] uppercase tracking-[0.07em] text-text-muted mb-1.5">{label}</div>
-      <div className={`text-[22px] font-semibold tracking-[-0.01em] tabular-nums ${color}`}>{value}</div>
-      {sub && <div className="text-[12px] text-text-tertiary mt-1">{sub}</div>}
-    </section>
-  );
-}
 
 function AmortizationSection({ schedule }: { schedule: AmortResult }) {
   const [view, setView] = useState<'yearly' | 'monthly'>('yearly');
@@ -41,10 +31,10 @@ function AmortizationSection({ schedule }: { schedule: AmortResult }) {
     <div className="flex flex-col gap-5">
       {/* Loan summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Metric label="Loan amount" value={fmtMoney0(schedule.principal)} sub={`${schedule.aprPct}% · ${Math.round(schedule.termMonths / 12)} yr`} />
-        <Metric label="Monthly P&I" value={fmtMoney(schedule.monthlyPayment)} />
-        <Metric label="Total interest" value={fmtMoney0(schedule.totalInterest)} sub={`over ${schedule.termMonths} payments`} />
-        <Metric
+        <StatTile label="Loan amount" value={fmtMoney0(schedule.principal)} sub={`${schedule.aprPct}% · ${Math.round(schedule.termMonths / 12)} yr`} />
+        <StatTile label="Monthly P&I" value={fmtMoney(schedule.monthlyPayment)} />
+        <StatTile label="Total interest" value={fmtMoney0(schedule.totalInterest)} sub={`over ${schedule.termMonths} payments`} />
+        <StatTile
           label="Current balance"
           value={schedule.currentBalance != null ? fmtMoney0(schedule.currentBalance) : '—'}
           sub={schedule.payoffDate ? `paid off ${fmtDate(schedule.payoffDate)}` : undefined}
@@ -301,10 +291,10 @@ export function PropertyDetailClient({
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Metric label="Market value" value={fmtMoney0(property.marketValue ?? property.acquisitionPrice)} sub={appreciationSub} />
-        <Metric label="Loan balance" value={property.loanBalance > 0 ? fmtMoney0(property.loanBalance) : '$0'} tone={property.loanBalance > 0 ? 'neg' : undefined} sub={property.mortgage?.name} />
-        <Metric label="Equity" value={fmtMoney0(property.equity)} tone="pos" sub={ePct != null ? `${fmtPct(ePct)} of value` : undefined} />
-        <Metric label="Monthly payment" value={property.mortgage?.monthlyPayment != null ? fmtMoney(property.mortgage.monthlyPayment) : '—'} sub="P&I (from mortgage)" />
+        <StatTile label="Market value" value={fmtMoney0(property.marketValue ?? property.acquisitionPrice)} sub={appreciationSub} />
+        <StatTile label="Loan balance" value={property.loanBalance > 0 ? fmtMoney0(property.loanBalance) : '$0'} tone={property.loanBalance > 0 ? 'neg' : undefined} sub={property.mortgage?.name} />
+        <StatTile label="Equity" value={fmtMoney0(property.equity)} tone="pos" sub={ePct != null ? `${fmtPct(ePct)} of value` : undefined} />
+        <StatTile label="Monthly payment" value={property.mortgage?.monthlyPayment != null ? fmtMoney(property.mortgage.monthlyPayment) : '—'} sub="P&I (from mortgage)" />
       </div>
 
       {/* Mortgage / amortization */}

@@ -1,27 +1,7 @@
 import type { PropertyRow } from '@/lib/properties/load';
 
-export function fmtMoney0(n: number | null | undefined): string {
-  if (n == null || Number.isNaN(n)) return '—';
-  return (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
-}
-
-export function fmtMoney(n: number | null | undefined): string {
-  if (n == null || Number.isNaN(n)) return '—';
-  return (
-    (n < 0 ? '-$' : '$') +
-    Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  );
-}
-
-export function fmtPct(n: number | null | undefined, d = 0): string {
-  if (n == null || Number.isNaN(n)) return '—';
-  return n.toFixed(d) + '%';
-}
-
-export function fmtDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-}
+// Currency / percent / date formatting is shared app-wide.
+export { fmtMoney, fmtMoney0, fmtPct, fmtDate } from '@/lib/format';
 
 /** "City, ST 12345" or the best subset available. */
 export function addressLine(p: Pick<PropertyRow, 'city' | 'state' | 'zip'>): string {

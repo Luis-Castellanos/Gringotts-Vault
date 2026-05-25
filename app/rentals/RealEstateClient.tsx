@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import type { MortgageAccountOption, Portfolio, PropertyRow } from '@/lib/properties/load';
+import { PageHeader } from '@/components/PageHeader';
+import { StatTile } from '@/components/StatTile';
 import { PropertyForm, propertyTypeLabel } from './PropertyForm';
 import { addressLine, equityPct, fmtMoney0, fmtPct, specLine } from './format';
 
@@ -29,16 +31,6 @@ function HouseImage({ url, alt, className = '' }: { url: string | null; alt: str
         <path d="M9.5 21v-6h5v6" />
       </svg>
     </div>
-  );
-}
-
-function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <section className="rounded-xl bg-surface-1 border border-border-subtle px-5 py-4">
-      <div className="text-[11px] uppercase tracking-[0.07em] text-text-muted mb-1.5">{label}</div>
-      <div className="text-[24px] font-semibold tracking-[-0.01em] tabular-nums">{value}</div>
-      {sub && <div className="text-[12px] text-text-tertiary mt-1">{sub}</div>}
-    </section>
   );
 }
 
@@ -153,28 +145,27 @@ export function RealEstateClient({
 
   return (
     <>
-      <div className="flex items-start justify-between mb-7">
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-[-0.01em]">Real Estate</h1>
-          <p className="text-[13px] text-text-tertiary mt-0.5">
-            Your properties, their mortgages, and the equity you&rsquo;ve built.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="rounded-lg bg-accent-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-500/90"
-        >
-          + Add property
-        </button>
-      </div>
+      <PageHeader
+        title="Real Estate"
+        subtitle="Your properties, their mortgages, and the equity you've built."
+        className="mb-7"
+        actions={
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="rounded-lg bg-accent-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-500/90"
+          >
+            + Add property
+          </button>
+        }
+      />
 
       {count > 0 && (
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <Tile label="Portfolio value" value={fmtMoney0(totalMarketValue)} sub={`${count} propert${count === 1 ? 'y' : 'ies'}`} />
-          <Tile label="Total equity" value={fmtMoney0(totalEquity)} sub={totalMarketValue > 0 ? `${fmtPct((totalEquity / totalMarketValue) * 100)} of value` : undefined} />
-          <Tile label="Loan balance" value={fmtMoney0(totalLoanBalance)} sub="Across linked mortgages" />
-          <Tile label="Monthly P&I" value={monthlyPI > 0 ? fmtMoney0(monthlyPI) : '—'} sub="Sum of mortgage payments" />
+          <StatTile size="lg" label="Portfolio value" value={fmtMoney0(totalMarketValue)} sub={`${count} propert${count === 1 ? 'y' : 'ies'}`} />
+          <StatTile size="lg" label="Total equity" value={fmtMoney0(totalEquity)} sub={totalMarketValue > 0 ? `${fmtPct((totalEquity / totalMarketValue) * 100)} of value` : undefined} />
+          <StatTile size="lg" label="Loan balance" value={fmtMoney0(totalLoanBalance)} sub="Across linked mortgages" />
+          <StatTile size="lg" label="Monthly P&I" value={monthlyPI > 0 ? fmtMoney0(monthlyPI) : '—'} sub="Sum of mortgage payments" />
         </div>
       )}
 

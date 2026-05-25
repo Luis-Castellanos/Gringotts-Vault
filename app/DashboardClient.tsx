@@ -4,13 +4,9 @@ import Link from 'next/link';
 
 import type { AccountGroup, DashboardData, NWPoint, TopCategory } from '@/lib/dashboard/load';
 import { iconBg, iconFor } from '@/lib/categories/icons';
-
-function money0(n: number): string {
-  return (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
-}
-function moneySigned(n: number): string {
-  return (n >= 0 ? '+$' : '-$') + Math.abs(Math.round(n)).toLocaleString('en-US');
-}
+import { PageHeader } from '@/components/PageHeader';
+import { StatTile } from '@/components/StatTile';
+import { fmtMoney0 as money0, fmtSigned0 as moneySigned } from '@/lib/format';
 
 // Lightweight SVG area sparkline (no chart lib — matches the app's hand-rolled charts).
 function Sparkline({ series, height = 72 }: { series: NWPoint[]; height?: number }) {
@@ -39,17 +35,6 @@ function Sparkline({ series, height = 72 }: { series: NWPoint[]; height?: number
       <path d={area} fill="url(#nw-spark)" />
       <path d={line} fill="none" stroke={stroke} strokeWidth="2" vectorEffect="non-scaling-stroke" />
     </svg>
-  );
-}
-
-function CashflowTile({ label, value, tone, sub }: { label: string; value: string; tone?: 'pos' | 'neg' | 'blue'; sub?: string }) {
-  const color = tone === 'pos' ? 'text-positive' : tone === 'neg' ? 'text-negative' : tone === 'blue' ? 'text-cat-blue' : 'text-text-primary';
-  return (
-    <section className="rounded-xl bg-surface-1 border border-border-subtle px-5 py-4">
-      <div className="text-[11px] uppercase tracking-[0.07em] text-text-muted mb-1.5">{label}</div>
-      <div className={`text-[22px] font-semibold tracking-[-0.01em] tabular-nums ${color}`}>{value}</div>
-      {sub && <div className="text-[12px] text-text-tertiary mt-1">{sub}</div>}
-    </section>
   );
 }
 
@@ -121,10 +106,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-[-0.01em]">Dashboard</h1>
-        <p className="text-[13px] text-text-tertiary mt-0.5">Where things stand, at a glance.</p>
-      </div>
+      <PageHeader title="Dashboard" subtitle="Where things stand, at a glance." />
 
       {/* Hero: net worth + sparkline */}
       <section className="rounded-2xl bg-surface-1 border border-border-subtle p-6 mb-5">
@@ -152,9 +134,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       {/* This-month cashflow */}
       <div className="grid grid-cols-3 gap-4 mb-5">
-        <CashflowTile label={`Income · ${monthLabel}`} value={money0(income)} tone="blue" />
-        <CashflowTile label="Spending" value={money0(spending)} tone="neg" />
-        <CashflowTile label="Net" value={moneySigned(net)} tone={net >= 0 ? 'pos' : 'neg'} sub={income > 0 ? `${Math.round((net / income) * 100)}% saved` : undefined} />
+        <StatTile label={`Income · ${monthLabel}`} value={money0(income)} tone="blue" />
+        <StatTile label="Spending" value={money0(spending)} tone="neg" />
+        <StatTile label="Net" value={moneySigned(net)} tone={net >= 0 ? 'pos' : 'neg'} sub={income > 0 ? `${Math.round((net / income) * 100)}% saved` : undefined} />
       </div>
 
       {/* Two columns */}

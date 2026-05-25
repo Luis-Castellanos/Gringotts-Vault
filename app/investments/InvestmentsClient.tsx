@@ -4,13 +4,8 @@ import Link from 'next/link';
 
 import type { InvAccount, InvestmentsData, ValuePoint } from '@/lib/investments/load';
 import { accountTypeLabel } from '@/lib/account-types';
-
-function money0(n: number): string {
-  return (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
-}
-function moneySigned(n: number): string {
-  return (n >= 0 ? '+$' : '-$') + Math.abs(Math.round(n)).toLocaleString('en-US');
-}
+import { PageHeader } from '@/components/PageHeader';
+import { fmtMoney0 as money0, fmtSigned0 as moneySigned } from '@/lib/format';
 
 const PALETTE = ['var(--color-cat-blue)', 'var(--color-cat-purple)', 'var(--color-cat-cyan)', 'var(--color-cat-emerald)', 'var(--color-cat-amber)', 'var(--color-cat-pink)'];
 
@@ -77,8 +72,7 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
   if (accounts.length === 0) {
     return (
       <>
-        <h1 className="text-[22px] font-semibold tracking-[-0.01em]">Investments</h1>
-        <p className="text-[13px] text-text-tertiary mt-0.5 mb-8">Brokerage, retirement, and other holdings.</p>
+        <PageHeader title="Investments" subtitle="Brokerage, retirement, and other holdings." className="mb-8" />
         <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-16 text-center text-[13px] text-text-tertiary">
           No investment accounts yet. Add a brokerage or retirement account on the Accounts page and it&rsquo;ll show here.
         </div>
@@ -88,10 +82,7 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-[-0.01em]">Investments</h1>
-        <p className="text-[13px] text-text-tertiary mt-0.5">Portfolio value over time, from your account history.</p>
-      </div>
+      <PageHeader title="Investments" subtitle="Portfolio value over time, from your account history." />
 
       {/* Hero value + chart */}
       <section className="rounded-2xl bg-surface-1 border border-border-subtle p-6 mb-5">
