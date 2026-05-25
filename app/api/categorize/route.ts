@@ -19,11 +19,11 @@ import { db } from '@/lib/db/client';
 import { categories, transactions } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { UNCATEGORIZED_SLUG } from '@/lib/transactions/taxonomy';
+import { getAnthropicKey, getAnthropicModel } from '@/lib/settings';
 
 export const runtime = 'nodejs';
 
 const MAX_MERCHANTS = 200;
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
 
 type Assignment = { merchant: string; categorySlug: string };
 
@@ -39,10 +39,11 @@ export const POST = handler(async () => {
     return ok({ categorized: 0, merchants: 0, skipped: 0, message: 'Nothing left to categorize.' });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = await getAnthropicKey();
   if (!apiKey) {
-    return fail('not_configured', 'Add ANTHROPIC_API_KEY to your .env to enable Claude categorization.', 400);
+    return fail('not_configured', 'Add your Anthropic API key in Settings (or ANTHROPIC_API_KEY in .env) to enable Claude categorization.', 400);
   }
+  const model = await getAnthropicModel();
 
   // Taxonomy for grounding: slug → id, plus a readable list with parent context.
   const cats = await db
@@ -63,7 +64,7 @@ export const POST = handler(async () => {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       max_tokens: 4096,
       tools: [
         {

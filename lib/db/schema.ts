@@ -302,6 +302,15 @@ export const paystubs = pgTable(
   }),
 );
 
+// app_settings — small key/value store for app-level config (e.g. the Anthropic
+// API key + model for Claude categorization). Lives in the DB so it's editable
+// in Settings and travels with the deployment.
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ---------------------------------------------------------------------------
 // transactions — the core ledger
 // ---------------------------------------------------------------------------
