@@ -4,14 +4,17 @@ import { taxFromBrackets, marginalRate } from './brackets';
 import { capitalGainsTax } from './capital-gains';
 import { selfEmploymentTax, additionalMedicareTax, niitTax } from './fica';
 import { childTaxCredit } from './credits';
+import { netCapitalGains, qbiDeduction } from './schedules';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
- * Compute a federal 1040 estimate. Covers ordinary income, the preferential
+ * Compute a federal 1040 estimate. Covers wage/interest/dividend income, the
+ * business & investment schedules (C self-employment, D capital gains, E rental
+ * + K-1 pass-through), the §199A QBI deduction, the preferential
  * cap-gains/qualified-dividend stack, SE tax, additional Medicare, NIIT,
- * standard-vs-itemized, and the Child Tax Credit. Credits beyond the CTC and
- * itemized totals are passed in (T2/T3 will compute more of them).
+ * standard-vs-itemized, and the Child Tax Credit. Itemized totals and credits
+ * beyond the CTC are passed in.
  */
 export function computeFederalReturn(input: TaxReturnInput): TaxReturnResult {
   const data = yearData(input.taxYear);
@@ -19,37 +22,71 @@ export function computeFederalReturn(input: TaxReturnInput): TaxReturnResult {
   const brackets = data.ordinaryBrackets[fs];
   const inc = input.income;
 
-  const totalIncome =
-    inc.wages + inc.taxableInterest + inc.ordinaryDividends + inc.shortTermGains + inc.longTermGains + inc.selfEmploymentNet + inc.otherOrdinaryIncome;
+  // Schedules ----------------------------------------------------------------
+  const scheduleCNet = input.scheduleC.reduce((s, c) => s + c.netProfit, 0);
+  const scheduleEOrdinary = input.scheduleE.rentalNet + input.scheduleE.royalties + input.scheduleE.passthroughOrdinary;
+  const businessIncome = scheduleCNet + scheduleEOrdinary;
+  const capD = netCapitalGains(input.scheduleD, fs);
 
-  const seTax = selfEmploymentTax(inc.selfEmploymentNet, data);
+  const seTax = selfEmploymentTax(scheduleCNet, data);
   const halfSe = seTax * 0.5;
-  const adjustments = input.adjustments.hsa + input.adjustments.iraDeduction + input.adjustments.studentLoanInterest + input.adjustments.other + halfSe;
+
+  // Income → AGI -------------------------------------------------------------
+  const totalIncome =
+    inc.wages +
+    inc.taxableInterest +
+    inc.ordinaryDividends +
+    inc.iraPensionDistributions +
+    inc.otherOrdinaryIncome +
+    businessIncome +
+    capD.includedInIncome;
+
+  const adjustments =
+    input.adjustments.hsa + input.adjustments.iraDeduction + input.adjustments.studentLoanInterest + input.adjustments.other + halfSe;
   const agi = totalIncome - adjustments;
 
   const std = data.standardDeduction[fs];
   const itemized = input.itemizedDeductions ?? 0;
   const useItemized = itemized > std;
   const deduction = useItemized ? itemized : std;
-  const taxableIncome = Math.max(0, agi - deduction);
+  const taxableBeforeQbi = Math.max(0, agi - deduction);
 
-  // Preferential-rate income = qualified dividends + net long-term gains (when
-  // positive), capped at taxable income. Ordinary slice is the remainder.
-  const preferentialIncome = Math.min(taxableIncome, Math.max(0, inc.qualifiedDividends) + Math.max(0, inc.longTermGains));
+  // §199A QBI deduction (below the line) -------------------------------------
+  const preferentialBeforeCap = Math.max(0, capD.preferentialGain) + Math.max(0, inc.qualifiedDividends);
+  const qbi = qbiDeduction({
+    scheduleC: input.scheduleC,
+    scheduleE: input.scheduleE,
+    halfSeTax: halfSe,
+    taxableIncomeBeforeQbi: taxableBeforeQbi,
+    netCapitalGainAndQualDiv: preferentialBeforeCap,
+    status: fs,
+    data,
+  });
+  const taxableIncome = Math.max(0, taxableBeforeQbi - qbi.deduction);
+
+  // Preferential-rate income = qualified dividends + net long-term gains,
+  // capped at taxable income. Ordinary slice is the remainder.
+  const preferentialIncome = Math.min(taxableIncome, preferentialBeforeCap);
   const ordinaryTaxableIncome = Math.max(0, taxableIncome - preferentialIncome);
 
   const ordinaryTax = taxFromBrackets(ordinaryTaxableIncome, brackets);
-  const capitalGainsTax2 = capitalGainsTax(ordinaryTaxableIncome, preferentialIncome, data.ltcg[fs]);
-  const incomeTax = ordinaryTax + capitalGainsTax2;
+  const capGainsTax = capitalGainsTax(ordinaryTaxableIncome, preferentialIncome, data.ltcg[fs]);
+  const incomeTax = ordinaryTax + capGainsTax;
 
-  const additionalMedicare = additionalMedicareTax(inc.wages, inc.selfEmploymentNet, fs, data);
-  const netInvestmentIncome = inc.taxableInterest + inc.ordinaryDividends + Math.max(0, inc.shortTermGains) + Math.max(0, inc.longTermGains);
+  // Surtaxes -----------------------------------------------------------------
+  const additionalMedicare = additionalMedicareTax(inc.wages, scheduleCNet, fs, data);
+  const netInvestmentIncome =
+    inc.taxableInterest +
+    inc.ordinaryDividends +
+    Math.max(0, capD.preferentialGain + capD.shortTermOrdinary) +
+    input.scheduleE.royalties +
+    Math.max(0, input.scheduleE.rentalNet);
   const niit = niitTax(agi, netInvestmentIncome, fs, data);
 
   const totalTaxBeforeCredits = incomeTax + seTax + additionalMedicare + niit;
 
   // Non-refundable credits, capped at the income tax (simplified — refundable
-  // ACTC and ordering rules come in T2).
+  // ACTC and ordering rules come later).
   const ctc = childTaxCredit(input.dependentsUnder17, input.otherDependents, agi, fs, data);
   const totalCredits = Math.min(incomeTax, ctc + input.otherCredits);
   const totalTax = Math.max(0, totalTaxBeforeCredits - totalCredits);
@@ -58,14 +95,21 @@ export function computeFederalReturn(input: TaxReturnInput): TaxReturnResult {
   const refundOrOwed = payments - totalTax;
 
   const lines: TaxLine[] = [
+    { label: 'Wages, interest & dividends', amount: r2(inc.wages + inc.taxableInterest + inc.ordinaryDividends + inc.iraPensionDistributions + inc.otherOrdinaryIncome) },
+    ...(scheduleCNet !== 0 ? [{ label: 'Business income (Schedule C)', amount: r2(scheduleCNet) }] : []),
+    ...(scheduleEOrdinary !== 0 ? [{ label: 'Rental, royalty & pass-through (Schedule E)', amount: r2(scheduleEOrdinary) }] : []),
+    ...(capD.includedInIncome !== 0
+      ? [{ label: 'Capital gain/loss (Schedule D)', amount: r2(capD.includedInIncome), note: capD.lossDeduction < 0 ? 'net loss, limited' : undefined }]
+      : []),
     { label: 'Total income', amount: r2(totalIncome) },
-    { label: 'Adjustments', amount: r2(adjustments), note: halfSe > 0 ? `incl. ${r2(halfSe)} ½ SE tax` : undefined },
+    { label: 'Adjustments', amount: -r2(adjustments), note: halfSe > 0 ? `incl. ${r2(halfSe)} ½ SE tax` : undefined },
     { label: 'Adjusted gross income', amount: r2(agi) },
-    { label: useItemized ? 'Itemized deduction' : 'Standard deduction', amount: r2(deduction) },
+    { label: useItemized ? 'Itemized deduction' : 'Standard deduction', amount: -r2(deduction) },
+    ...(qbi.deduction > 0 ? [{ label: 'QBI deduction (§199A)', amount: -r2(qbi.deduction), note: qbi.note }] : []),
     { label: 'Taxable income', amount: r2(taxableIncome) },
     { label: 'Tax (ordinary)', amount: r2(ordinaryTax) },
-    { label: 'Tax (long-term gains / qual. div.)', amount: r2(capitalGainsTax2) },
-    { label: 'Self-employment tax', amount: r2(seTax) },
+    ...(capGainsTax > 0 ? [{ label: 'Tax (long-term gains / qual. div.)', amount: r2(capGainsTax) }] : []),
+    ...(seTax > 0 ? [{ label: 'Self-employment tax', amount: r2(seTax) }] : []),
     ...(additionalMedicare > 0 ? [{ label: 'Additional Medicare tax', amount: r2(additionalMedicare) }] : []),
     ...(niit > 0 ? [{ label: 'Net investment income tax', amount: r2(niit) }] : []),
     { label: 'Credits', amount: -r2(totalCredits), note: ctc > 0 ? `incl. ${r2(ctc)} Child Tax Credit` : undefined },
@@ -78,15 +122,19 @@ export function computeFederalReturn(input: TaxReturnInput): TaxReturnResult {
     taxYear: data.year,
     filingStatus: fs,
     totalIncome: r2(totalIncome),
+    businessIncome: r2(businessIncome),
+    netCapitalGain: r2(capD.includedInIncome),
+    capitalLossDeduction: r2(capD.lossDeduction),
     adjustments: r2(adjustments),
     agi: r2(agi),
+    qbiDeduction: r2(qbi.deduction),
     deduction: r2(deduction),
     deductionKind: useItemized ? 'itemized' : 'standard',
     taxableIncome: r2(taxableIncome),
     ordinaryTaxableIncome: r2(ordinaryTaxableIncome),
     preferentialIncome: r2(preferentialIncome),
     ordinaryTax: r2(ordinaryTax),
-    capitalGainsTax: r2(capitalGainsTax2),
+    capitalGainsTax: r2(capGainsTax),
     incomeTax: r2(incomeTax),
     selfEmploymentTax: r2(seTax),
     additionalMedicareTax: r2(additionalMedicare),

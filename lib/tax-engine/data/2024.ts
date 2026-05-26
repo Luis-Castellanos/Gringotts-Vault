@@ -44,4 +44,9 @@ export const YEAR_2024: YearData = {
     phaseoutStart: { single: 200_000, mfj: 400_000, mfs: 200_000, hoh: 200_000, qw: 400_000 },
     phaseoutPer1000: 50,
   },
+  qbi: {
+    rate: 0.2,
+    threshold: { single: 191_950, mfj: 383_900, mfs: 191_950, hoh: 191_950, qw: 383_900 },
+    phaseInRange: { single: 50_000, mfj: 100_000, mfs: 50_000, hoh: 50_000, qw: 100_000 },
+  },
 };

@@ -8,6 +8,9 @@ export * from './model';
 export { LATEST_TAX_YEAR, SUPPORTED_YEARS, yearData } from './data';
 export { computeFederalReturn } from './federal/return';
 export { marginalRate, taxFromBrackets } from './federal/brackets';
+export { netCapitalGains, qbiDeduction } from './federal/schedules';
+export { taxFacts } from './facts';
+export type { TaxFact, TaxFactGroup, TaxFactsYear } from './facts';
 
 import type { TaxReturnInput, TaxReturnResult } from './model';
 import { computeFederalReturn } from './federal/return';
@@ -24,7 +27,10 @@ export function emptyInput(taxYear: number, filingStatus: TaxReturnInput['filing
     filingStatus,
     dependentsUnder17: 0,
     otherDependents: 0,
-    income: { wages: 0, taxableInterest: 0, ordinaryDividends: 0, qualifiedDividends: 0, shortTermGains: 0, longTermGains: 0, selfEmploymentNet: 0, otherOrdinaryIncome: 0 },
+    income: { wages: 0, taxableInterest: 0, ordinaryDividends: 0, qualifiedDividends: 0, iraPensionDistributions: 0, otherOrdinaryIncome: 0 },
+    scheduleC: [],
+    scheduleD: { netShortTerm: 0, netLongTerm: 0 },
+    scheduleE: { rentalNet: 0, royalties: 0, passthroughOrdinary: 0 },
     adjustments: { hsa: 0, iraDeduction: 0, studentLoanInterest: 0, other: 0 },
     itemizedDeductions: null,
     withholding: 0,

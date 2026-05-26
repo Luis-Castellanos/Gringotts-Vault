@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 import type { TaxSummary } from '@/lib/tax/load';
 import { FILING_LABEL } from '@/lib/tax/brackets';
@@ -29,6 +30,12 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 export function TaxClient({ years, summary }: { years: number[]; summary: TaxSummary }) {
   const router = useRouter();
   const s = summary;
+  const tabs = (
+    <div className="inline-flex rounded-lg bg-surface-2 border border-border-subtle p-0.5 text-[12.5px]">
+      <span className="rounded-[7px] px-3 py-1 bg-surface-1 text-text-primary font-medium shadow-sm">Summary</span>
+      <Link href="/tax/figures" className="rounded-[7px] px-3 py-1 text-text-tertiary hover:text-text-secondary">Key figures</Link>
+    </div>
+  );
   const yearSelect = (
     <select
       className="rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500"
@@ -43,7 +50,7 @@ export function TaxClient({ years, summary }: { years: number[]; summary: TaxSum
   if (!s.hasData) {
     return (
       <>
-        <PageHeader title="Tax" subtitle="Year-end summary from your paystubs and transactions." actions={yearSelect} />
+        <PageHeader title="Tax" subtitle="Year-end summary from your paystubs and transactions." actions={<>{tabs}{yearSelect}</>} />
         <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-16 text-center text-[13px] text-text-tertiary">
           No paystubs or income recorded for {s.year}. Upload paystubs (and categorize interest/dividends) and the summary appears here.
         </div>
@@ -57,7 +64,7 @@ export function TaxClient({ years, summary }: { years: number[]; summary: TaxSum
       <PageHeader
         title="Tax"
         subtitle={`Year-end summary · ${FILING_LABEL[s.filingStatus]}${s.filingStatusSource === 'default' ? ' (assumed)' : ''}`}
-        actions={yearSelect}
+        actions={<>{tabs}{yearSelect}</>}
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

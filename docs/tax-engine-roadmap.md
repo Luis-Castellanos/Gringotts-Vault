@@ -55,19 +55,27 @@ lib/tax/adapters/               ← Vault-specific. Maps DB → engine input. NO
 
 ## Phases
 
-- **T0 — Foundation** ✦ *building now.* Package boundary, `model.ts`, 2024+2025
+- **T0 — Foundation** ✓ *done.* Package boundary, `model.ts`, 2024+2025
   federal data tables, year lookup. No app coupling.
-- **T1 — Core federal 1040** ✦ *building now.* Total income (wages, interest,
-  ordinary + qualified dividends, short/long-term gains, SE net, other) →
-  adjustments → AGI → standard-vs-itemized → taxable income → **ordinary-bracket
-  tax + LTCG/QD stacking** → SE tax + additional Medicare + NIIT → liability →
+- **T1 — Core federal 1040** ✓ *done.* Total income → adjustments → AGI →
+  standard-vs-itemized → taxable income → **ordinary-bracket tax + LTCG/QD
+  stacking** → SE tax + additional Medicare + NIIT → liability →
   withholding/payments → refund/owed, with effective + marginal rate. Smoke-
   validated against known scenarios.
-- **T2 — Credits & adjustments.** Child Tax Credit + ODC (phaseouts), child/dep
-  care, education (AOTC/LLC), saver's, EITC; above-the-line: HSA, IRA, student-
-  loan interest, ½ SE tax, SE health. (AMT flagged, likely deferred.)
-- **T3 — Schedules.** A (itemized w/ SALT cap), B, C (SE), D (gains), E (rental —
-  Vault already has a Schedule-E worksheet to feed this), SE. QBI (199A) pass.
+- **T2 — Credits & adjustments.** Child Tax Credit + ODC (phaseouts) ✓ done;
+  above-the-line HSA / IRA / student-loan / ½-SE-tax ✓ done. *Remaining:*
+  child/dep care, education (AOTC/LLC), saver's, EITC; SE health. (AMT flagged,
+  likely deferred.)
+- **T3 — Schedules.** C (self-employment → SE tax + ordinary + QBI), D (ST/LT
+  netting, $3k loss limit, preferential LT), E (rental + royalties + K-1
+  pass-through ordinary), and the **QBI / §199A** deduction (20% with the
+  taxable-income cap and SSTB income-threshold phase-out; W-2/UBIA wage limit
+  noted but not modeled) ✓ done & smoke-validated. *Remaining:* Schedule A
+  (itemized w/ SALT cap) and B detail.
+- **Key figures page** ✓ *done.* `lib/tax-engine/facts.ts` exposes the year's
+  reference numbers (standard deduction, brackets, LTCG breakpoints, retirement
+  / HSA / FSA limits, SS & Medicare, NIIT, CTC, QBI, mileage, estate/gift, AMT,
+  FEIE, SALT cap), each tied to an IRS/SSA source; surfaced at `/tax/figures`.
 - **T4 — Ingestion / reconciliation.** Map parsed **tax docs** (W-2 boxes, the
   1099 family, 1098/-T/-E — see ROADMAP tax-doc parsing goal) + Vault data into
   the input model; a reconciliation UI to confirm/override each line.
