@@ -1,38 +1,48 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
-import { NAV_GROUPS } from '@/components/nav-config';
+import { ALL_NAV_ITEMS, type NavItem } from '@/components/nav-config';
 import { PROFILE_EVENT, type ProfileData } from '@/lib/profile/avatars';
 
-type TriState = 'on' | 'off' | 'mixed';
+const BY_HREF = new Map<string, NavItem>(ALL_NAV_ITEMS.map((i) => [i.href, i]));
 
-/** Presentational tri-state box; the wrapping <button> carries the interaction. */
-function TriBox({ state }: { state: TriState }) {
+/** Full nav list in `order`, with any missing items appended (incl. hidden ones). */
+function orderedAll(order: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const h of order) if (BY_HREF.has(h) && !seen.has(h)) { out.push(h); seen.add(h); }
+  for (const it of ALL_NAV_ITEMS) if (!seen.has(it.href)) out.push(it.href);
+  return out;
+}
+
+function CheckBox({ on }: { on: boolean }) {
   return (
     <span
       className={`size-[18px] rounded-[5px] flex items-center justify-center border transition-colors shrink-0 ${
-        state === 'off' ? 'border-border-strong bg-transparent' : 'border-accent-500 bg-accent-500'
+        on ? 'border-accent-500 bg-accent-500' : 'border-border-strong bg-transparent'
       }`}
     >
-      {state === 'on' && (
+      {on && (
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M5 12l5 5L20 6" />
         </svg>
       )}
-      {state === 'mixed' && <span className="w-2.5 h-0.5 rounded bg-white" />}
     </span>
   );
 }
 
-export function SidebarSettings({ initialHidden }: { initialHidden: string[] }) {
+export function SidebarSettings({ initialHidden, initialOrder }: { initialHidden: string[]; initialOrder: string[] }) {
+  const [order, setOrder] = useState<string[]>(() => orderedAll(initialOrder));
   const [hidden, setHidden] = useState<Set<string>>(new Set(initialHidden));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const dragHref = useRef<string | null>(null);
 
   const shown = (href: string) => !hidden.has(href);
 
-  function togglePage(href: string) {
+  function toggle(href: string) {
     setMsg(null);
     setHidden((prev) => {
       const next = new Set(prev);
@@ -42,20 +52,16 @@ export function SidebarSettings({ initialHidden }: { initialHidden: string[] }) 
     });
   }
 
-  function groupState(hrefs: string[]): TriState {
-    const visible = hrefs.filter(shown).length;
-    if (visible === 0) return 'off';
-    if (visible === hrefs.length) return 'on';
-    return 'mixed';
-  }
-
-  function toggleGroup(hrefs: string[]) {
+  function drop(targetHref: string) {
+    const from = dragHref.current;
+    dragHref.current = null;
+    setDragging(null);
+    if (!from || from === targetHref) return;
     setMsg(null);
-    const allShown = hrefs.every(shown);
-    setHidden((prev) => {
-      const next = new Set(prev);
-      // If everything's shown, hide the group; otherwise reveal all of it.
-      for (const h of hrefs) (allShown ? next.add(h) : next.delete(h));
+    setOrder((prev) => {
+      const next = prev.filter((h) => h !== from);
+      const idx = next.indexOf(targetHref);
+      next.splice(idx < 0 ? next.length : idx, 0, from);
       return next;
     });
   }
@@ -66,7 +72,7 @@ export function SidebarSettings({ initialHidden }: { initialHidden: string[] }) 
     const res = await fetch('/api/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ navHidden: [...hidden] }),
+      body: JSON.stringify({ navHidden: [...hidden], navOrder: order }),
     });
     setBusy(false);
     const json = await res.json().catch(() => ({}));
@@ -86,45 +92,37 @@ export function SidebarSettings({ initialHidden }: { initialHidden: string[] }) 
         <span className="text-[11px] text-text-tertiary">{hiddenCount > 0 ? `${hiddenCount} hidden` : 'All shown'}</span>
       </div>
       <p className="text-[12.5px] text-text-tertiary mb-4">
-        Hide pages you don’t use. They disappear from the sidebar (the pages still exist at their URL). Toggle a whole section with its header.
+        Drag <span className="text-text-secondary">⋮⋮</span> to reorder the sidebar. Click a row to show/hide it (hidden pages still exist at their URL).
       </p>
 
-      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-5">
-        {NAV_GROUPS.map((group) => {
-          const hrefs = group.items.map((i) => i.href);
-          const gState = groupState(hrefs);
+      <div className="max-w-[440px] rounded-lg border border-border-subtle divide-y divide-border-subtle">
+        {order.map((href) => {
+          const item = BY_HREF.get(href);
+          if (!item) return null;
+          const Icon = item.Icon;
+          const on = shown(href);
           return (
-            <div key={group.label}>
+            <div
+              key={href}
+              draggable
+              onDragStart={() => { dragHref.current = href; setDragging(href); }}
+              onDragEnd={() => { dragHref.current = null; setDragging(null); }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => drop(href)}
+              className={`flex items-center gap-2.5 px-3 py-2 ${dragging === href ? 'opacity-40' : ''}`}
+            >
+              <span className="cursor-grab active:cursor-grabbing text-text-muted hover:text-text-secondary select-none leading-none" title="Drag to reorder">⋮⋮</span>
               <button
                 type="button"
                 role="checkbox"
-                aria-checked={gState === 'mixed' ? 'mixed' : gState === 'on'}
-                onClick={() => toggleGroup(hrefs)}
-                className="flex items-center gap-2.5 pb-2 mb-1 w-full border-b border-border-subtle"
+                aria-checked={on}
+                onClick={() => toggle(href)}
+                className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
               >
-                <TriBox state={gState} />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary">{group.label}</span>
+                <CheckBox on={on} />
+                <Icon size={16} className={on ? 'text-text-secondary' : 'text-text-muted'} />
+                <span className={`text-[13px] truncate ${on ? 'text-text-primary' : 'text-text-muted line-through'}`}>{item.label}</span>
               </button>
-              <div className="flex flex-col">
-                {group.items.map((item) => {
-                  const Icon = item.Icon;
-                  const on = shown(item.href);
-                  return (
-                    <button
-                      key={item.href}
-                      type="button"
-                      role="checkbox"
-                      aria-checked={on}
-                      onClick={() => togglePage(item.href)}
-                      className="flex items-center gap-2.5 py-1.5 text-left"
-                    >
-                      <TriBox state={on ? 'on' : 'off'} />
-                      <Icon size={16} className={on ? 'text-text-secondary' : 'text-text-muted'} />
-                      <span className={`text-[13px] ${on ? 'text-text-primary' : 'text-text-muted line-through'}`}>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           );
         })}

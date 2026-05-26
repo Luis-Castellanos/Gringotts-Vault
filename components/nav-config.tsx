@@ -8,7 +8,6 @@ import {
   IconAccounts,
   IconAudit,
   IconCashflow,
-  IconCategories,
   IconCreditCard,
   IconDashboard,
   IconFiles,
@@ -92,10 +91,36 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Manage',
     items: [
       { href: '/accounts', label: 'Accounts', Icon: IconAccounts },
-      { href: '/categories', label: 'Categories', Icon: IconCategories },
     ],
   },
 ];
 
-/** Every nav href in display order — handy for validating stored visibility prefs. */
-export const ALL_NAV_HREFS: readonly NavHref[] = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href));
+/** Every nav item, flattened in default display order (groups are presentational only now). */
+export const ALL_NAV_ITEMS: readonly NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
+
+/** Every nav href in default display order — used to validate stored prefs. */
+export const ALL_NAV_HREFS: readonly NavHref[] = ALL_NAV_ITEMS.map((i) => i.href);
+
+const ITEM_BY_HREF = new Map<string, NavItem>(ALL_NAV_ITEMS.map((i) => [i.href, i]));
+
+/**
+ * Resolve the sidebar's nav to a single flat list: items in the user's custom
+ * `navOrder`, minus anything in `navHidden`, with any items not yet in the order
+ * appended (so new pages still appear). No group headers.
+ */
+export function orderedNav(navOrder: readonly string[], navHidden: readonly string[]): NavItem[] {
+  const hidden = new Set(navHidden);
+  const seen = new Set<string>();
+  const out: NavItem[] = [];
+  for (const href of navOrder) {
+    const item = ITEM_BY_HREF.get(href);
+    if (item && !hidden.has(href) && !seen.has(href)) {
+      out.push(item);
+      seen.add(href);
+    }
+  }
+  for (const item of ALL_NAV_ITEMS) {
+    if (!seen.has(item.href) && !hidden.has(item.href)) out.push(item);
+  }
+  return out;
+}

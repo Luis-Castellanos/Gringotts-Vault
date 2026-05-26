@@ -26,6 +26,7 @@ const patchSchema = z.object({
   // data URL for a small, client-downscaled image (~tens of KB); cap generously.
   avatarImage: z.string().max(2_000_000).nullable().optional(),
   navHidden: z.array(z.string().max(60)).max(40).optional(),
+  navOrder: z.array(z.string().max(60)).max(60).optional(),
 });
 
 export const PATCH = handler(async (req: NextRequest) => {

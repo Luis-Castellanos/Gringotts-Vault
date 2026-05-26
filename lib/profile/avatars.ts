@@ -46,6 +46,7 @@ export type ProfileData = {
   avatarGradient: string;
   avatarImage: string | null;
   navHidden: string[];
+  navOrder: string[];
 };
 
 /** Event the Settings editor dispatches so the Sidebar updates without a reload. */
