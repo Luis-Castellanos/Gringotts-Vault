@@ -64,7 +64,7 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
         You can also <span className="text-text-secondary">drag the ⠿ handles directly in the sidebar</span> to reorder pages and sections.
       </p>
 
-      <div className="flex flex-col gap-4 max-w-[520px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
         {layout.map((section) => (
           <div key={section.id} className="rounded-lg border border-border-subtle bg-surface-base">
             <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle">
