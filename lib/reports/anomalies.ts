@@ -45,12 +45,17 @@ export async function loadAnomalies(): Promise<AnomalyReport> {
   const d = new Date(targetStart + 'T00:00:00');
   const baselineStart = new Date(d.getFullYear(), d.getMonth() - BASELINE_MONTHS, 1).toISOString().slice(0, 10);
 
+  // Group by category + calendar month, then split current vs baseline in JS.
+  // We bucket by a parameter-free month expression (`to_char(date,'YYYY-MM')`)
+  // rather than a `date >= $targetStart` boolean: reusing a *parameterized*
+  // fragment in both SELECT and GROUP BY emits mismatched placeholder numbers
+  // under drizzle ≥0.37, which Postgres rejects ("must appear in GROUP BY").
   const rows = await db
     .select({
       id: sql<string>`COALESCE(${categories.id}::text, 'uncat')`,
       name: sql<string>`COALESCE(${categories.name}, 'Uncategorized')`,
       color: categories.color,
-      isCurrent: sql<boolean>`(${transactions.date} >= ${targetStart})`,
+      month: sql<string>`to_char(${transactions.date}, 'YYYY-MM')`,
       total: sql<string>`SUM(ABS(${transactions.amount}))::text`,
     })
     .from(transactions)
@@ -66,13 +71,13 @@ export async function loadAnomalies(): Promise<AnomalyReport> {
         ne(sql`COALESCE(${categories.flowType}, 'outflow')`, 'transfer'),
       ),
     )
-    .groupBy(categories.id, categories.name, categories.color, sql`(${transactions.date} >= ${targetStart})`);
+    .groupBy(categories.id, categories.name, categories.color, sql`to_char(${transactions.date}, 'YYYY-MM')`);
 
   const cur = new Map<string, { name: string; color: string | null; amt: number }>();
   const baseTotal = new Map<string, number>();
   for (const r of rows) {
     const amt = Number(r.total);
-    if (r.isCurrent) cur.set(r.id, { name: r.name, color: r.color, amt });
+    if (r.month === target) cur.set(r.id, { name: r.name, color: r.color, amt });
     else baseTotal.set(r.id, (baseTotal.get(r.id) ?? 0) + amt);
   }
 
