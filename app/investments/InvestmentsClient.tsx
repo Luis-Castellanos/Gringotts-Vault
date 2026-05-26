@@ -209,16 +209,18 @@ function HoldingsSection({ holdings, realizedGain }: { holdings: Holdings; reali
   );
 }
 
-const PERIODS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const;
+const PERIODS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL', 'CUSTOM'] as const;
 type Period = (typeof PERIODS)[number];
+const PERIOD_LABEL: Record<Period, string> = { '1M': '1M', '3M': '3M', '6M': '6M', YTD: 'YTD', '1Y': '1Y', ALL: 'All', CUSTOM: 'Custom' };
 function periodCutoff(p: Period): string | null {
-  if (p === 'ALL') return null;
+  if (p === 'ALL' || p === 'CUSTOM') return null;
   const d = new Date();
   if (p === 'YTD') return `${d.getFullYear()}-01-01`;
   d.setMonth(d.getMonth() - (p === '1M' ? 1 : p === '3M' ? 3 : p === '6M' ? 6 : 12));
   return d.toISOString().slice(0, 10);
 }
-function slicePeriod(series: ValuePoint[], p: Period): ValuePoint[] {
+function slicePeriod(series: ValuePoint[], p: Period, from?: string, to?: string): ValuePoint[] {
+  if (p === 'CUSTOM') return series.filter((x) => (!from || x.date >= from) && (!to || x.date <= to));
   const cut = periodCutoff(p);
   return cut ? series.filter((x) => x.date >= cut) : series;
 }
@@ -226,15 +228,17 @@ function slicePeriod(series: ValuePoint[], p: Period): ValuePoint[] {
 export function InvestmentsClient({ data }: { data: InvestmentsData }) {
   const { totalValue, delta30, accounts, series, holdingsSeries, benchmarkSeries, benchmark, holdings } = data;
   const [period, setPeriod] = useState<Period>('ALL');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
   // Prefer the true market-value series (from holdings snapshots); fall back to
   // the cash-flow (net contributions) series when there's no holdings history.
   const hasMV = holdingsSeries.length >= 2;
   const baseSeries = hasMV ? holdingsSeries : series;
-  const chartSeries = slicePeriod(baseSeries, period);
+  const chartSeries = slicePeriod(baseSeries, period, customFrom, customTo);
   const benchFull = hasMV ? alignBenchmark(holdingsSeries.map((p) => p.date), benchmarkSeries) : [];
   // Performance %s are period-relative (normalized to the first point in range).
-  const portSliced = slicePeriod(holdingsSeries, period);
-  const benchSliced = slicePeriod(benchFull, period);
+  const portSliced = slicePeriod(holdingsSeries, period, customFrom, customTo);
+  const benchSliced = slicePeriod(benchFull, period, customFrom, customTo);
   const showPerf = hasMV && benchSliced.length >= 2 && portSliced.length >= 2;
   const portPct = showPerf ? toPct(portSliced) : [];
   const benchPct = showPerf ? toPct(benchSliced) : [];
@@ -289,7 +293,16 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
             {moneySigned(delta30)} <span className="text-text-tertiary">last 30 days</span>
           </div>
         </div>
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-end items-center gap-3 flex-wrap mb-2">
+          {period === 'CUSTOM' && (
+            <div className="flex items-center gap-1.5 text-[12px] text-text-tertiary">
+              <input type="date" value={customFrom} max={customTo || undefined} onChange={(e) => setCustomFrom(e.target.value)}
+                className="rounded-md border border-border-subtle bg-surface-base px-2 py-1 text-[12px] focus:outline-none focus:border-border-strong" />
+              <span>→</span>
+              <input type="date" value={customTo} min={customFrom || undefined} onChange={(e) => setCustomTo(e.target.value)}
+                className="rounded-md border border-border-subtle bg-surface-base px-2 py-1 text-[12px] focus:outline-none focus:border-border-strong" />
+            </div>
+          )}
           <div className="inline-flex items-center gap-0.5 rounded-lg border border-border-subtle p-0.5">
             {PERIODS.map((p) => (
               <button
@@ -298,7 +311,7 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
                 onClick={() => setPeriod(p)}
                 className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${period === p ? 'bg-accent-500 text-white' : 'text-text-tertiary hover:text-text-primary'}`}
               >
-                {p}
+                {PERIOD_LABEL[p]}
               </button>
             ))}
           </div>
