@@ -173,6 +173,12 @@ export const properties = pgTable(
     zip: text('zip'),
     // Plain text (not an enum) so new kinds can be added without a migration.
     propertyType: text('property_type').notNull().default('single_family'),
+    // 'investment' (rental — full Schedule-E/returns UI) or 'residence'
+    // (personal home — investment-only sections hidden).
+    useType: text('use_type').notNull().default('investment'),
+    // Manual annual property tax + insurance (drives the taxes/escrow section).
+    propertyTaxAnnual: numeric('property_tax_annual', { precision: 14, scale: 2 }),
+    insuranceAnnual: numeric('insurance_annual', { precision: 14, scale: 2 }),
     beds: integer('beds'),
     baths: numeric('baths', { precision: 4, scale: 1 }), // allow half-baths (2.5)
     sqft: integer('sqft'),

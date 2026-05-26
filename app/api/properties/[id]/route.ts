@@ -29,11 +29,13 @@ export const PATCH = handler(async (req: NextRequest, ctx: { params: Promise<{ i
   const b = patchSchema.parse(await req.json());
 
   const set: Record<string, unknown> = { updatedAt: new Date() };
-  const passthrough = ['name', 'street', 'city', 'state', 'zip', 'propertyType', 'imageUrl', 'notes', 'acquisitionDate', 'mortgageAccountId', 'isActive', 'soldDate', 'sortOrder'] as const;
+  const passthrough = ['name', 'street', 'city', 'state', 'zip', 'propertyType', 'useType', 'imageUrl', 'notes', 'acquisitionDate', 'mortgageAccountId', 'isActive', 'soldDate', 'sortOrder'] as const;
   for (const k of passthrough) if (k in b) set[k] = (b as Record<string, unknown>)[k];
   if ('beds' in b) set.beds = b.beds ?? null;
   if ('sqft' in b) set.sqft = b.sqft ?? null;
   if ('baths' in b) set.baths = b.baths != null ? b.baths.toFixed(1) : null;
+  if ('propertyTaxAnnual' in b) set.propertyTaxAnnual = b.propertyTaxAnnual != null ? money(b.propertyTaxAnnual) : null;
+  if ('insuranceAnnual' in b) set.insuranceAnnual = b.insuranceAnnual != null ? money(b.insuranceAnnual) : null;
   if ('acquisitionPrice' in b) set.acquisitionPrice = b.acquisitionPrice != null ? money(b.acquisitionPrice) : null;
   if ('landValuePct' in b) set.landValuePct = b.landValuePct != null ? b.landValuePct.toFixed(2) : null;
   if ('marketValue' in b) set.marketValue = b.marketValue != null ? money(b.marketValue) : null;

@@ -44,6 +44,9 @@ export function PropertyForm({
   const [stateVal, setStateVal] = useState(property?.state ?? '');
   const [zip, setZip] = useState(property?.zip ?? '');
   const [propertyType, setPropertyType] = useState(property?.propertyType ?? 'single_family');
+  const [useType, setUseType] = useState<'investment' | 'residence'>(property?.useType === 'residence' ? 'residence' : 'investment');
+  const [propertyTaxAnnual, setPropertyTaxAnnual] = useState(property?.propertyTaxAnnual != null ? String(property.propertyTaxAnnual) : '');
+  const [insuranceAnnual, setInsuranceAnnual] = useState(property?.insuranceAnnual != null ? String(property.insuranceAnnual) : '');
   const [beds, setBeds] = useState(property?.beds != null ? String(property.beds) : '');
   const [baths, setBaths] = useState(property?.baths != null ? String(property.baths) : '');
   const [sqft, setSqft] = useState(property?.sqft != null ? String(property.sqft) : '');
@@ -82,6 +85,9 @@ export function PropertyForm({
       state: stateVal.trim() || null,
       zip: zip.trim() || null,
       propertyType,
+      useType,
+      propertyTaxAnnual: numOrNull(propertyTaxAnnual),
+      insuranceAnnual: numOrNull(insuranceAnnual),
       beds: numOrNull(beds),
       baths: numOrNull(baths),
       sqft: numOrNull(sqft),
@@ -145,6 +151,23 @@ export function PropertyForm({
             <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 1321 Potomac Ave" autoFocus maxLength={160} />
           </label>
 
+          <div className={lbl}>
+            Use
+            <div className="flex gap-2">
+              {(['investment', 'residence'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setUseType(v)}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors ${useType === v ? 'border-accent-500 bg-accent-soft text-accent-300' : 'border-border-subtle text-text-secondary hover:bg-surface-2'}`}
+                >
+                  {v === 'investment' ? 'Investment property' : 'Personal residence'}
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-text-muted font-normal">A residence hides rental-only sections (rent roll, Schedule E, returns, depreciation).</span>
+          </div>
+
           <label className={lbl}>
             Street
             <input className={field} value={street} onChange={(e) => setStreet(e.target.value)} placeholder="1321 Potomac Ave" maxLength={200} />
@@ -205,6 +228,17 @@ export function PropertyForm({
               Land value %
               <input className={field} value={landValuePct} onChange={(e) => setLandValuePct(e.target.value)} inputMode="decimal" placeholder="20" />
               <span className="mt-1 text-[11px] text-text-muted">Non-depreciable land share of the purchase price (default 20%).</span>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className={lbl}>
+              Property tax / yr
+              <input className={field} value={propertyTaxAnnual} onChange={(e) => setPropertyTaxAnnual(e.target.value)} inputMode="decimal" placeholder="6000" />
+            </label>
+            <label className={lbl}>
+              Insurance / yr
+              <input className={field} value={insuranceAnnual} onChange={(e) => setInsuranceAnnual(e.target.value)} inputMode="decimal" placeholder="1800" />
             </label>
           </div>
 

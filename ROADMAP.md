@@ -358,6 +358,12 @@ Ideas for later, in no particular order. May or may not get built.
   `docs/real-estate-expansion-plan.md` (all 6 phases marked shipped).
 
 - [ ] Tags as a cross-cutting label system (separate from categories)
+- [ ] **Tax-document parsing.** Extend the statement parser to ingest tax forms —
+  **W-2**, the full **1099** family (NEC, MISC, INT, DIV, B, R, G, K, SSA, …),
+  **1098** / **1098-T** / **1098-E**, and similar — extracting box values and
+  feeding the Tax page / year-end summary (and, eventually, the Aiwyn return
+  inputs). Likely a new set of issuer/form detectors in `parser/` + a tax-doc
+  ingest path distinct from bank statements.
 - [ ] **Itemized order ingestion (Amazon / Target) → auto-split.** Read order/line-item
   data from Amazon and Target (e.g. order-history export, account connection, or
   emailed receipts) and match it to the corresponding card transaction, then

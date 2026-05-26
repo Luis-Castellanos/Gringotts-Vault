@@ -48,12 +48,18 @@ export type PropertyRow = {
   soldDate: string | null;
   soldPrice: number | null;
   escrowAccountId: string | null;
+  useType: string; // 'investment' | 'residence'
+  propertyTaxAnnual: number | null;
+  insuranceAnnual: number | null;
   sortOrder: number;
   notes: string | null;
   mortgage: MortgageInfo | null;
   loanBalance: number;
   equity: number;
 };
+
+/** Escrow account balance + collected/disbursed, derived from its transactions. */
+export type EscrowSummary = { accountId: string; balance: number; collected: number; disbursed: number };
 
 export type Portfolio = {
   properties: PropertyRow[];
@@ -196,6 +202,9 @@ export async function loadPortfolio(): Promise<Portfolio> {
       soldDate: r.soldDate,
       soldPrice: num(r.soldPrice),
       escrowAccountId: r.escrowAccountId,
+      useType: r.useType,
+      propertyTaxAnnual: num(r.propertyTaxAnnual),
+      insuranceAnnual: num(r.insuranceAnnual),
       sortOrder: r.sortOrder,
       notes: r.notes,
       mortgage,
@@ -218,7 +227,7 @@ export async function loadPortfolio(): Promise<Portfolio> {
 
 export async function loadProperty(
   id: string,
-): Promise<{ property: PropertyRow; schedule: AmortResult | null } | null> {
+): Promise<{ property: PropertyRow; schedule: AmortResult | null; escrow: EscrowSummary | null } | null> {
   const [row] = await db.select().from(properties).where(eq(properties.id, id)).limit(1);
   if (!row) return null;
 
@@ -259,13 +268,36 @@ export async function loadProperty(
     soldDate: row.soldDate,
     soldPrice: num(row.soldPrice),
     escrowAccountId: row.escrowAccountId,
+    useType: row.useType,
+    propertyTaxAnnual: num(row.propertyTaxAnnual),
+    insuranceAnnual: num(row.insuranceAnnual),
     sortOrder: row.sortOrder,
     notes: row.notes,
     mortgage,
     loanBalance,
     equity: Math.round((value - loanBalance) * 100) / 100,
   };
-  return { property, schedule };
+
+  // Escrow analysis from the linked escrow account's transactions.
+  let escrow: EscrowSummary | null = null;
+  if (row.escrowAccountId) {
+    const [agg] = await db
+      .select({
+        collected: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.amount} > 0 THEN ${transactions.amount} ELSE 0 END), 0)::text`,
+        disbursed: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.amount} < 0 THEN -${transactions.amount} ELSE 0 END), 0)::text`,
+        balance: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
+      })
+      .from(transactions)
+      .where(eq(transactions.accountId, row.escrowAccountId));
+    escrow = {
+      accountId: row.escrowAccountId,
+      balance: Math.round(Number(agg?.balance ?? 0) * 100) / 100,
+      collected: Math.round(Number(agg?.collected ?? 0) * 100) / 100,
+      disbursed: Math.round(Number(agg?.disbursed ?? 0) * 100) / 100,
+    };
+  }
+
+  return { property, schedule, escrow };
 }
 
 /** Liability accounts (mortgages/loans, excluding credit cards) for the link picker. */

@@ -45,6 +45,7 @@ export default async function PropertyPage({
       <PropertyDetailClient
         property={data.property}
         schedule={data.schedule}
+        escrow={data.escrow}
         financials={financials}
         leases={leases}
         maintenance={maintenance}

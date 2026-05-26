@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import type { AmortResult } from '@/lib/properties/amortization';
-import type { MortgageAccountOption, PropertyRow } from '@/lib/properties/load';
+import type { EscrowSummary, MortgageAccountOption, PropertyRow } from '@/lib/properties/load';
 import type { FinCategory, PropertyFinancials, TTM } from '@/lib/properties/financials';
 import type { LeaseRow } from '@/lib/properties/leases';
 import type { MaintenanceRow } from '@/lib/properties/maintenance';
@@ -520,9 +520,42 @@ function FinancialsSection({ fin }: { fin: PropertyFinancials }) {
   );
 }
 
+function TaxEscrowSection({ property, escrow }: { property: PropertyRow; escrow: EscrowSummary | null }) {
+  const tax = property.propertyTaxAnnual;
+  const ins = property.insuranceAnnual;
+  if (tax == null && ins == null && !escrow) {
+    return (
+      <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
+        <h2 className="text-[15px] font-semibold mb-1">Property taxes &amp; escrow</h2>
+        <p className="text-[13px] text-text-tertiary">
+          Add the annual property tax and insurance via <span className="text-text-secondary">Edit</span>, and link an escrow account to track its balance and disbursements here.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <>
+      <h2 className="text-[15px] font-semibold mb-3">Property taxes &amp; escrow</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatTile label="Property tax · yr" value={tax != null ? fmtMoney0(tax) : '—'} tone="neg" sub={tax != null ? `${fmtMoney(tax / 12)}/mo` : undefined} />
+        <StatTile label="Insurance · yr" value={ins != null ? fmtMoney0(ins) : '—'} tone="neg" sub={ins != null ? `${fmtMoney(ins / 12)}/mo` : undefined} />
+        {escrow ? (
+          <>
+            <StatTile label="Escrow balance" value={fmtMoney0(escrow.balance)} tone={escrow.balance >= 0 ? 'pos' : 'neg'} sub="current" />
+            <StatTile label="Escrow collected" value={fmtMoney0(escrow.collected)} sub={`${fmtMoney0(escrow.disbursed)} disbursed`} />
+          </>
+        ) : (
+          <StatTile label="Escrow account" value="—" sub="Not linked (set in Edit)" />
+        )}
+      </div>
+    </>
+  );
+}
+
 export function PropertyDetailClient({
   property,
   schedule,
+  escrow,
   financials,
   leases,
   maintenance,
@@ -532,6 +565,7 @@ export function PropertyDetailClient({
 }: {
   property: PropertyRow;
   schedule: AmortResult | null;
+  escrow: EscrowSummary | null;
   financials: PropertyFinancials;
   leases: LeaseRow[];
   maintenance: MaintenanceRow[];
@@ -540,6 +574,7 @@ export function PropertyDetailClient({
   mortgageOptions: MortgageAccountOption[];
 }) {
   const router = useRouter();
+  const isInvestment = property.useType !== 'residence';
   const [editing, setEditing] = useState(false);
   const [selling, setSelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -654,8 +689,8 @@ export function PropertyDetailClient({
         <StatTile label="Monthly payment" value={property.mortgage?.monthlyPayment != null ? fmtMoney(property.mortgage.monthlyPayment) : '—'} sub="P&I (from mortgage)" />
       </div>
 
-      {/* Returns (trailing 12 months) — only once there's attributed activity */}
-      {financials.ttm.hasData && (
+      {/* Returns (trailing 12 months) — investment only, once there's activity */}
+      {isInvestment && financials.ttm.hasData && (
         <>
           <h2 className="text-[15px] font-semibold mb-3">
             Returns <span className="text-[12px] font-normal text-text-tertiary">· trailing 12 months</span>
@@ -672,25 +707,34 @@ export function PropertyDetailClient({
         <FinancialsSection fin={financials} />
       </div>
 
-      {/* Rent roll */}
+      {/* Property taxes & escrow — shown for every property */}
       <div className="mb-8">
-        <RentRollSection propertyId={property.id} leases={leases} />
+        <TaxEscrowSection property={property} escrow={escrow} />
       </div>
 
-      {/* Maintenance */}
+      {/* Rent roll — investment only */}
+      {isInvestment && (
+        <div className="mb-8">
+          <RentRollSection propertyId={property.id} leases={leases} />
+        </div>
+      )}
+
+      {/* Maintenance — useful for any property */}
       <div className="mb-8">
         <MaintenanceSection propertyId={property.id} items={maintenance} />
       </div>
 
-      {/* Schedule E */}
-      <div className="mb-8">
-        <ScheduleESection se={scheduleE} />
-      </div>
-
-      {/* Depreciation & capital improvements */}
-      <div className="mb-8">
-        <DepreciationSection property={property} capexItems={capex} />
-      </div>
+      {/* Schedule E + depreciation — investment only */}
+      {isInvestment && (
+        <>
+          <div className="mb-8">
+            <ScheduleESection se={scheduleE} />
+          </div>
+          <div className="mb-8">
+            <DepreciationSection property={property} capexItems={capex} />
+          </div>
+        </>
+      )}
 
       {/* Mortgage / amortization */}
       <h2 className="text-[15px] font-semibold mb-3">Mortgage</h2>
