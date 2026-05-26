@@ -560,6 +560,7 @@ function FilterSection({
 // All filter dimensions, consolidated behind one "Filters" button + accordion.
 function FiltersBar({
   filters, setFilters, categories, accounts, allMerchants, scoped, onClearAll,
+  usedCategoryIds, hasUncategorized, usedAccountIds,
 }: {
   filters: Filters;
   setFilters: (next: Filters) => void;
@@ -568,6 +569,12 @@ function FiltersBar({
   allMerchants: string[];
   scoped: boolean;
   onClearAll: () => void;
+  // When provided, the filter only offers options that actually occur in the
+  // data (categories/accounts with ≥1 transaction). Undefined → show all
+  // (the per-account detail page doesn't compute usage).
+  usedCategoryIds?: string[];
+  hasUncategorized?: boolean;
+  usedAccountIds?: string[];
 }) {
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [section, setSection] = useState<string | null>('category');
@@ -577,17 +584,30 @@ function FiltersBar({
   const toggleArr = (arr: string[], id: string) =>
     arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 
-  const parents = useMemo(() => categories.filter((c) => c.parentId === null), [categories]);
+  // Only surface categories/accounts present in the data when usage is known.
+  const usedCat = useMemo(() => (usedCategoryIds ? new Set(usedCategoryIds) : null), [usedCategoryIds]);
+  const usedAcct = useMemo(() => (usedAccountIds ? new Set(usedAccountIds) : null), [usedAccountIds]);
+  const catShown = (id: string) => !usedCat || usedCat.has(id);
+  const showUncategorized = hasUncategorized !== false; // undefined → show
+
   const childrenOf = (pid: string) => categories.filter((c) => c.parentId === pid);
+  // Children that exist in the data (drives the two-level display + cascade).
+  const shownChildrenOf = (pid: string) => childrenOf(pid).filter((c) => catShown(c.id));
+  // A parent shows if it (directly) or any of its children occur in the data.
+  const parents = useMemo(
+    () => categories.filter((c) => c.parentId === null && (catShown(c.id) || shownChildrenOf(c.id).length > 0)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [categories, usedCat],
+  );
 
   const parentSel = (pid: string): 'all' | 'some' | 'none' => {
-    const kids = childrenOf(pid).map((c) => c.id);
+    const kids = shownChildrenOf(pid).map((c) => c.id);
     if (kids.length === 0) return filters.categoryIds.includes(pid) ? 'all' : 'none';
     const n = kids.filter((id) => filters.categoryIds.includes(id)).length;
     return n === 0 ? 'none' : n === kids.length ? 'all' : 'some';
   };
   const toggleParent = (pid: string) => {
-    const kids = childrenOf(pid).map((c) => c.id);
+    const kids = shownChildrenOf(pid).map((c) => c.id);
     const ids = kids.length ? kids : [pid];
     const set = new Set(filters.categoryIds);
     if (parentSel(pid) === 'all') ids.forEach((id) => set.delete(id));
@@ -597,14 +617,15 @@ function FiltersBar({
 
   const catQ = catSearch.trim().toLowerCase();
   const filteredCats = catQ
-    ? categories.filter((c) => c.name.toLowerCase().includes(catQ) || (c.parentName ?? '').toLowerCase().includes(catQ))
+    ? categories.filter((c) => catShown(c.id) && (c.name.toLowerCase().includes(catQ) || (c.parentName ?? '').toLowerCase().includes(catQ)))
     : [];
   const merchQ = merchSearch.trim().toLowerCase();
   const shownMerchants = merchQ ? allMerchants.filter((m) => m.toLowerCase().includes(merchQ)) : allMerchants;
   const acctQ = acctSearch.trim().toLowerCase();
+  const baseAccounts = usedAcct ? accounts.filter((a) => usedAcct.has(a.id)) : accounts;
   const shownAccounts = acctQ
-    ? accounts.filter((a) => a.name.toLowerCase().includes(acctQ) || a.institution.toLowerCase().includes(acctQ))
-    : accounts;
+    ? baseAccounts.filter((a) => a.name.toLowerCase().includes(acctQ) || a.institution.toLowerCase().includes(acctQ))
+    : baseAccounts;
 
   const PANEL_W = 360;
   const total = activeFilterCount(filters) - (scoped && filters.accountIds.length > 0 ? 1 : 0);
@@ -639,12 +660,14 @@ function FiltersBar({
                   <input type="search" placeholder="Search categories…" value={catSearch} onChange={(e) => setCatSearch(e.target.value)} />
                 </div>
                 <div className="filter-list">
-                  <label className="filter-option">
-                    <input type="checkbox" checked={filters.categoryIds.includes('__uncategorized__')}
-                      onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, '__uncategorized__') })} />
-                    <span className="swatch" style={{ background: 'var(--surface-elev)', border: '1px dashed var(--text-3)' }} />
-                    <span className="lbl">Uncategorized</span>
-                  </label>
+                  {showUncategorized && (
+                    <label className="filter-option">
+                      <input type="checkbox" checked={filters.categoryIds.includes('__uncategorized__')}
+                        onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, '__uncategorized__') })} />
+                      <span className="swatch" style={{ background: 'var(--surface-elev)', border: '1px dashed var(--text-3)' }} />
+                      <span className="lbl">Uncategorized</span>
+                    </label>
+                  )}
                   {catQ
                     ? filteredCats.map((c) => (
                         <label key={c.id} className="filter-option">
@@ -654,28 +677,31 @@ function FiltersBar({
                           <span className="lbl">{c.parentName ? `${c.parentName} → ${c.name}` : c.name}</span>
                         </label>
                       ))
-                    : parents.map((parent) => (
-                        <div key={parent.id}>
-                          <label className="filter-option">
-                            <input
-                              type="checkbox"
-                              ref={(el) => { if (el) el.indeterminate = parentSel(parent.id) === 'some'; }}
-                              checked={parentSel(parent.id) === 'all'}
-                              onChange={() => toggleParent(parent.id)}
-                            />
-                            <span className="swatch" style={parent.color ? { background: parent.color } : undefined} />
-                            <span className="lbl"><strong>{parent.name}</strong></span>
-                          </label>
-                          {childrenOf(parent.id).map((c) => (
-                            <label key={c.id} className="filter-option indent">
-                              <input type="checkbox" checked={filters.categoryIds.includes(c.id)}
-                                onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, c.id) })} />
-                              <span className="swatch" style={c.color ? { background: c.color } : undefined} />
-                              <span className="lbl">{c.name}</span>
+                    : parents.map((parent) => {
+                        const kids = shownChildrenOf(parent.id);
+                        return (
+                          <div key={parent.id} className="tx-cat-group">
+                            <label className="filter-option">
+                              <input
+                                type="checkbox"
+                                ref={(el) => { if (el) el.indeterminate = parentSel(parent.id) === 'some'; }}
+                                checked={parentSel(parent.id) === 'all'}
+                                onChange={() => toggleParent(parent.id)}
+                              />
+                              <span className="swatch" style={parent.color ? { background: parent.color } : undefined} />
+                              <span className="lbl"><strong>{parent.name}</strong></span>
                             </label>
-                          ))}
-                        </div>
-                      ))}
+                            {kids.map((c) => (
+                              <label key={c.id} className="filter-option indent">
+                                <input type="checkbox" checked={filters.categoryIds.includes(c.id)}
+                                  onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, c.id) })} />
+                                <span className="swatch" style={c.color ? { background: c.color } : undefined} />
+                                <span className="lbl">{c.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        );
+                      })}
                 </div>
               </FilterSection>
 
@@ -1144,7 +1170,7 @@ function TxnTable({
 const RENDER_CHUNK = 150;
 
 export function TransactionsClient({
-  txns, accounts, categories, merchants, lockAccountId,
+  txns, accounts, categories, merchants, lockAccountId, usedCategoryIds, hasUncategorized, usedAccountIds,
 }: {
   txns: TxnRow[]; total: number; accounts: AcctLite[]; categories: CatLite[];
   merchants: string[];
@@ -1152,6 +1178,11 @@ export function TransactionsClient({
   // the Accounts filter tab is hidden, and the per-row account column is dropped
   // (it would be redundant). Used by the per-account detail page.
   lockAccountId?: string;
+  // Which categories/accounts actually occur in the data — the filter only
+  // offers these. Omitted by the per-account page (shows all).
+  usedCategoryIds?: string[];
+  hasUncategorized?: boolean;
+  usedAccountIds?: string[];
 }) {
   const scoped = !!lockAccountId;
   const baseFilters = useMemo<Filters>(
@@ -1536,6 +1567,9 @@ export function TransactionsClient({
           allMerchants={allMerchants}
           scoped={scoped}
           onClearAll={clearFilters}
+          usedCategoryIds={usedCategoryIds}
+          hasUncategorized={hasUncategorized}
+          usedAccountIds={usedAccountIds}
         />
         <div className="spacer" />
 
