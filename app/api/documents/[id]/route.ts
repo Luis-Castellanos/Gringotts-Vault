@@ -10,7 +10,7 @@ import { NextRequest } from 'next/server';
 import { eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { accounts, documents, imports, transactions } from '@/lib/db/schema';
+import { accounts, documents, imports, paystubs, transactions } from '@/lib/db/schema';
 import { fail, ok } from '@/lib/api/respond';
 
 export const runtime = 'nodejs';
@@ -119,10 +119,15 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     await db.delete(imports).where(inArray(imports.id, impIds));
   }
 
+  // Paystubs are a parsed cache of the source PDF (not user-editable), so they
+  // always follow the document — independent of the transactions toggle.
+  const dp = await db.delete(paystubs).where(eq(paystubs.documentId, id)).returning({ id: paystubs.id });
+  const deletedPaystubs = dp.length;
+
   // FK on imports.document_id is ON DELETE SET NULL, so a file-only delete
   // leaves any import + its transactions intact (just unlinked).
   const del = await db.delete(documents).where(eq(documents.id, id)).returning({ id: documents.id });
   if (del.length === 0) return fail('not_found', 'Document not found.', 404);
 
-  return ok({ id, removedData: withData, deletedTransactions });
+  return ok({ id, removedData: withData, deletedTransactions, deletedPaystubs });
 }

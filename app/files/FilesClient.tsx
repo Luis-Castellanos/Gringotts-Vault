@@ -54,18 +54,38 @@ const STATUS_STYLE: Record<string, string> = {
 // Resizable columns: File Name flexes (1fr), the rest are draggable px widths,
 // the trailing action column is fixed. Widths persist in localStorage.
 const MIN_W = 70;
-const DEFAULT_W = { docType: 120, type: 130, account: 150, period: 140, txns: 110, status: 100, uploaded: 150 };
+const DEFAULT_W = { docType: 120, type: 130, account: 150, periodStart: 110, periodEnd: 110, txns: 110, status: 100, uploaded: 150 };
 type ColKey = keyof typeof DEFAULT_W;
-const COL_STORAGE_KEY = 'vault-files-col-widths';
+// Bumped key suffix so the old "period" width doesn't linger in localStorage.
+const COL_STORAGE_KEY = 'vault-files-col-widths-v2';
 
 // ── Sorting ──────────────────────────────────────────────────────────────────
 type SortKey = 'fileName' | ColKey;
 type SortDir = 'asc' | 'desc';
 
-// Statement period like "11/25/2019 - 12/09/2019" → sortable YYYYMMDD of its start.
-function periodStart(p: string): string {
-  const m = p.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  return m ? `${m[3]}${m[1]}${m[2]}` : p;
+// Parse documents.statement_period into structured start + end strings ready
+// for display. Handles these shapes (in order):
+//   1. "MM/DD/YYYY - MM/DD/YYYY"  (modern range — bank & new investment)
+//   2. "MM/DD/YYYY-MM/DD/YYYY"   (no spaces around dash — some paystubs)
+//   3. "YYYY-MM-DD"              (older Fidelity rows: as_of only, end-only)
+//   4. "MM/DD/YYYY"              (single date, end-only)
+// Returns { start, end } in "MM/DD/YYYY" format. Either field can be null.
+function parsePeriod(p: string | null): { start: string | null; end: string | null } {
+  if (!p) return { start: null, end: null };
+  const range = p.match(/^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*$/);
+  if (range) return { start: range[1] ?? null, end: range[2] ?? null };
+  const iso = p.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return { start: null, end: `${iso[2]}/${iso[3]}/${iso[1]}` };
+  const single = p.match(/^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*$/);
+  if (single) return { start: null, end: single[1] ?? null };
+  return { start: null, end: p };
+}
+
+// "MM/DD/YYYY" → "YYYYMMDD" for sortable comparison; pass-through anything else.
+function mdyToSortable(s: string | null): string {
+  if (!s) return '';
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? `${m[3]}${m[1]!.padStart(2, '0')}${m[2]!.padStart(2, '0')}` : s;
 }
 function sortVal(r: FileRow, key: SortKey): string | number {
   switch (key) {
@@ -73,7 +93,8 @@ function sortVal(r: FileRow, key: SortKey): string | number {
     case 'docType': return (TYPE_LABEL[r.detectedType] ?? r.detectedType).toLowerCase();
     case 'type': return (r.accountType ?? '').toLowerCase();
     case 'account': return `${r.institution ?? ''}${r.last4 ?? ''}`.toLowerCase();
-    case 'period': return r.statementPeriod ? periodStart(r.statementPeriod) : '';
+    case 'periodStart': return mdyToSortable(parsePeriod(r.statementPeriod).start);
+    case 'periodEnd': return mdyToSortable(parsePeriod(r.statementPeriod).end);
     case 'txns': return r.transactionCount ?? 0;
     case 'status': return r.status;
     case 'uploaded': return r.uploadedAt;
@@ -294,7 +315,7 @@ export function FilesClient({
   }, [w]);
 
   const gridStyle = {
-    gridTemplateColumns: `34px minmax(160px,1fr) ${w.docType}px ${w.type}px ${w.account}px ${w.period}px ${w.txns}px ${w.status}px ${w.uploaded}px 44px`,
+    gridTemplateColumns: `34px minmax(160px,1fr) ${w.docType}px ${w.type}px ${w.account}px ${w.periodStart}px ${w.periodEnd}px ${w.txns}px ${w.status}px ${w.uploaded}px 44px`,
   };
 
   function applyAccountLocal(rowId: string, accountId: string) {
@@ -338,25 +359,32 @@ export function FilesClient({
   }
   async function bulkSetDocType(docType: string) {
     setBulkBusy(true); setError(null);
-    for (const r of selectedRows()) {
-      setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, detectedType: docType } : x)));
-      await fetch(`/api/documents/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ detectedType: docType }) });
-    }
+    const targets = selectedRows();
+    setRows((rs) => rs.map((x) => (selected.has(x.id) ? { ...x, detectedType: docType } : x)));
+    await Promise.all(
+      targets.map((r) =>
+        fetch(`/api/documents/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ detectedType: docType }) }),
+      ),
+    );
     setBulkBusy(false);
   }
   async function bulkSetAccount(accountId: string) {
     setBulkBusy(true); setError(null);
-    for (const r of selectedRows()) {
-      applyAccountLocal(r.id, accountId);
-      await fetch(`/api/documents/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId }) });
-    }
+    const targets = selectedRows();
+    targets.forEach((r) => applyAccountLocal(r.id, accountId));
+    await Promise.all(
+      targets.map((r) =>
+        fetch(`/api/documents/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId }) }),
+      ),
+    );
     setBulkBusy(false);
   }
   async function doBulkRemove(withData: boolean) {
     setBulkBusy(true); setError(null);
-    for (const id of [...selected]) {
-      await fetch(`/api/documents/${id}${withData ? '?withData=1' : ''}`, { method: 'DELETE' });
-    }
+    const ids = [...selected];
+    await Promise.all(
+      ids.map((id) => fetch(`/api/documents/${id}${withData ? '?withData=1' : ''}`, { method: 'DELETE' })),
+    );
     setRows((rs) => rs.filter((r) => !selected.has(r.id)));
     setSelected(new Set());
     setBulkBusy(false);
@@ -574,7 +602,8 @@ export function FilesClient({
             <div className="relative"><button type="button" onClick={() => toggleSort('docType')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Document type {caret('docType')}</button>{handle('docType')}</div>
             <div className="relative"><button type="button" onClick={() => toggleSort('type')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Account type {caret('type')}</button>{handle('type')}</div>
             <div className="relative"><button type="button" onClick={() => toggleSort('account')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Account {caret('account')}</button>{handle('account')}</div>
-            <div className="relative"><button type="button" onClick={() => toggleSort('period')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Period {caret('period')}</button>{handle('period')}</div>
+            <div className="relative"><button type="button" onClick={() => toggleSort('periodStart')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Period start {caret('periodStart')}</button>{handle('periodStart')}</div>
+            <div className="relative"><button type="button" onClick={() => toggleSort('periodEnd')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Period end {caret('periodEnd')}</button>{handle('periodEnd')}</div>
             <div className="relative"><button type="button" onClick={() => toggleSort('txns')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Transactions {caret('txns')}</button>{handle('txns')}</div>
             <div className="relative"><button type="button" onClick={() => toggleSort('status')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Status {caret('status')}</button>{handle('status')}</div>
             <div className="relative"><button type="button" onClick={() => toggleSort('uploaded')} className="inline-flex items-center gap-1 uppercase hover:text-text-secondary transition-colors">Uploaded {caret('uploaded')}</button>{handle('uploaded')}</div>
@@ -619,9 +648,19 @@ export function FilesClient({
                   {(r.institution || r.last4) && <InstLogo institution={r.institution ?? ''} />}
                   <Select value={r.accountId ?? ''} onChange={(v) => reassignAccount(r, v)} options={acctSelectOptions} className="vsel-sm min-w-0" ariaLabel="Account" placeholder="Unassigned" />
                 </div>
-                <div className="text-text-tertiary tabular-nums truncate" title={r.statementPeriod ?? undefined}>
-                  {r.statementPeriod ?? '—'}
-                </div>
+                {(() => {
+                  const { start, end } = parsePeriod(r.statementPeriod);
+                  return (
+                    <>
+                      <div className="text-text-tertiary tabular-nums truncate" title={r.statementPeriod ?? undefined}>
+                        {start ?? '—'}
+                      </div>
+                      <div className="text-text-tertiary tabular-nums truncate" title={r.statementPeriod ?? undefined}>
+                        {end ?? '—'}
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="tabular-nums text-text-secondary">{r.status === 'parsed' ? r.transactionCount : '—'}</div>
                 <div className="flex justify-center">
                   <span

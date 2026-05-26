@@ -1312,9 +1312,18 @@ def parse_one(text_path: str, original_pdf_filename: str = None,
     text = Path(text_path).read_text(encoding="utf-8", errors="replace")
     issuer = detect_issuer(text)
     # Investment issuers carry holdings, not bank transactions — extract.py calls
-    # parse_holdings() separately. Return no transactions here (don't hit PARSERS).
+    # parse_holdings() separately. Still try to capture the statement's period
+    # (monthly OR quarterly) so the Files page can show a real date range
+    # instead of just the as_of date.
     if issuer in INVESTMENT_ISSUERS or issuer == "unknown":
-        return [], "", issuer, dict(_EMPTY_SUMMARY)
+        s = dict(_EMPTY_SUMMARY)
+        stmt_str = ""
+        # Fidelity / Empower / JPM all print 'MonthName D, YYYY - MonthName D, YYYY'.
+        start, end, pretty = _fid_period_range(text)
+        if start and end:
+            s["period_start"], s["period_end"] = start, end
+            stmt_str = pretty or ""
+        return [], stmt_str, issuer, s
     # Loan statements (mortgage/auto): recognized + the key figures captured, but
     # NOT auto-ledgered yet — naive payment rows would double-count the
     # checking-side mortgage split and skew the loan balance (no opening balance).
@@ -1439,15 +1448,26 @@ def _fid_col(words, anchor, tol=_FID_COL_TOL):
     return best
 
 
-def _fid_period_end(text: str):
-    """ISO period-end date from 'August 1, 2021 - September 30, 2021'."""
+def _fid_period_range(text: str):
+    """Extract (start_iso, end_iso, stmt_str) from a Fidelity-style period like
+    'August 1, 2021 - September 30, 2021'. Handles both monthly and quarterly.
+    Returns (None, None, None) if no match. stmt_str is 'MM/DD/YYYY - MM/DD/YYYY'
+    for downstream display + a future text split."""
     m = re.search(r"([A-Za-z]+ \d{1,2}, \d{4})\s*[-–]\s*([A-Za-z]+ \d{1,2}, \d{4})", text)
     if not m:
-        return None
+        return None, None, None
     try:
-        return datetime.strptime(m.group(2), "%B %d, %Y").date().isoformat()
+        d1 = datetime.strptime(m.group(1), "%B %d, %Y").date()
+        d2 = datetime.strptime(m.group(2), "%B %d, %Y").date()
     except ValueError:
-        return None
+        return None, None, None
+    return d1.isoformat(), d2.isoformat(), f"{d1.strftime('%m/%d/%Y')} - {d2.strftime('%m/%d/%Y')}"
+
+
+def _fid_period_end(text: str):
+    """Back-compat: ISO period-end only. Prefer _fid_period_range for new code."""
+    _, end, _ = _fid_period_range(text)
+    return end
 
 
 def _parse_fidelity_holdings(text: str, tsv_text: str) -> list[dict]:
