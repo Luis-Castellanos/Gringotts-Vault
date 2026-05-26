@@ -88,8 +88,17 @@ lib/tax/adapters/               ← Vault-specific. Maps DB → engine input. NO
   suggestions the user confirms/overrides (never silent auto-fill).
 - **T5 — Withholding & estimates.** YTD withholding vs projected liability;
   quarterly estimated-payment calc + safe-harbor; paycheck what-if.
-- **T6 — Planning sandbox.** Marginal-rate curve, Roth-conversion headroom,
-  cap-gains harvesting / bracket-fill, contribution optimization, MFJ-vs-MFS.
+- **T6 — Planning sandbox** ✓ *done.* `scenario.ts` (`applyLevers` +
+  `scenarioConsequences`, portable) drives `/tax/plan`: live what-if levers
+  (additional ordinary income, Roth conversion, LT/ST gains, pre-tax retirement,
+  HSA, charitable, filing-status what-if) layered on the saved baseline. Delta
+  highlights (Δ tax, Δ refund, marginal rate on the change / tax saved per $1,
+  effective rate), cascading-effect callouts (bracket crossings, NIIT / Add'l
+  Medicare / AMT triggers, CTC + education phaseouts, QBI shrink, SS taxability,
+  deduction switch), and visuals — bracket ladder (stepped marginal-rate SVG
+  with now/scenario markers), bracket-fill bar, and now-vs-scenario compare bars.
+  *Remaining:* multi-scenario save/compare, Roth-conversion bracket-fill
+  optimizer, MFJ-vs-MFS true split.
 - **T7 — State.** Pluggable state modules; start with the user's state. Brackets
   + federal-conformity rules.
 - **T8 — Output.** 1040-style worksheet view + PDF; export the input set to a
