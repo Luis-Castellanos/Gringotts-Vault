@@ -68,8 +68,10 @@
     padding: 8px 12px;
     background: var(--surface);
     border-radius: 12px;
-    box-shadow: var(--shadow-card);
-    margin-bottom: 10px;
+    /* Downward shadow so rows visibly tuck UNDER the sticky toolbar while
+       scrolling instead of appearing to touch/overlap its bottom edge. */
+    box-shadow: var(--shadow-card), 0 10px 16px -10px rgba(0, 0, 0, 0.55);
+    margin-bottom: 18px;
   }
   .tx-toolbar input[type='search'],
   .tx-toolbar select {
