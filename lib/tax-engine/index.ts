@@ -1,0 +1,34 @@
+/**
+ * Tax engine — public surface. PORTABLE: nothing here imports from the rest of
+ * the app, so the whole `lib/tax-engine/` folder can be lifted into a standalone
+ * package/app. See docs/tax-engine-roadmap.md.
+ */
+
+export * from './model';
+export { LATEST_TAX_YEAR, SUPPORTED_YEARS, yearData } from './data';
+export { computeFederalReturn } from './federal/return';
+export { marginalRate, taxFromBrackets } from './federal/brackets';
+
+import type { TaxReturnInput, TaxReturnResult } from './model';
+import { computeFederalReturn } from './federal/return';
+
+/** Top-level entry. (State modules will compose in here in phase T7.) */
+export function computeReturn(input: TaxReturnInput): TaxReturnResult {
+  return computeFederalReturn(input);
+}
+
+/** A zeroed input for the given year/status — convenient base to spread over. */
+export function emptyInput(taxYear: number, filingStatus: TaxReturnInput['filingStatus'] = 'single'): TaxReturnInput {
+  return {
+    taxYear,
+    filingStatus,
+    dependentsUnder17: 0,
+    otherDependents: 0,
+    income: { wages: 0, taxableInterest: 0, ordinaryDividends: 0, qualifiedDividends: 0, shortTermGains: 0, longTermGains: 0, selfEmploymentNet: 0, otherOrdinaryIncome: 0 },
+    adjustments: { hsa: 0, iraDeduction: 0, studentLoanInterest: 0, other: 0 },
+    itemizedDeductions: null,
+    withholding: 0,
+    estimatedPayments: 0,
+    otherCredits: 0,
+  };
+}
