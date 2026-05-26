@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 import type { AnnualReport, ReportCategory, TopMerchant } from '@/lib/reports/load';
+import { PERIOD_PRESETS, type PeriodId, type ResolvedPeriod } from '@/lib/reports/period';
 import type { RecurringReport, Cadence } from '@/lib/reports/recurring';
 import type { AnomalyReport } from '@/lib/reports/anomalies';
 import { PageHeader } from '@/components/PageHeader';
@@ -14,7 +15,6 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { fmtMoney0 as money0, fmtDate } from '@/lib/format';
 import { CustomPanel } from './CustomPanel';
 
-const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 const CADENCE_LABEL: Record<Cadence, string> = {
   weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly',
 };
@@ -34,8 +34,8 @@ function mergeCats(cur: ReportCategory[], prev: ReportCategory[]): CmpRow[] {
 }
 
 function ComparePanel({ report, prev }: { report: AnnualReport; prev: AnnualReport }) {
-  const py = prev.year;
-  const cy = report.year;
+  const py = prev.label;
+  const cy = report.label;
   const metric = (label: string, cur: number, was: number, kind: 'pos' | 'neg' | 'net') => {
     const d = cur - was;
     const goodUp = kind !== 'neg'; // for spending, down is good
@@ -98,12 +98,12 @@ function ComparePanel({ report, prev }: { report: AnnualReport; prev: AnnualRepo
   );
 }
 
-function Breakdown({ title, cats, tone, year }: { title: string; cats: ReportCategory[]; tone: 'pos' | 'neg'; year: number }) {
+function Breakdown({ title, cats, tone, from, to }: { title: string; cats: ReportCategory[]; tone: 'pos' | 'neg'; from: string; to: string }) {
   const max = cats.length ? Math.max(...cats.map((c) => c.amount)) : 1;
   const barColor = tone === 'pos' ? 'var(--color-positive)' : 'var(--color-negative)';
-  // Click a row → Transactions, filtered to that category for the year.
+  // Click a row → Transactions, filtered to that category for the period.
   const href = (id: string) =>
-    `/transactions?cats=${encodeURIComponent(id === 'uncat' ? '__uncategorized__' : id)}&from=${year}-01-01&to=${year}-12-31`;
+    `/transactions?cats=${encodeURIComponent(id === 'uncat' ? '__uncategorized__' : id)}&from=${from}&to=${to}`;
   return (
     <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
       <h2 className="text-[14px] font-semibold mb-4">{title}</h2>
@@ -130,31 +130,32 @@ function Breakdown({ title, cats, tone, year }: { title: string; cats: ReportCat
 }
 
 function MonthlyChart({ report, prev }: { report: AnnualReport; prev: AnnualReport | null }) {
-  const py = report.year - 1;
-  const max = Math.max(1, ...report.months.flatMap((m) => [m.income, m.spending]), ...(prev?.months.map((m) => m.spending) ?? []));
+  // Ghost bars only when the prior window lines up 1:1 with this one (same length).
+  const ghost = prev && prev.months.length === report.months.length ? prev : null;
+  const max = Math.max(1, ...report.months.flatMap((m) => [m.income, m.spending]), ...(ghost?.months.map((m) => m.spending) ?? []));
   return (
     <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="text-[14px] font-semibold">Monthly income vs spending</h2>
+        <h2 className="text-[14px] font-semibold">Income vs spending by month</h2>
         <div className="flex items-center gap-3 text-[11px] text-text-tertiary">
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-cat-blue" /> Income</span>
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-negative" /> Spending</span>
-          {prev && <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-text-muted/40" /> {py} spend</span>}
+          {ghost && <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-text-muted/40" /> prior spend</span>}
         </div>
       </div>
       <div className="flex items-end justify-between gap-2 h-40">
         {report.months.map((m, i) => {
-          const prevSpend = prev?.months[i]?.spending ?? null;
+          const prevSpend = ghost?.months[i]?.spending ?? null;
           return (
-            <div key={m.month} className="flex-1 flex flex-col items-center gap-1.5">
+            <div key={m.key} className="flex-1 flex flex-col items-center gap-1.5">
               <div className="flex items-end gap-0.5 h-32 w-full justify-center">
                 {prevSpend != null && (
-                  <div className="w-1.5 rounded-t bg-text-muted/35" style={{ height: `${(prevSpend / max) * 100}%` }} title={`${py} spending ${money0(prevSpend)}`} />
+                  <div className="w-1.5 rounded-t bg-text-muted/35" style={{ height: `${(prevSpend / max) * 100}%` }} title={`Prior spending ${money0(prevSpend)}`} />
                 )}
-                <div className="w-2.5 rounded-t bg-cat-blue" style={{ height: `${(m.income / max) * 100}%` }} title={`Income ${money0(m.income)}`} />
-                <div className="w-2.5 rounded-t bg-negative" style={{ height: `${(m.spending / max) * 100}%` }} title={`Spending ${money0(m.spending)}`} />
+                <div className="w-2.5 rounded-t bg-cat-blue" style={{ height: `${(m.income / max) * 100}%` }} title={`${m.label} income ${money0(m.income)}`} />
+                <div className="w-2.5 rounded-t bg-negative" style={{ height: `${(m.spending / max) * 100}%` }} title={`${m.label} spending ${money0(m.spending)}`} />
               </div>
-              <span className="text-[10px] text-text-muted">{MONTHS[m.month - 1]}</span>
+              <span className="text-[10px] text-text-muted">{m.label}</span>
             </div>
           );
         })}
@@ -211,7 +212,7 @@ function MoneyFlow({ report }: { report: AnnualReport }) {
 }
 
 function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; prev: AnnualReport | null; topMerchants: TopMerchant[] }) {
-  const py = report.year - 1;
+  const py = prev?.label ?? 'prior period';
   // Auto-insights derived from the loaded report (no extra queries).
   const insights: { label: string; value: string }[] = [];
   if (report.spendingByCategory[0]) insights.push({ label: 'Top spending category', value: `${report.spendingByCategory[0].name} · ${money0(report.spendingByCategory[0].amount)}` });
@@ -225,8 +226,7 @@ function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; pr
       if (Math.abs(d) > Math.abs(best)) { best = d; bestMonth = i; bestDir = d >= 0 ? 'up' : 'down'; }
     }
     if (bestMonth >= 0 && best !== 0) {
-      const full = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-      insights.push({ label: 'Biggest month-over-month swing', value: `Spending ${bestDir} ${money0(Math.abs(best))} in ${full[bestMonth]}` });
+      insights.push({ label: 'Biggest month-over-month swing', value: `Spending ${bestDir} ${money0(Math.abs(best))} in ${report.months[bestMonth]!.label}` });
     }
   }
   const mMax = topMerchants.length ? Math.max(...topMerchants.map((m) => m.amount)) : 1;
@@ -240,7 +240,7 @@ function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; pr
     <>
       {/* Headline */}
       <p className="text-[14px] text-text-secondary mb-5 leading-relaxed">
-        In <span className="font-semibold text-text-primary">{report.year}</span> you {report.net >= 0 ? 'saved' : 'spent a net'}{' '}
+        In <span className="font-semibold text-text-primary">{report.label}</span> you {report.net >= 0 ? 'saved' : 'spent a net'}{' '}
         <span className={`font-semibold ${report.net >= 0 ? 'text-positive' : 'text-negative'}`}>{money0(Math.abs(report.net))}</span>
         {report.savingsRate != null && <> — a <span className="font-semibold text-text-primary">{report.savingsRate}%</span> savings rate</>}
         {savingsDelta != null && (
@@ -271,8 +271,8 @@ function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; pr
         <MonthlyChart report={report} prev={prev} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-        <Breakdown title="Income by source" cats={report.incomeByCategory} tone="pos" year={report.year} />
-        <Breakdown title="Spending by category" cats={report.spendingByCategory} tone="neg" year={report.year} />
+        <Breakdown title="Income by source" cats={report.incomeByCategory} tone="pos" from={report.from} to={report.to} />
+        <Breakdown title="Spending by category" cats={report.spendingByCategory} tone="neg" from={report.from} to={report.to} />
       </div>
 
       {/* Top merchants */}
@@ -283,7 +283,7 @@ function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; pr
             {topMerchants.map((m) => (
               <Link
                 key={m.merchant}
-                href={`/transactions?merchant=${encodeURIComponent(m.merchant)}&from=${report.year}-01-01&to=${report.year}-12-31`}
+                href={`/transactions?merchant=${encodeURIComponent(m.merchant)}&from=${report.from}&to=${report.to}`}
                 className="relative rounded-lg overflow-hidden block group"
                 title={`See ${m.merchant} transactions`}
               >
@@ -408,8 +408,56 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'custom', label: 'Custom' },
 ];
 
+function PeriodControl({ period, years, report }: { period: ResolvedPeriod; years: number[]; report: AnnualReport }) {
+  const router = useRouter();
+  const [customOpen, setCustomOpen] = useState(period.id === 'custom');
+  const [cf, setCf] = useState(period.from);
+  const [ct, setCt] = useState(period.to);
+  const go = (qs: string) => router.push(`/reports?${qs}`);
+  const onPreset = (id: PeriodId) => {
+    if (id === 'custom') { setCustomOpen(true); return; }
+    setCustomOpen(false);
+    go(id === 'year' ? `period=year&year=${period.year ?? years[0]}` : `period=${id}`);
+  };
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap print:hidden">
+      <div className="inline-flex items-center rounded-lg border border-border-subtle p-0.5">
+        {PERIOD_PRESETS.map((p) => {
+          const active = p.id === 'custom' ? period.id === 'custom' || customOpen : period.id === p.id;
+          return (
+            <button key={p.id} type="button" onClick={() => onPreset(p.id)}
+              className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${active ? 'bg-accent-500 text-white' : 'text-text-tertiary hover:text-text-primary'}`}>
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+      {period.id === 'year' && (
+        <select
+          className="rounded-lg bg-surface-2 border border-border-subtle px-2.5 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500"
+          value={period.year} onChange={(e) => go(`period=year&year=${e.target.value}`)} aria-label="Report year"
+        >
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      )}
+      {customOpen && (
+        <span className="flex items-center gap-1.5 text-[12px] text-text-tertiary">
+          <input type="date" value={cf} onChange={(e) => setCf(e.target.value)} className="rounded-md border border-border-subtle bg-surface-base px-2 py-1 text-[12px] focus:outline-none" />
+          →
+          <input type="date" value={ct} onChange={(e) => setCt(e.target.value)} className="rounded-md border border-border-subtle bg-surface-base px-2 py-1 text-[12px] focus:outline-none" />
+          <button type="button" disabled={!cf || !ct} onClick={() => cf && ct && go(`period=custom&from=${cf}&to=${ct}`)}
+            className="rounded-md bg-accent-500 disabled:opacity-50 text-white px-2.5 py-1 text-[12px] font-medium">Apply</button>
+        </span>
+      )}
+      <button type="button" onClick={() => window.print()} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">Print / PDF</button>
+      <a href={`/api/export/transactions?from=${report.from}&to=${report.to}`} className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2">Export ↓</a>
+    </div>
+  );
+}
+
 export function ReportsClient({
   years,
+  period,
   report,
   prevReport,
   recurring,
@@ -417,47 +465,21 @@ export function ReportsClient({
   topMerchants,
 }: {
   years: number[];
+  period: ResolvedPeriod;
   report: AnnualReport;
   prevReport: AnnualReport | null;
   recurring: RecurringReport;
   anomalies: AnomalyReport;
   topMerchants: TopMerchant[];
 }) {
-  const router = useRouter();
   const [tab, setTab] = useState<Tab>('summary');
 
   return (
     <>
       <PageHeader
         title="Reports"
-        subtitle="Income, spending, recurring charges, and anomalies."
-        actions={
-          tab === 'summary' ? (
-            <>
-              <select
-                className="rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500 print:hidden"
-                value={report.year}
-                onChange={(e) => router.push(`/reports?year=${e.target.value}`)}
-                aria-label="Report year"
-              >
-                {years.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2 print:hidden"
-              >
-                Print / PDF
-              </button>
-              <a
-                href={`/api/export/transactions?from=${report.year}-01-01&to=${report.year}-12-31`}
-                className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2 print:hidden"
-              >
-                Export {report.year} ↓
-              </a>
-            </>
-          ) : undefined
-        }
+        subtitle={report.label}
+        actions={tab === 'summary' || tab === 'compare' ? <PeriodControl period={period} years={years} report={report} /> : undefined}
       />
 
       <div className="flex items-center gap-1 mb-6 border-b border-border-subtle print:hidden">

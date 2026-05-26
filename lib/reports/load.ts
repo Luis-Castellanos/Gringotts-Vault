@@ -4,7 +4,7 @@
  * saved/custom reports later. Transfers are excluded (flow_type / isTransfer).
  */
 
-import { and, asc, desc, eq, gte, lt, lte, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, lte, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { categories, transactions } from '@/lib/db/schema';
@@ -12,10 +12,10 @@ import { loadSplitContributions } from '@/lib/transactions/split';
 
 export type TopMerchant = { merchant: string; amount: number; count: number };
 
-/** Top spending merchants for a year (outflows, excluding transfers/splits). */
-export async function loadTopMerchants(year: number, limit = 12): Promise<TopMerchant[]> {
-  const start = `${year}-01-01`;
-  const end = `${year}-12-31`;
+/** Top spending merchants for a date range (outflows, excluding transfers/splits). */
+export async function loadTopMerchants(from: string, to: string, limit = 12): Promise<TopMerchant[]> {
+  const start = from;
+  const end = to;
   const nameExpr = sql<string>`COALESCE(NULLIF(${transactions.merchant}, ''), ${transactions.rawDescription})`;
   const rows = await db
     .select({
@@ -43,10 +43,12 @@ export async function loadTopMerchants(year: number, limit = 12): Promise<TopMer
 }
 
 export type ReportCategory = { id: string; name: string; color: string | null; amount: number };
-export type MonthPoint = { month: number; income: number; spending: number; net: number };
+export type MonthPoint = { key: string; label: string; income: number; spending: number; net: number };
 
 export type AnnualReport = {
-  year: number;
+  from: string;
+  to: string;
+  label: string;
   income: number;
   spending: number;
   net: number;
@@ -57,6 +59,22 @@ export type AnnualReport = {
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** YYYY-MM keys from `from` to `to` inclusive. */
+function monthsInRange(from: string, to: string): string[] {
+  let y = Number(from.slice(0, 4));
+  let m = Number(from.slice(5, 7));
+  const ty = Number(to.slice(0, 4));
+  const tm = Number(to.slice(5, 7));
+  const out: string[] = [];
+  while (y < ty || (y === ty && m <= tm)) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+    if (++m > 12) { m = 1; y++; }
+    if (out.length > 240) break; // safety
+  }
+  return out;
+}
 
 /** Distinct calendar years present in the ledger (desc). */
 export async function loadReportYears(): Promise<number[]> {
@@ -66,9 +84,15 @@ export async function loadReportYears(): Promise<number[]> {
   return rows.map((r) => Number(r.y)).sort((a, b) => b - a);
 }
 
-export async function loadAnnualReport(year: number): Promise<AnnualReport> {
-  const start = `${year}-01-01`;
-  const end = `${year}-12-31`;
+/** Back-compat: a full calendar year. */
+export function loadAnnualReport(year: number): Promise<AnnualReport> {
+  return loadReport(`${year}-01-01`, `${year}-12-31`, String(year));
+}
+
+/** Income/spending/net summary for an arbitrary date range, bucketed by month. */
+export async function loadReport(from: string, to: string, label: string): Promise<AnnualReport> {
+  const start = from;
+  const end = to;
 
   const [byCat, byMonth, splitContribs] = await Promise.all([
     db
@@ -85,15 +109,14 @@ export async function loadAnnualReport(year: number): Promise<AnnualReport> {
       .groupBy(categories.id, categories.name, categories.color, categories.flowType),
     db
       .select({
-        m: sql<string>`EXTRACT(MONTH FROM ${transactions.date})::int::text`,
+        ym: sql<string>`to_char(${transactions.date}, 'YYYY-MM')`,
         flow: sql<string>`COALESCE(${categories.flowType}, 'outflow')`,
         total: sql<string>`SUM(${transactions.amount})::text`,
       })
       .from(transactions)
       .leftJoin(categories, eq(transactions.categoryId, categories.id))
       .where(and(gte(transactions.date, start), lte(transactions.date, end), eq(transactions.isTransfer, false), eq(transactions.isSplit, false)))
-      .groupBy(sql`EXTRACT(MONTH FROM ${transactions.date})`, categories.flowType)
-      .orderBy(asc(sql`EXTRACT(MONTH FROM ${transactions.date})`)),
+      .groupBy(sql`to_char(${transactions.date}, 'YYYY-MM')`, categories.flowType),
     loadSplitContributions({ from: start, to: end }),
   ]);
 
@@ -125,33 +148,41 @@ export async function loadAnnualReport(year: number): Promise<AnnualReport> {
   const incomeByCategory = [...incomeMap.values()].sort((a, b) => b.amount - a.amount);
   const spendingByCategory = [...spendMap.values()].sort((a, b) => b.amount - a.amount);
 
-  const months: MonthPoint[] = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, income: 0, spending: 0, net: 0 }));
+  // Monthly buckets across the range (YYYY-MM), zero-filled + labeled.
+  const keys = monthsInRange(from, to);
+  const multiYear = new Set(keys.map((k) => k.slice(0, 4))).size > 1;
+  const byKey = new Map<string, MonthPoint>();
+  for (const k of keys) {
+    const mm = Number(k.slice(5, 7));
+    byKey.set(k, { key: k, label: MONTH_ABBR[mm - 1]! + (multiYear ? ` ’${k.slice(2, 4)}` : ''), income: 0, spending: 0, net: 0 });
+  }
   for (const r of byMonth) {
     if (r.flow === 'transfer') continue;
-    const idx = Number(r.m) - 1;
-    if (idx < 0 || idx > 11) continue;
+    const mp = byKey.get(r.ym);
+    if (!mp) continue;
     const amt = Number(r.total);
-    if (r.flow === 'inflow') months[idx]!.income += amt;
-    else months[idx]!.spending += Math.abs(amt);
+    if (r.flow === 'inflow') mp.income += amt;
+    else mp.spending += Math.abs(amt);
   }
   for (const s of splitContribs) {
-    const idx = Number(s.date.slice(5, 7)) - 1;
-    if (idx < 0 || idx > 11) continue;
+    const mp = byKey.get(s.date.slice(0, 7));
+    if (!mp) continue;
     const flow = s.flowType === 'inflow' ? 'inflow' : s.flowType === 'transfer' ? 'transfer' : 'outflow';
-    if (flow === 'inflow') months[idx]!.income += s.amount;
-    else if (flow !== 'transfer') months[idx]!.spending += Math.abs(s.amount);
+    if (flow === 'inflow') mp.income += s.amount;
+    else if (flow !== 'transfer') mp.spending += Math.abs(s.amount);
   }
-  for (const m of months) {
-    m.income = round2(m.income);
-    m.spending = round2(m.spending);
-    m.net = round2(m.income - m.spending);
-  }
+  const months: MonthPoint[] = keys.map((k) => {
+    const m = byKey.get(k)!;
+    return { key: m.key, label: m.label, income: round2(m.income), spending: round2(m.spending), net: round2(m.income - m.spending) };
+  });
 
   income = round2(income);
   spending = round2(Math.abs(spending));
   const net = round2(income - spending);
   return {
-    year,
+    from,
+    to,
+    label,
     income,
     spending,
     net,
