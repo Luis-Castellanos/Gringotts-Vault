@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [naming, setNaming] = useState(false);
+  const [nameValue, setNameValue] = useState('');
 
   useEffect(() => {
     fetch('/api/auth/status')
@@ -21,6 +23,34 @@ export default function LoginPage() {
       })
       .catch(() => setStatus({ authenticated: false, hasPasskey: false }));
   }, [router]);
+
+  // After a passkey is verified: a brand-new owner has no name yet, so prompt
+  // for it before entering the app; an existing owner goes straight in.
+  async function afterAuth() {
+    try {
+      const p = await (await fetch('/api/profile')).json();
+      if (p?.data?.name?.trim()) {
+        router.replace('/');
+        return;
+      }
+    } catch {
+      /* fall through to name entry */
+    }
+    setBusy(false);
+    setNaming(true);
+  }
+
+  async function saveName() {
+    if (!nameValue.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nameValue.trim() }),
+    }).catch(() => {});
+    router.replace('/');
+  }
 
   async function register() {
     setBusy(true);
@@ -37,7 +67,7 @@ export default function LoginPage() {
         body: JSON.stringify({ response: attestation, label }),
       });
       if (!verifyRes.ok) throw new Error((await verifyRes.json()).error ?? 'Could not verify passkey.');
-      router.replace('/');
+      await afterAuth();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Registration failed.');
       setBusy(false);
@@ -57,7 +87,7 @@ export default function LoginPage() {
         body: JSON.stringify({ response: assertion }),
       });
       if (!verifyRes.ok) throw new Error((await verifyRes.json()).error ?? 'Sign-in failed.');
-      router.replace('/');
+      await afterAuth();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed.');
       setBusy(false);
@@ -69,9 +99,25 @@ export default function LoginPage() {
   return (
     <div className="min-h-[calc(100vh-44px)] flex items-center justify-center px-6">
       <div className="w-full max-w-[380px] rounded-2xl border border-border-subtle bg-surface-1 p-8 text-center">
-        <div className="mx-auto mb-5 size-12 rounded-xl bg-gradient-to-br from-positive to-emerald-600 flex items-center justify-center text-xl font-bold text-white">↙</div>
+        <div className="mx-auto mb-5 size-12 rounded-xl bg-gradient-to-br from-accent-300 to-accent-500 flex items-center justify-center text-xl font-bold text-white shadow-sm shadow-accent-500/30">↙</div>
         <h1 className="text-[20px] font-semibold mb-1">Vault</h1>
-        {status == null ? (
+        {naming ? (
+          <>
+            <p className="text-[13px] text-text-tertiary mb-5">You’re in. What should we call you?</p>
+            <input
+              autoFocus
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveName()}
+              placeholder="Your name"
+              maxLength={80}
+              className="w-full rounded-lg border border-border-subtle bg-surface-base px-3 py-2.5 text-[14px] text-center mb-3 focus:outline-none focus:border-border-strong"
+            />
+            <button type="button" onClick={saveName} disabled={busy || !nameValue.trim()} className="w-full rounded-lg bg-accent-500 px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-accent-500/90 disabled:opacity-50">
+              {busy ? 'Saving…' : 'Continue'}
+            </button>
+          </>
+        ) : status == null ? (
           <p className="text-[13px] text-text-tertiary">Loading…</p>
         ) : first ? (
           <>

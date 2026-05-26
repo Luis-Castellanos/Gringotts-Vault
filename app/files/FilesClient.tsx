@@ -54,10 +54,12 @@ const STATUS_STYLE: Record<string, string> = {
 // Resizable columns: File Name flexes (1fr), the rest are draggable px widths,
 // the trailing action column is fixed. Widths persist in localStorage.
 const MIN_W = 70;
-const DEFAULT_W = { docType: 120, type: 130, account: 150, periodStart: 110, periodEnd: 110, txns: 110, status: 100, uploaded: 150 };
+// Defaults sized to fit each column's header + typical content without
+// truncation. Still drag-resizable; widths persist in localStorage.
+const DEFAULT_W = { docType: 180, type: 160, account: 240, periodStart: 124, periodEnd: 124, txns: 130, status: 116, uploaded: 168 };
 type ColKey = keyof typeof DEFAULT_W;
-// Bumped key suffix so the old "period" width doesn't linger in localStorage.
-const COL_STORAGE_KEY = 'vault-files-col-widths-v2';
+// Bump the key suffix whenever defaults change, so saved widths don't linger.
+const COL_STORAGE_KEY = 'vault-files-col-widths-v3';
 
 // ── Sorting ──────────────────────────────────────────────────────────────────
 type SortKey = 'fileName' | ColKey;
@@ -315,7 +317,7 @@ export function FilesClient({
   }, [w]);
 
   const gridStyle = {
-    gridTemplateColumns: `34px minmax(160px,1fr) ${w.docType}px ${w.type}px ${w.account}px ${w.periodStart}px ${w.periodEnd}px ${w.txns}px ${w.status}px ${w.uploaded}px 44px`,
+    gridTemplateColumns: `34px minmax(220px,1.4fr) ${w.docType}px ${w.type}px ${w.account}px ${w.periodStart}px ${w.periodEnd}px ${w.txns}px ${w.status}px ${w.uploaded}px 44px`,
   };
 
   function applyAccountLocal(rowId: string, accountId: string) {
@@ -590,7 +592,7 @@ export function FilesClient({
               </button>
             </div>
           )}
-          <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden">
+          <div className="rounded-xl border border-border-subtle bg-surface-1 overflow-x-auto">
           <div
             style={gridStyle}
             className="grid gap-3 px-4 py-2.5 border-b border-border-subtle text-[10.5px] font-semibold uppercase tracking-[0.07em] text-text-muted text-center"

@@ -3,7 +3,10 @@ import { asc, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { accountTypeGroups, accountTypes, accounts } from '@/lib/db/schema';
 import { ANTHROPIC_KEY, MARKET_DATA_KEY, getAnthropicKey, getAnthropicModel, getSetting } from '@/lib/settings';
+import { getProfile } from '@/lib/profile/load';
 import { SettingsClient, type GroupRow, type TypeRow } from './SettingsClient';
+import { ProfileSettings } from './ProfileSettings';
+import { SidebarSettings } from './SidebarSettings';
 import { ClaudeSettings } from './ClaudeSettings';
 import { MarketDataSettings } from './MarketDataSettings';
 import { MaintenancePanel } from './MaintenancePanel';
@@ -15,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export default async function SettingsPage() {
   // Independent reads — taxonomy groups/types, per-type usage counts, and the
   // three Anthropic settings — fired together.
-  const [groups, types, usage, dbKey, anthropicKey, model, marketDbKey] = await Promise.all([
+  const [groups, types, usage, dbKey, anthropicKey, model, marketDbKey, profile] = await Promise.all([
     db.select().from(accountTypeGroups).orderBy(asc(accountTypeGroups.sortOrder)),
     db.select().from(accountTypes).orderBy(asc(accountTypes.sortOrder)),
     db
@@ -26,6 +29,7 @@ export default async function SettingsPage() {
     getAnthropicKey(),
     getAnthropicModel(),
     getSetting(MARKET_DATA_KEY),
+    getProfile(),
   ]);
   const countBySlug = new Map(usage.map((u) => [u.type, u.n]));
   const hasKey = !!anthropicKey;
@@ -49,7 +53,9 @@ export default async function SettingsPage() {
   return (
     <main className="w-full max-w-[1180px] px-10 pt-8 pb-20">
       <h1 className="text-[22px] font-semibold tracking-[-0.01em] mb-1">Settings</h1>
-      <p className="text-[13px] text-text-tertiary mb-8">Manage Vault’s account taxonomy and preferences.</p>
+      <p className="text-[13px] text-text-tertiary mb-8">Manage your profile, sidebar, account taxonomy, and preferences.</p>
+      <ProfileSettings initial={profile} />
+      <SidebarSettings initialHidden={profile.navHidden} />
       <SettingsClient groups={groupRows} rows={rows} />
       <ClaudeSettings hasKey={hasKey} keySource={keySource} model={model} />
       <MarketDataSettings hasKey={hasMarketKey} keySource={marketKeySource} />

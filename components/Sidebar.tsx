@@ -14,107 +14,16 @@ import {
   type SidebarState,
 } from '@/lib/sidebar-state';
 import { ThemeToggle } from './ThemeToggle';
-import {
-  IconAccounts,
-  IconAudit,
-  IconBell,
-  IconCashflow,
-  IconCategories,
-  IconCreditCard,
-  IconDashboard,
-  IconFiles,
-  IconForecasting,
-  IconGoals,
-  IconInvestments,
-  IconNetWorth,
-  IconPanelLeft,
-  IconPayroll,
-  IconRentals,
-  IconReports,
-  IconReview,
-  IconSearch,
-  IconSettings,
-  IconTax,
-  IconTransactions,
-  IconTransfers,
-  IconUpload,
-} from './nav-icons';
-
-type NavHref =
-  | '/'
-  | '/accounts'
-  | '/credit-cards'
-  | '/payroll'
-  | '/transactions'
-  | '/review'
-  | '/cashflow'
-  | '/net-worth'
-  | '/reports'
-  | '/rentals'
-  | '/investments'
-  | '/tax'
-  | '/forecasting'
-  | '/categories'
-  | '/upload'
-  | '/files'
-  | '/audit'
-  | '/transfers'
-  | '/goals';
-
-type NavItem = {
-  href: NavHref;
-  label: string;
-  Icon: (props: { size?: number; className?: string }) => React.ReactElement;
-  showBadge?: boolean;
-};
-type NavGroup = { label: string; items: readonly NavItem[] };
-
-const NAV_GROUPS: readonly NavGroup[] = [
-  {
-    label: 'Complete',
-    items: [
-      { href: '/review', label: 'Review', Icon: IconReview, showBadge: true },
-      { href: '/transactions', label: 'Transactions', Icon: IconTransactions },
-      { href: '/payroll', label: 'Payroll', Icon: IconPayroll },
-      { href: '/credit-cards', label: 'Credit Cards', Icon: IconCreditCard },
-    ],
-  },
-  {
-    label: 'Under development',
-    items: [
-      { href: '/', label: 'Dashboard', Icon: IconDashboard },
-      { href: '/net-worth', label: 'Net Worth', Icon: IconNetWorth },
-      { href: '/cashflow', label: 'Cashflow', Icon: IconCashflow },
-      { href: '/reports', label: 'Reports', Icon: IconReports },
-      { href: '/transfers', label: 'Transfers', Icon: IconTransfers },
-      { href: '/rentals', label: 'Real Estate', Icon: IconRentals },
-      { href: '/investments', label: 'Investments', Icon: IconInvestments },
-      { href: '/goals', label: 'Goals', Icon: IconGoals },
-      { href: '/forecasting', label: 'Forecasting', Icon: IconForecasting },
-      { href: '/tax', label: 'Tax', Icon: IconTax },
-    ],
-  },
-  {
-    label: 'Data',
-    items: [
-      { href: '/upload', label: 'Upload', Icon: IconUpload },
-      { href: '/files', label: 'Files', Icon: IconFiles },
-      { href: '/audit', label: 'Statement Audit', Icon: IconAudit },
-    ],
-  },
-  {
-    label: 'Manage',
-    items: [
-      { href: '/accounts', label: 'Accounts', Icon: IconAccounts },
-      { href: '/categories', label: 'Categories', Icon: IconCategories },
-    ],
-  },
-];
+import { Avatar } from './Avatar';
+import { NAV_GROUPS } from './nav-config';
+import { PROFILE_EVENT, type ProfileData } from '@/lib/profile/avatars';
+import { IconBell, IconPanelLeft, IconSearch, IconSettings } from './nav-icons';
 
 export function Sidebar({ reviewCount }: { reviewCount?: number }) {
   const pathname = usePathname();
   const [open, setOpen] = useState<boolean>(true);
   const [width, setWidth] = useState<number>(SIDEBAR_DEFAULT_WIDTH);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const draggingRef = useRef(false);
 
   useEffect(() => {
@@ -129,6 +38,27 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
     }
     window.addEventListener(SIDEBAR_EVENT, onState);
     return () => window.removeEventListener(SIDEBAR_EVENT, onState);
+  }, []);
+
+  // Profile (name + avatar + which pages to show) — fetched once, then kept
+  // live via the event Settings dispatches on save (no reload needed).
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/profile')
+      .then((r) => r.json())
+      .then((j) => {
+        if (alive && j?.data) setProfile(j.data as ProfileData);
+      })
+      .catch(() => {});
+    function onProfile(e: Event) {
+      const detail = (e as CustomEvent<ProfileData>).detail;
+      if (detail) setProfile(detail);
+    }
+    window.addEventListener(PROFILE_EVENT, onProfile);
+    return () => {
+      alive = false;
+      window.removeEventListener(PROFILE_EVENT, onProfile);
+    };
   }, []);
 
   function onResizePointerDown(e: React.PointerEvent) {
@@ -162,40 +92,45 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
   if (pathname === '/login') return null;
   if (!open) return null;
 
+  const hidden = new Set(profile?.navHidden ?? []);
+  const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => !hidden.has(i.href)) })).filter(
+    (g) => g.items.length > 0,
+  );
+
   return (
     <aside
       className="sticky self-start flex flex-col bg-surface-1 border-r border-border-subtle"
       style={{ width, top: 44, height: 'calc(100vh - 44px)' }}
     >
-      {/* Top: logo + action icons row (Monarch-style) */}
+      {/* Top: logo + action icons row */}
       <div className="flex items-center gap-1 px-3 pt-3 pb-2">
-        <div className="size-8 rounded-lg bg-gradient-to-br from-positive to-emerald-600 flex items-center justify-center text-base font-bold shrink-0">
+        <div className="size-8 rounded-lg bg-gradient-to-br from-accent-300 to-accent-500 flex items-center justify-center text-base font-bold text-white shadow-sm shadow-accent-500/30 shrink-0">
           ↙
         </div>
         <div className="flex-1" />
         <button
           type="button"
-          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
+          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-accent-300 hover:bg-surface-2 transition-colors"
           aria-label="Search"
           title="Search (coming soon)"
         >
-          <IconSearch />
+          <IconSearch size={17} />
         </button>
         <button
           type="button"
-          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
+          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-accent-300 hover:bg-surface-2 transition-colors"
           aria-label="Notifications"
           title="Notifications (coming soon)"
         >
-          <IconBell />
+          <IconBell size={17} />
         </button>
         <Link
           href="/settings"
-          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
+          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-accent-300 hover:bg-surface-2 transition-colors"
           aria-label="Settings"
           title="Settings"
         >
-          <IconSettings />
+          <IconSettings size={17} />
         </Link>
         <button
           type="button"
@@ -204,38 +139,39 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
           aria-label="Hide sidebar"
           title="Hide sidebar"
         >
-          <IconPanelLeft />
+          <IconPanelLeft size={17} />
         </button>
       </div>
 
       {/* Nav groups */}
       <nav className="flex flex-col gap-3 px-2 pt-2 pb-3 overflow-y-auto flex-1">
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.label} className="flex flex-col gap-0.5">
-            <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+            <div className="px-3 pt-2 pb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-text-tertiary">
               {group.label}
             </div>
             {group.items.map((item) => {
-              const active =
-                pathname === item.href ||
-                (item.href !== '/' && pathname.startsWith(item.href));
+              const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
               const Icon = item.Icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center justify-between gap-3 px-3 py-2 rounded-md text-[14px] transition-colors ${
+                  className={`relative flex items-center justify-between gap-3 pl-3.5 pr-3 py-2.5 rounded-lg text-[15px] transition-colors ${
                     active
-                      ? 'bg-surface-3 text-text-primary font-medium'
-                      : 'text-text-tertiary hover:text-text-primary hover:bg-surface-2'
+                      ? 'bg-accent-soft text-accent-300 font-semibold'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-surface-2 font-medium'
                   }`}
                 >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-accent-500" />
+                  )}
                   <span className="flex items-center gap-3 min-w-0">
-                    <Icon size={18} className="shrink-0" />
+                    <Icon size={20} strokeWidth={active ? 2 : 1.8} className="shrink-0" />
                     <span className="truncate">{item.label}</span>
                   </span>
                   {item.showBadge && reviewCount !== undefined && reviewCount > 0 && (
-                    <span className="bg-accent-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-md tabular-nums">
+                    <span className="bg-accent-500 text-white text-[10.5px] font-semibold px-1.5 py-0.5 rounded-md tabular-nums shrink-0">
                       {reviewCount}
                     </span>
                   )}
@@ -247,16 +183,23 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
       </nav>
 
       {/* User chip + theme toggle */}
-      <div className="flex items-center gap-3 px-3 py-3 border-t border-border-subtle">
-        <div className="size-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-xs font-semibold shrink-0">
-          AM
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-medium truncate">Alex Morgan</div>
-          <div className="text-[11px] text-text-muted flex items-center gap-1.5 mt-0.5">
-            <span className="size-1.5 rounded-full bg-positive" /> Synced
+      <div className="flex items-center gap-2.5 px-3 py-3 border-t border-border-subtle">
+        <Link href="/settings" className="flex items-center gap-2.5 flex-1 min-w-0 group" title="Profile & settings">
+          <Avatar
+            name={profile?.name ?? ''}
+            kind={profile?.avatarKind ?? 'gradient'}
+            gradient={profile?.avatarGradient ?? 'monarch'}
+            image={profile?.avatarImage ?? null}
+            size={36}
+            className="ring-1 ring-border-subtle"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-[13.5px] font-semibold truncate group-hover:text-accent-300 transition-colors">
+              {profile?.name?.trim() || 'Set your name'}
+            </div>
+            <div className="text-[11px] text-text-muted truncate mt-0.5">Owner</div>
           </div>
-        </div>
+        </Link>
         <ThemeToggle className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0" />
         <button
           type="button"

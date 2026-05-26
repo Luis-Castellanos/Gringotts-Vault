@@ -2,6 +2,25 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Personalize the sidebar & profile.** The owner now has a real
+  **profile** — name + avatar (upload a photo, client-downscaled to a 256px
+  JPEG, or pick from gradient/solid presets led by monarch orange) — editable in
+  **Settings → Profile** and shown in the sidebar chip (the hardcoded "Alex
+  Morgan" is gone). A brand-new owner is prompted for their name right after
+  first-run passkey registration. **Settings → Sidebar pages** lets you hide any
+  individual page from the nav (hierarchical group→page toggles with
+  indeterminate state; pages still exist at their URL). The **sidebar got a
+  visual pass** — larger, heavier nav text + icons, and monarch-orange accents
+  (active item gets an orange bar + tint, the logo is orange). All of it is
+  key/value in `app_settings` behind `/api/profile`; the Sidebar reads it once
+  and updates live via a `vault:profile` event on save. New: `lib/profile/*`,
+  `components/{Avatar,nav-config}.tsx`, `app/settings/{Profile,Sidebar}Settings.tsx`.
+  Also: **Files page** columns are wider by default (fit headers + typical
+  content) and the table scrolls horizontally instead of clipping.
+- 2026-05-25 — **Fix: Reports page crash from the drizzle 0.45 upgrade.** The
+  spending-anomalies query reused a *parameterized* sql fragment in both SELECT
+  and GROUP BY; drizzle 0.45 numbers those placeholders separately, so Postgres
+  rejected it. Rewrote it to bucket by a parameter-free month expression.
 - 2026-05-25 — **Passkey auth + hosting (deploy-ready).** Vault now has real login
   so it can live at a permanent URL instead of a local dev server. **Auth** is a
   WebAuthn **passkey** for the single owner (Face ID / Touch ID / security key, no

@@ -1,0 +1,25 @@
+feat(profile,sidebar): owner profile, per-page nav visibility, sidebar refresh
+
+Profile: name + avatar (upload a photo — downscaled client-side to a 256px
+JPEG — or pick a gradient/solid preset), editable in Settings -> Profile and
+shown in the sidebar chip (replaces the hardcoded placeholder). A new owner is
+prompted for their name right after first-run passkey registration.
+
+Sidebar pages: Settings -> Sidebar pages hides any individual page from the nav
+(hierarchical group->page toggles with indeterminate state). Pages still exist
+at their URL.
+
+Sidebar visual pass: larger/heavier nav text + icons (new optional strokeWidth
+on nav-icons), monarch-orange active state (orange bar + tint) and logo.
+
+Storage: all of it is key/value in app_settings behind /api/profile (GET/PATCH).
+The Sidebar fetches once and updates live via a `vault:profile` event on save.
+New: lib/profile/{avatars,load}.ts, components/{Avatar,nav-config}.tsx,
+app/settings/{Profile,Sidebar}Settings.tsx. NAV_GROUPS moved out of Sidebar.tsx
+into components/nav-config.tsx so Settings can share it.
+
+Files page: wider default column widths (fit headers + typical content) and the
+table scrolls horizontally instead of clipping.
+
+Verified: tsc clean, next build clean, /api/profile data-layer smoke (round-trip
++ stale-href filtering) passes.
