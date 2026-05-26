@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import Link from 'next/link';
@@ -19,7 +19,84 @@ const CADENCE_LABEL: Record<Cadence, string> = {
   weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly',
 };
 
-type Tab = 'summary' | 'recurring' | 'anomalies' | 'custom';
+type Tab = 'summary' | 'compare' | 'recurring' | 'anomalies' | 'custom';
+
+type CmpRow = { id: string; name: string; color: string | null; cur: number; prev: number };
+function mergeCats(cur: ReportCategory[], prev: ReportCategory[]): CmpRow[] {
+  const m = new Map<string, CmpRow>();
+  for (const c of cur) m.set(c.id, { id: c.id, name: c.name, color: c.color, cur: c.amount, prev: 0 });
+  for (const c of prev) {
+    const e = m.get(c.id);
+    if (e) e.prev = c.amount;
+    else m.set(c.id, { id: c.id, name: c.name, color: c.color, cur: 0, prev: c.amount });
+  }
+  return [...m.values()].sort((a, b) => b.cur + b.prev - (a.cur + a.prev));
+}
+
+function ComparePanel({ report, prev }: { report: AnnualReport; prev: AnnualReport }) {
+  const py = prev.year;
+  const cy = report.year;
+  const metric = (label: string, cur: number, was: number, kind: 'pos' | 'neg' | 'net') => {
+    const d = cur - was;
+    const goodUp = kind !== 'neg'; // for spending, down is good
+    const good = kind === 'net' ? d >= 0 : goodUp ? d >= 0 : d <= 0;
+    return (
+      <div className="rounded-xl bg-surface-1 border border-border-subtle px-4 py-3">
+        <div className="text-[11px] uppercase tracking-[0.06em] text-text-muted mb-1">{label}</div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[18px] font-semibold tabular-nums">{money0(cur)}</span>
+          <span className="text-[12px] text-text-tertiary tabular-nums">from {money0(was)}</span>
+        </div>
+        <div className={`text-[12px] tabular-nums mt-0.5 ${good ? 'text-positive' : 'text-negative'}`}>
+          {d >= 0 ? '+' : ''}{money0(d)}{was ? ` (${d >= 0 ? '+' : ''}${Math.round((d / Math.abs(was)) * 100)}%)` : ''}
+        </div>
+      </div>
+    );
+  };
+  const Table = ({ title, rows }: { title: string; rows: CmpRow[] }) => (
+    <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
+      <h2 className="text-[14px] font-semibold mb-3">{title}</h2>
+      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 text-[13px] items-center">
+        <div className="text-[11px] uppercase tracking-[0.05em] text-text-muted">Category</div>
+        <div className="text-[11px] uppercase tracking-[0.05em] text-text-muted text-right tabular-nums">{py}</div>
+        <div className="text-[11px] uppercase tracking-[0.05em] text-text-muted text-right tabular-nums">{cy}</div>
+        <div className="text-[11px] uppercase tracking-[0.05em] text-text-muted text-right">Δ</div>
+        {rows.slice(0, 16).map((r) => {
+          const d = r.cur - r.prev;
+          return (
+            <Fragment key={r.id}>
+              <span className="flex items-center gap-2 min-w-0"><CategoryIcon name={r.name} color={r.color} size={18} /><span className="truncate text-text-secondary">{r.name}</span></span>
+              <span className="text-right tabular-nums text-text-tertiary">{money0(r.prev)}</span>
+              <span className="text-right tabular-nums text-text-primary">{money0(r.cur)}</span>
+              <span className={`text-right tabular-nums text-[12.5px] ${d >= 0 ? 'text-text-secondary' : 'text-positive'}`}>{d >= 0 ? '+' : ''}{money0(d)}</span>
+            </Fragment>
+          );
+        })}
+      </div>
+    </section>
+  );
+  return (
+    <>
+      <p className="text-[13px] text-text-tertiary mb-4"><span className="font-medium text-text-secondary">{cy}</span> vs <span className="font-medium text-text-secondary">{py}</span> — where things moved.</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+        {metric('Income', report.income, prev.income, 'pos')}
+        {metric('Spending', report.spending, prev.spending, 'neg')}
+        {metric('Net', report.net, prev.net, 'net')}
+        <div className="rounded-xl bg-surface-1 border border-border-subtle px-4 py-3">
+          <div className="text-[11px] uppercase tracking-[0.06em] text-text-muted mb-1">Savings rate</div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[18px] font-semibold tabular-nums">{report.savingsRate ?? '—'}%</span>
+            <span className="text-[12px] text-text-tertiary tabular-nums">from {prev.savingsRate ?? '—'}%</span>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Table title="Spending by category" rows={mergeCats(report.spendingByCategory, prev.spendingByCategory)} />
+        <Table title="Income by source" rows={mergeCats(report.incomeByCategory, prev.incomeByCategory)} />
+      </div>
+    </>
+  );
+}
 
 function Breakdown({ title, cats, tone, year }: { title: string; cats: ReportCategory[]; tone: 'pos' | 'neg'; year: number }) {
   const max = cats.length ? Math.max(...cats.map((c) => c.amount)) : 1;
@@ -325,6 +402,7 @@ function AnomaliesPanel({ data }: { data: AnomalyReport }) {
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'summary', label: 'Summary' },
+  { id: 'compare', label: 'Compare' },
   { id: 'recurring', label: 'Recurring' },
   { id: 'anomalies', label: 'Anomalies' },
   { id: 'custom', label: 'Custom' },
@@ -383,7 +461,7 @@ export function ReportsClient({
       />
 
       <div className="flex items-center gap-1 mb-6 border-b border-border-subtle print:hidden">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.id !== 'compare' || prevReport).map((t) => (
           <button
             key={t.id}
             type="button"
@@ -400,6 +478,7 @@ export function ReportsClient({
       </div>
 
       {tab === 'summary' && <SummaryPanel report={report} prev={prevReport} topMerchants={topMerchants} />}
+      {tab === 'compare' && prevReport && <ComparePanel report={report} prev={prevReport} />}
       {tab === 'recurring' && <RecurringPanel data={recurring} />}
       {tab === 'anomalies' && <AnomaliesPanel data={anomalies} />}
       {tab === 'custom' && <CustomPanel />}
