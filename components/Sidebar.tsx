@@ -161,21 +161,26 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
       className="sticky self-start flex flex-col bg-surface-1 border-r border-border-subtle"
       style={{ width, top: 44, height: 'calc(100vh - 44px)' }}
     >
-      {/* Top: logo (home → Dashboard) + collapse */}
-      <div className="flex items-center gap-1 px-3 pt-3 pb-2">
-        <Link
-          href="/"
-          aria-label="Dashboard"
-          title="Dashboard"
-          className="size-8 rounded-lg bg-gradient-to-br from-accent-300 to-accent-500 flex items-center justify-center text-base font-bold text-white shadow-sm shadow-accent-500/30 shrink-0"
-        >
-          ↙
+      {/* Top: profile (avatar + name) + collapse */}
+      <div className="flex items-center gap-2.5 px-3 pt-3 pb-2.5">
+        <Link href="/settings" className="flex items-center gap-2.5 flex-1 min-w-0 group" title="Profile & settings">
+          <Avatar
+            name={profile?.name ?? ''}
+            kind={profile?.avatarKind ?? 'gradient'}
+            gradient={profile?.avatarGradient ?? 'monarch'}
+            image={profile?.avatarImage ?? null}
+            size={34}
+            className="ring-1 ring-border-subtle"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-[13.5px] font-semibold truncate group-hover:text-accent-300 transition-colors">{profile?.name?.trim() || 'Set your name'}</div>
+            <div className="text-[11px] text-text-muted truncate">Owner</div>
+          </div>
         </Link>
-        <div className="flex-1" />
         <button
           type="button"
           onClick={collapseSidebar}
-          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
+          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0"
           aria-label="Hide sidebar"
           title="Hide sidebar"
         >
@@ -246,29 +251,17 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
         ))}
       </nav>
 
-      {/* User chip: avatar + name, settings gear, theme, sign out */}
-      <div className="flex items-center gap-2 px-3 py-3 border-t border-border-subtle">
-        <Avatar
-          name={profile?.name ?? ''}
-          kind={profile?.avatarKind ?? 'gradient'}
-          gradient={profile?.avatarGradient ?? 'monarch'}
-          image={profile?.avatarImage ?? null}
-          size={36}
-          className="ring-1 ring-border-subtle"
-        />
-        <div className="flex-1 min-w-0">
-          <div className="text-[13.5px] font-semibold truncate">{profile?.name?.trim() || 'Set your name'}</div>
-          <div className="text-[11px] text-text-muted truncate mt-0.5">Owner</div>
-        </div>
+      {/* Bottom actions — spaced out to breathe */}
+      <div className="flex items-center justify-around px-4 py-3.5 border-t border-border-subtle">
         <Link
           href="/settings"
           aria-label="Settings"
           title="Settings"
-          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-accent-300 hover:bg-surface-2 transition-colors shrink-0"
+          className="size-9 rounded-lg flex items-center justify-center text-text-tertiary hover:text-accent-300 hover:bg-surface-2 transition-colors"
         >
-          <IconSettings size={17} />
+          <IconSettings size={18} />
         </Link>
-        <ThemeToggle className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0" />
+        <ThemeToggle className="size-9 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors" />
         <button
           type="button"
           onClick={async () => {
@@ -277,9 +270,9 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
           }}
           aria-label="Sign out"
           title="Sign out"
-          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0"
+          className="size-9 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
         >
-          <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M7 15.5H4a1.5 1.5 0 0 1-1.5-1.5V4A1.5 1.5 0 0 1 4 2.5h3M12 12.5 15.5 9 12 5.5M15.5 9h-9" />
           </svg>
         </button>
