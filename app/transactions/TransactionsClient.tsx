@@ -981,7 +981,7 @@ function SortCaret({ dir }: { dir: 'asc' | 'desc' | null }) {
 }
 
 function TxnTable({
-  rows, scoped, sortBy, onHeaderSort, selectMode, selected, onRowClick, selectedId, categories, onSaved, inline,
+  rows, scoped, sortBy, onHeaderSort, selectMode, selected, onRowClick, onSelectAll, allSelected, someSelected, selectedId, categories, onSaved, inline,
 }: {
   rows: TxnRow[];
   scoped: boolean;
@@ -990,6 +990,9 @@ function TxnTable({
   selectMode: boolean;
   selected: Set<string>;
   onRowClick: (id: string, isOpen: boolean) => void;
+  onSelectAll: () => void;
+  allSelected: boolean;
+  someSelected: boolean;
   selectedId: string | null;
   categories: CatLite[];
   onSaved: (id: string, patch: TxnPatch) => void;
@@ -1015,6 +1018,14 @@ function TxnTable({
         <tr>
           <th className="th-date sortable" onClick={() => onHeaderSort('date')}>Date <SortCaret dir={dateDir} /></th>
           <th className="th-merchant sortable" onClick={() => onHeaderSort('merchant')}>
+            {selectMode && (
+              <span
+                className={'tx-check tx-check-th' + (allSelected ? ' on' : someSelected ? ' indet' : '')}
+                onClick={(e) => { e.stopPropagation(); onSelectAll(); }}
+                title={allSelected ? 'Deselect all' : 'Select all'}
+                aria-hidden
+              />
+            )}
             Description {merchActive && <span className="tx-th-caret">▲</span>}
           </th>
           <th className="th-cat">Category</th>
@@ -1368,6 +1379,12 @@ export function TransactionsClient({
     });
   }, []);
 
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const someSelected = selected.size > 0 && !allSelected;
+  const toggleSelectAll = useCallback(() => {
+    setSelected((prev) => (prev.size === rows.length && rows.length > 0 ? new Set() : new Set(rows.map((r) => r.id))));
+  }, [rows]);
+
   // Collapse/expand a day group, and select/deselect a whole day at once.
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(() => new Set());
   const toggleDay = useCallback((date: string) => {
@@ -1609,6 +1626,9 @@ export function TransactionsClient({
             selectMode={selectMode}
             selected={selected}
             onRowClick={(id, isOpen) => (selectMode ? toggleSelect(id) : setSelectedId(isOpen ? null : id))}
+            onSelectAll={toggleSelectAll}
+            allSelected={allSelected}
+            someSelected={someSelected}
             selectedId={selectedId}
             categories={categories}
             onSaved={handleSaved}
@@ -1624,7 +1644,20 @@ export function TransactionsClient({
             }}
           />
         ) : (
-          grouped.map((group) => {
+          <>
+            {selectMode && (
+              <div className="tx-selectall" onClick={toggleSelectAll}>
+                <span
+                  className={'tx-check' + (allSelected ? ' on' : someSelected ? ' indet' : '')}
+                  aria-hidden
+                />
+                <span className="tx-selectall-label">
+                  {allSelected ? 'Deselect all' : 'Select all'}
+                  <span className="tx-selectall-count">{rows.length.toLocaleString()}</span>
+                </span>
+              </div>
+            )}
+            {grouped.map((group) => {
             const collapsed = collapsedDays.has(group.date);
             const dayAllSel = group.rows.length > 0 && group.rows.every((r) => selected.has(r.id));
             return (
@@ -1761,7 +1794,8 @@ export function TransactionsClient({
               })}
             </div>
             );
-          })
+          })}
+          </>
         )}
       </div>
 

@@ -539,6 +539,52 @@
     background: var(--green);
     border-color: var(--green);
   }
+  .tx-check.indet {
+    background: var(--green);
+    border-color: var(--green);
+  }
+  .tx-check.indet::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    top: 50%;
+    height: 2px;
+    background: #fff;
+    transform: translateY(-50%);
+    border-radius: 1px;
+  }
+  .tx-check-th {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+    cursor: pointer;
+  }
+  .tx-selectall {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--surface-elev);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  .tx-selectall:hover { background: var(--surface-hover); }
+  .tx-selectall-label {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .tx-selectall-count {
+    color: var(--text-3);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
   .tx-check.on::after {
     content: '';
     position: absolute;
