@@ -8,7 +8,7 @@ export default async function RealEstatePage() {
   const [portfolio, mortgageOptions] = await Promise.all([loadPortfolio(), loadMortgageAccountOptions()]);
 
   return (
-    <main className="w-full max-w-[1500px] px-10 pt-8 pb-20">
+    <main className="w-full max-w-[1500px] px-10 pt-6 pb-20">
       <RealEstateClient portfolio={portfolio} mortgageOptions={mortgageOptions} />
     </main>
   );

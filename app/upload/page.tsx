@@ -6,7 +6,7 @@ export const metadata = { title: 'Upload · Vault' };
 export default function UploadPage() {
   const enabled = parserAvailable();
   return (
-    <main className="w-full max-w-[900px] px-10 pt-8 pb-20">
+    <main className="w-full max-w-[900px] px-10 pt-6 pb-20">
       {enabled ? (
         <UploadClient />
       ) : (

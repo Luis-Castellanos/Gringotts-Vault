@@ -10,7 +10,7 @@ export default async function TaxPage({ searchParams }: { searchParams: Promise<
   const selected = year && years.includes(Number(year)) ? Number(year) : years[0]!;
   const summary = await loadTaxSummary(selected);
   return (
-    <main className="w-full max-w-[1100px] px-10 pt-8 pb-20">
+    <main className="w-full max-w-[1100px] px-10 pt-6 pb-20">
       <TaxClient years={years} summary={summary} />
     </main>
   );

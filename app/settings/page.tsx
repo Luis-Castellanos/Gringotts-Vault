@@ -5,6 +5,7 @@ import { accountTypeGroups, accountTypes, accounts } from '@/lib/db/schema';
 import { ANTHROPIC_KEY, MARKET_DATA_KEY, getAnthropicKey, getAnthropicModel, getSetting } from '@/lib/settings';
 import { getProfile } from '@/lib/profile/load';
 import { SettingsClient, type GroupRow, type TypeRow } from './SettingsClient';
+import { SettingsTabs } from './SettingsTabs';
 import { ProfileSettings } from './ProfileSettings';
 import { SidebarSettings } from './SidebarSettings';
 import { ClaudeSettings } from './ClaudeSettings';
@@ -51,16 +52,35 @@ export default async function SettingsPage() {
   }));
 
   return (
-    <main className="w-full max-w-[1180px] px-10 pt-8 pb-20">
-      <h1 className="text-[22px] font-semibold tracking-[-0.01em] mb-1">Settings</h1>
-      <p className="text-[13px] text-text-tertiary mb-8">Manage your profile, sidebar, account taxonomy, and preferences.</p>
-      <ProfileSettings initial={profile} />
-      <SidebarSettings initialHidden={profile.navHidden} />
-      <SettingsClient groups={groupRows} rows={rows} />
-      <ClaudeSettings hasKey={hasKey} keySource={keySource} model={model} />
-      <MarketDataSettings hasKey={hasMarketKey} keySource={marketKeySource} />
-      <MaintenancePanel />
-      <ExportPanel />
+    <main className="w-full max-w-[1180px] px-10 pt-6 pb-20">
+      <h1 className="text-[20px] font-semibold tracking-[-0.01em] mb-4">Settings</h1>
+      <SettingsTabs
+        tabs={[
+          { id: 'profile', label: 'Profile', content: <ProfileSettings initial={profile} /> },
+          { id: 'sidebar', label: 'Sidebar', content: <SidebarSettings initialHidden={profile.navHidden} /> },
+          { id: 'accounts', label: 'Account Types', content: <SettingsClient groups={groupRows} rows={rows} /> },
+          {
+            id: 'integrations',
+            label: 'Integrations',
+            content: (
+              <>
+                <ClaudeSettings hasKey={hasKey} keySource={keySource} model={model} />
+                <MarketDataSettings hasKey={hasMarketKey} keySource={marketKeySource} />
+              </>
+            ),
+          },
+          {
+            id: 'data',
+            label: 'Data & Export',
+            content: (
+              <>
+                <MaintenancePanel />
+                <ExportPanel />
+              </>
+            ),
+          },
+        ]}
+      />
     </main>
   );
 }

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export default async function AuditPage() {
   const data = await loadStatementAudit();
   return (
-    <main className="w-full max-w-[1300px] px-10 pt-8 pb-20">
+    <main className="w-full max-w-[1300px] px-10 pt-6 pb-20">
       <AuditClient data={data} />
     </main>
   );

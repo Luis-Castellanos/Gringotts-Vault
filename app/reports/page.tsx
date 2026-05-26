@@ -12,7 +12,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   if (years.length === 0) {
     return (
-      <main className="w-full max-w-[1200px] px-10 pt-8 pb-20">
+      <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
         <h1 className="text-[22px] font-semibold tracking-[-0.01em]">Reports</h1>
         <p className="text-[13px] text-text-tertiary mt-0.5 mb-8">Year-end summary — income, spending, and where it went.</p>
         <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-16 text-center text-[13px] text-text-tertiary">
@@ -30,7 +30,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   ]);
 
   return (
-    <main className="w-full max-w-[1200px] px-10 pt-8 pb-20">
+    <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
       <ReportsClient years={years} report={report} recurring={recurring} anomalies={anomalies} />
     </main>
   );

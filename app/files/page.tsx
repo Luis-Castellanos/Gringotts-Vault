@@ -81,7 +81,7 @@ export default async function FilesPage() {
   });
 
   return (
-    <main className="w-full max-w-[1400px] px-10 pt-8 pb-20">
+    <main className="w-full max-w-[1400px] px-10 pt-6 pb-20">
       <FilesClient rows={rows} typeOptions={typeOptions} accountOptions={accountOptions} />
     </main>
   );

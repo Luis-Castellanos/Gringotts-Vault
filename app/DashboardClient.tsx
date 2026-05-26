@@ -106,7 +106,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
   return (
     <>
-      <PageHeader title="Dashboard" subtitle="Where things stand, at a glance." />
+      <PageHeader title="Dashboard" />
 
       {/* Hero: net worth + sparkline */}
       <section className="rounded-2xl bg-surface-1 border border-border-subtle p-6 mb-5">

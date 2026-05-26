@@ -8,7 +8,7 @@ export function PageHeader({
   title,
   subtitle,
   actions,
-  className = 'mb-6',
+  className = 'mb-4',
 }: {
   title: string;
   subtitle?: string;
@@ -16,10 +16,10 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <div className={`flex items-start justify-between gap-3 flex-wrap ${className}`}>
-      <div>
-        <h1 className="text-[22px] font-semibold tracking-[-0.01em]">{title}</h1>
-        {subtitle && <p className="text-[13px] text-text-tertiary mt-0.5">{subtitle}</p>}
+    <div className={`flex items-center justify-between gap-3 flex-wrap ${className}`}>
+      <div className="flex items-baseline gap-2.5 min-w-0">
+        <h1 className="text-[19px] font-semibold tracking-[-0.01em]">{title}</h1>
+        {subtitle && <p className="text-[12.5px] text-text-tertiary truncate">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </div>

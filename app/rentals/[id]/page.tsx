@@ -41,7 +41,7 @@ export default async function PropertyPage({
   ]);
 
   return (
-    <main className="w-full max-w-[1100px] px-10 pt-8 pb-20">
+    <main className="w-full max-w-[1100px] px-10 pt-6 pb-20">
       <PropertyDetailClient
         property={data.property}
         schedule={data.schedule}

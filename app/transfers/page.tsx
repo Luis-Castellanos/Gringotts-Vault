@@ -74,7 +74,7 @@ export default async function TransfersPage() {
   const netClass = Math.abs(net) < 0.01 ? 'text-positive' : 'text-amber-400';
 
   return (
-    <main className="w-full max-w-[1100px] px-10 pt-8 pb-20">
+    <main className="w-full max-w-[1100px] px-10 pt-6 pb-20">
       <h1 className="text-[22px] font-semibold tracking-[-0.01em] mb-1">Transfers reconciliation</h1>
       <p className="text-[13px] text-text-tertiary mb-6">
         Every transfer should have an opposite leg, so In and Out net to zero. A non-zero net (or unmatched legs) points to an account or period you haven’t imported yet.

@@ -12,7 +12,7 @@ export default async function GoalsPage() {
     loadAllocationOverview(),
   ]);
   return (
-    <main className="w-full max-w-[1200px] px-10 pt-8 pb-20">
+    <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
       <GoalsClient goals={goals} accountOptions={accountOptions} debts={debts} allocation={allocation} />
     </main>
   );
