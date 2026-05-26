@@ -446,25 +446,28 @@ kbd {
 /* ── Color schemes — override the accent family, layered on light/dark ──
    Default (no/`default` scheme) keeps Vault orange from the base tokens. */
 [data-scheme='monarch'] {
-  --color-accent-500: #15a87a;
-  --color-accent-300: #5ed2ac;
-  --color-accent-200: #a7ead4;
-  --color-accent-soft: rgba(21, 168, 122, 0.13);
-  --color-accent-border: rgba(21, 168, 122, 0.28);
+  /* Monarch's emerald/teal green */
+  --color-accent-500: #0ea47b;
+  --color-accent-300: #56d4ad;
+  --color-accent-200: #a7ecd6;
+  --color-accent-soft: rgba(14, 164, 123, 0.13);
+  --color-accent-border: rgba(14, 164, 123, 0.28);
 }
 [data-scheme='fidelity'] {
-  --color-accent-500: #3f8f2e;
-  --color-accent-300: #84c46a;
-  --color-accent-200: #c2e3b3;
-  --color-accent-soft: rgba(63, 143, 46, 0.13);
-  --color-accent-border: rgba(63, 143, 46, 0.28);
+  /* Fidelity green #368727 + their brighter leaf green #6cc24a */
+  --color-accent-500: #368727;
+  --color-accent-300: #6cc24a;
+  --color-accent-200: #bfe0a8;
+  --color-accent-soft: rgba(54, 135, 39, 0.13);
+  --color-accent-border: rgba(54, 135, 39, 0.3);
 }
 [data-scheme='vanguard'] {
-  --color-accent-500: #a01722;
-  --color-accent-300: #de7a82;
-  --color-accent-200: #f0bcc0;
-  --color-accent-soft: rgba(160, 23, 34, 0.14);
-  --color-accent-border: rgba(160, 23, 34, 0.3);
+  /* Vanguard burgundy #96151d */
+  --color-accent-500: #96151d;
+  --color-accent-300: #d4727a;
+  --color-accent-200: #efbdc1;
+  --color-accent-soft: rgba(150, 21, 29, 0.14);
+  --color-accent-border: rgba(150, 21, 29, 0.32);
 }
 
 /* ── Default dropdown — components/Select.tsx ──────────────────────────── */

@@ -101,9 +101,12 @@ function ComparePanel({ report, prev }: { report: AnnualReport; prev: AnnualRepo
 function Breakdown({ title, cats, tone, from, to }: { title: string; cats: ReportCategory[]; tone: 'pos' | 'neg'; from: string; to: string }) {
   const max = cats.length ? Math.max(...cats.map((c) => c.amount)) : 1;
   const barColor = tone === 'pos' ? 'var(--color-positive)' : 'var(--color-negative)';
-  // Click a row → Transactions, filtered to that category for the period.
+  // Click a row → the category deep-dive (Uncategorized has no detail page, so
+  // it goes straight to the filtered Transactions list).
   const href = (id: string) =>
-    `/transactions?cats=${encodeURIComponent(id === 'uncat' ? '__uncategorized__' : id)}&from=${from}&to=${to}`;
+    id === 'uncat'
+      ? `/transactions?cats=__uncategorized__&from=${from}&to=${to}`
+      : `/reports/category/${id}?from=${from}&to=${to}`;
   return (
     <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
       <h2 className="text-[14px] font-semibold mb-4">{title}</h2>

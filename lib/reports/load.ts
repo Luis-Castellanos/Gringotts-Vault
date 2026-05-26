@@ -192,3 +192,65 @@ export async function loadReport(from: string, to: string, label: string): Promi
     months,
   };
 }
+
+export type CategoryDetail = {
+  id: string;
+  name: string;
+  color: string | null;
+  parentName: string | null;
+  total: number;
+  count: number;
+  months: { key: string; label: string; amount: number }[];
+  topMerchants: TopMerchant[];
+};
+
+/** Deep-dive for one category over a range: monthly spend + its top merchants. */
+export async function loadCategoryDetail(categoryId: string, from: string, to: string): Promise<CategoryDetail | null> {
+  const [cat] = await db
+    .select({ id: categories.id, name: categories.name, color: categories.color, parentId: categories.parentId })
+    .from(categories)
+    .where(eq(categories.id, categoryId))
+    .limit(1);
+  if (!cat) return null;
+  let parentName: string | null = null;
+  if (cat.parentId) {
+    const [p] = await db.select({ name: categories.name }).from(categories).where(eq(categories.id, cat.parentId)).limit(1);
+    parentName = p?.name ?? null;
+  }
+
+  const cond = and(
+    eq(transactions.categoryId, categoryId),
+    gte(transactions.date, from),
+    lte(transactions.date, to),
+    eq(transactions.isTransfer, false),
+    eq(transactions.isSplit, false),
+  );
+  const nameExpr = sql<string>`COALESCE(NULLIF(${transactions.merchant}, ''), ${transactions.rawDescription})`;
+  const [byMonth, merchRows, totalRow] = await Promise.all([
+    db.select({ ym: sql<string>`to_char(${transactions.date}, 'YYYY-MM')`, amt: sql<string>`SUM(ABS(${transactions.amount}))::text` })
+      .from(transactions).where(cond).groupBy(sql`to_char(${transactions.date}, 'YYYY-MM')`),
+    db.select({ merchant: nameExpr, amt: sql<string>`SUM(ABS(${transactions.amount}))::text`, count: sql<number>`COUNT(*)::int` })
+      .from(transactions).where(cond).groupBy(nameExpr).orderBy(desc(sql`SUM(ABS(${transactions.amount}))`)).limit(12),
+    db.select({ amt: sql<string>`COALESCE(SUM(ABS(${transactions.amount})),0)::text`, count: sql<number>`COUNT(*)::int` }).from(transactions).where(cond),
+  ]);
+
+  const keys = monthsInRange(from, to);
+  const multiYear = new Set(keys.map((k) => k.slice(0, 4))).size > 1;
+  const amtByKey = new Map(byMonth.map((r) => [r.ym, Number(r.amt)]));
+  const months = keys.map((k) => ({
+    key: k,
+    label: MONTH_ABBR[Number(k.slice(5, 7)) - 1]! + (multiYear ? ` ’${k.slice(2, 4)}` : ''),
+    amount: round2(amtByKey.get(k) ?? 0),
+  }));
+
+  return {
+    id: cat.id,
+    name: cat.name,
+    color: cat.color,
+    parentName,
+    total: round2(Number(totalRow[0]?.amt ?? 0)),
+    count: Number(totalRow[0]?.count ?? 0),
+    months,
+    topMerchants: merchRows.map((r) => ({ merchant: r.merchant ?? '—', amount: round2(Number(r.amt)), count: Number(r.count) })),
+  };
+}
