@@ -358,6 +358,15 @@ Ideas for later, in no particular order. May or may not get built.
   `docs/real-estate-expansion-plan.md` (all 6 phases marked shipped).
 
 - [ ] Tags as a cross-cutting label system (separate from categories)
+- [ ] **Itemized order ingestion (Amazon / Target) → auto-split.** Read order/line-item
+  data from Amazon and Target (e.g. order-history export, account connection, or
+  emailed receipts) and match it to the corresponding card transaction, then
+  **auto-split** that single charge into smaller, precisely-categorized line items
+  (e.g. one Amazon swipe → groceries + household + electronics). Mirrors Monarch's
+  itemization. Builds on the existing `transaction_splits` side-table (balances
+  untouched). Open design qs: data source (official export vs scraping vs email
+  parsing), merchant→transaction matching by date+amount, and where itemization
+  is reviewed/confirmed.
 - [~] **Forecasting** — **first pass shipped 2026-05-25** (`/forecasting`, out of
   "Not started"). Interactive net-worth/retirement projection: current net worth +
   trailing-12mo savings seed adjustable scenario inputs (monthly contribution,

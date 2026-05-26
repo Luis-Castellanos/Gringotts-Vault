@@ -5,7 +5,6 @@
  */
 
 import {
-  IconAccounts,
   IconAudit,
   IconCashflow,
   IconCreditCard,
@@ -85,12 +84,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { href: '/upload', label: 'Upload', Icon: IconUpload },
       { href: '/files', label: 'Files', Icon: IconFiles },
       { href: '/audit', label: 'Statement Audit', Icon: IconAudit },
-    ],
-  },
-  {
-    label: 'Manage',
-    items: [
-      { href: '/accounts', label: 'Accounts', Icon: IconAccounts },
     ],
   },
 ];
