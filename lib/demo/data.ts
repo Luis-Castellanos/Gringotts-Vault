@@ -82,6 +82,7 @@ export function buildDemoData(): DemoData {
     savings: rid(),
     cash: rid(),
     brokerage: rid(),
+    crypto: rid(),
     k401: rid(),
     roth: rid(),
     hsa: rid(),
@@ -98,7 +99,8 @@ export function buildDemoData(): DemoData {
     { id: a.checking, name: 'Chase Checking', type: 'checking', assetClass: 'asset', institution: 'Chase', accountNumber: '4763', openedAt: '2019-03-01' },
     { id: a.savings, name: 'Ally Savings', type: 'savings', assetClass: 'asset', institution: 'Ally Bank', accountNumber: '9491', apy: 4.2 },
     { id: a.cash, name: 'Apple Cash', type: 'cash', assetClass: 'asset', institution: 'Apple / Green Dot Bank' },
-    { id: a.brokerage, name: 'Fidelity Brokerage', type: 'brokerage', assetClass: 'asset', institution: 'Fidelity', accountSubtype: 'Individual' },
+    { id: a.brokerage, name: 'Robinhood Individual', type: 'brokerage', assetClass: 'asset', institution: 'Robinhood', accountSubtype: 'Individual' },
+    { id: a.crypto, name: 'Coinbase', type: 'crypto', assetClass: 'asset', institution: 'Coinbase' },
     { id: a.k401, name: 'Fidelity 401(k)', type: '401k', assetClass: 'asset', institution: 'Fidelity', accountSubtype: 'Traditional' },
     { id: a.roth, name: 'Vanguard Roth IRA', type: 'roth_ira', assetClass: 'asset', institution: 'Vanguard' },
     { id: a.hsa, name: 'Fidelity HSA', type: 'hsa', assetClass: 'asset', institution: 'Fidelity' },
@@ -124,14 +126,52 @@ export function buildDemoData(): DemoData {
     tx({ id: inId, accountId: to, categorySlug: null, date, amount: Math.abs(amount), merchant: label, raw: label, isTransfer: true, transferPairId: outId });
   };
 
+  // Holdings drive the Investments page. Two snapshots per position (≈6 months
+  // ago + today); a quantity drop between them is read as a realized sale
+  // (lib/investments/load.ts realized-gains estimator). Diamond-hands meme book:
+  // moonshot winners, brutal bagholders — gains AND losses, realized AND unrealized.
+  const olderIso = isoOf(new Date(today.getFullYear(), today.getMonth() - 6, 15));
+  const asOf = isoOf(today);
+  type Pos = { account: string; symbol: string | null; name: string; assetClass: string; buyPrice: number; qtyOld: number; qtyNow: number; priceOld: number; priceNow: number };
+  const POS: Pos[] = [
+    // Robinhood — meme stocks
+    { account: a.brokerage, symbol: 'GME', name: 'GameStop Corp.', assetClass: 'equity', buyPrice: 18, qtyOld: 1_000, qtyNow: 600, priceOld: 30, priceNow: 42 },
+    { account: a.brokerage, symbol: 'PLTR', name: 'Palantir Technologies', assetClass: 'equity', buyPrice: 9, qtyOld: 800, qtyNow: 500, priceOld: 25, priceNow: 42 },
+    { account: a.brokerage, symbol: 'TSLA', name: 'Tesla Inc.', assetClass: 'equity', buyPrice: 180, qtyOld: 80, qtyNow: 80, priceOld: 210, priceNow: 250 },
+    { account: a.brokerage, symbol: 'AMC', name: 'AMC Entertainment', assetClass: 'equity', buyPrice: 14, qtyOld: 800, qtyNow: 500, priceOld: 9, priceNow: 4 },
+    { account: a.brokerage, symbol: 'BBBY', name: 'Bed Bath & Beyond (delisted)', assetClass: 'equity', buyPrice: 20, qtyOld: 400, qtyNow: 50, priceOld: 5, priceNow: 0.12 },
+    { account: a.brokerage, symbol: 'NOK', name: 'Nokia Corp.', assetClass: 'equity', buyPrice: 5, qtyOld: 600, qtyNow: 600, priceOld: 4.8, priceNow: 4.6 },
+    { account: a.brokerage, symbol: null, name: 'Cash', assetClass: 'cash', buyPrice: 1, qtyOld: 14_000, qtyNow: 14_000, priceOld: 1, priceNow: 1 },
+    // Coinbase — crypto
+    { account: a.crypto, symbol: 'DOGE', name: 'Dogecoin', assetClass: 'crypto', buyPrice: 0.08, qtyOld: 100_000, qtyNow: 60_000, priceOld: 0.1, priceNow: 0.16 },
+    { account: a.crypto, symbol: 'SHIB', name: 'Shiba Inu', assetClass: 'crypto', buyPrice: 0.00002, qtyOld: 200_000_000, qtyNow: 200_000_000, priceOld: 0.000018, priceNow: 0.000015 },
+    // Fidelity 401(k) — boring (and beautiful) index funds
+    { account: a.k401, symbol: 'FXAIX', name: 'Fidelity 500 Index', assetClass: 'mutual_fund', buyPrice: 141, qtyOld: 780, qtyNow: 780, priceOld: 178, priceNow: 192.3 },
+    { account: a.k401, symbol: 'FXNAX', name: 'Fidelity US Bond Index', assetClass: 'mutual_fund', buyPrice: 9.78, qtyOld: 4_500, qtyNow: 4_500, priceOld: 9.9, priceNow: 10 },
+    { account: a.k401, symbol: null, name: 'Cash', assetClass: 'cash', buyPrice: 1, qtyOld: 15_000, qtyNow: 15_000, priceOld: 1, priceNow: 1 },
+    // Vanguard Roth IRA + Fidelity HSA
+    { account: a.roth, symbol: 'VTI', name: 'Vanguard Total Stock Market ETF', assetClass: 'etf', buyPrice: 184, qtyOld: 163, qtyNow: 163, priceOld: 270, priceNow: 295 },
+    { account: a.hsa, symbol: 'VTI', name: 'Vanguard Total Stock Market ETF', assetClass: 'etf', buyPrice: 250, qtyOld: 20, qtyNow: 20, priceOld: 280, priceNow: 295 },
+    { account: a.hsa, symbol: null, name: 'Cash', assetClass: 'cash', buyPrice: 1, qtyOld: 3_500, qtyNow: 3_500, priceOld: 1, priceNow: 1 },
+  ];
+  const holdings: DemoHolding[] = [];
+  const investValue = new Map<string, number>();
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  for (const p of POS) {
+    holdings.push({ id: rid(), accountId: p.account, symbol: p.symbol, name: p.name, assetClass: p.assetClass, quantity: p.qtyOld, costBasis: r2(p.qtyOld * p.buyPrice), statementPrice: p.priceOld, statementValue: r2(p.qtyOld * p.priceOld), asOf: olderIso });
+    holdings.push({ id: rid(), accountId: p.account, symbol: p.symbol, name: p.name, assetClass: p.assetClass, quantity: p.qtyNow, costBasis: r2(p.qtyNow * p.buyPrice), statementPrice: p.priceNow, statementValue: r2(p.qtyNow * p.priceNow), asOf });
+    investValue.set(p.account, r2((investValue.get(p.account) ?? 0) + p.qtyNow * p.priceNow));
+  }
+
   // Opening balances (non-operating accounts == their current value).
   opening(a.checking, 4_000, 'Opening balance');
   opening(a.savings, 15_000, 'Opening balance');
   opening(a.cash, 500, 'Opening balance');
-  opening(a.brokerage, 142_000, 'Opening balance');
-  opening(a.k401, 210_000, 'Opening balance');
-  opening(a.roth, 48_000, 'Opening balance');
-  opening(a.hsa, 9_500, 'Opening balance');
+  opening(a.brokerage, investValue.get(a.brokerage)!, 'Opening balance');
+  opening(a.crypto, investValue.get(a.crypto)!, 'Opening balance');
+  opening(a.k401, investValue.get(a.k401)!, 'Opening balance');
+  opening(a.roth, investValue.get(a.roth)!, 'Opening balance');
+  opening(a.hsa, investValue.get(a.hsa)!, 'Opening balance');
   opening(a.escrow, 1_200, 'Opening balance');
   opening(a.mortgage, -395_000, 'Mortgage balance');
   opening(a.rentalRE, 520_000, 'Property value — 123 Oak Street');
@@ -237,21 +277,6 @@ export function buildDemoData(): DemoData {
   const insD = new Date(today.getFullYear(), today.getMonth() - 5, 1);
   if (insD >= windowStart && insD <= today) tx({ accountId: a.escrow, categorySlug: 'outflows-housing-renters_home_insurance', date: isoOf(insD), amount: -1_800, merchant: 'State Farm', raw: 'HOMEOWNERS INS' });
 
-  // --- Holdings (sum to each account's opening value) ---------------------
-  const asOf = isoOf(today);
-  const holdings: DemoHolding[] = [
-    h(a.brokerage, 'VTI', 'Vanguard Total Stock Market ETF', 'etf', 220, 48_000, 295, 64_900, asOf),
-    h(a.brokerage, 'VOO', 'Vanguard S&P 500 ETF', 'etf', 90, 33_000, 510, 45_900, asOf),
-    h(a.brokerage, 'AAPL', 'Apple Inc.', 'equity', 80, 9_000, 228, 18_240, asOf),
-    h(a.brokerage, null, 'Cash & Money Market', 'cash', 12_960, 12_960, 1, 12_960, asOf),
-    h(a.k401, 'FXAIX', 'Fidelity 500 Index', 'mutual_fund', 780, 110_000, 192.3, 150_000, asOf),
-    h(a.k401, 'FXNAX', 'Fidelity US Bond Index', 'mutual_fund', 4_500, 44_000, 10, 45_000, asOf),
-    h(a.k401, null, 'Cash', 'cash', 15_000, 15_000, 1, 15_000, asOf),
-    h(a.roth, 'VTI', 'Vanguard Total Stock Market ETF', 'etf', 163, 30_000, 295, 48_000, asOf),
-    h(a.hsa, 'VTI', 'Vanguard Total Stock Market ETF', 'etf', 20, 5_000, 295, 6_000, asOf),
-    h(a.hsa, null, 'Cash', 'cash', 3_500, 3_500, 1, 3_500, asOf),
-  ];
-
   // --- Properties / leases / maintenance / capex --------------------------
   const properties: DemoProperty[] = [
     { id: a.rentalRE, name: '123 Oak Street', street: '123 Oak Street', city: 'Austin', state: 'TX', zip: '78704', propertyType: 'single_family', useType: 'investment', propertyTaxAnnual: 6_200, insuranceAnnual: 1_800, beds: 3, baths: 2, sqft: 1_650, acquisitionDate: '2021-08-15', acquisitionPrice: 410_000, landValuePct: 20, marketValue: 520_000 },
@@ -278,12 +303,12 @@ export function buildDemoData(): DemoData {
 
   // --- Tax workspace (2025) ----------------------------------------------
   const ws = defaultWorkspace(2025, 'mfj');
-  ws.profile = { taxpayerName: 'Demo User', spouseName: 'Alex Demo', state: 'TX', dependentsUnder17: 1, otherDependents: 0 };
+  ws.profile = { taxpayerName: 'Diamond Hands', spouseName: 'Alex Demo', state: 'TX', dependentsUnder17: 1, otherDependents: 0 };
   ws.documents = [
     { id: rid(), type: 'w2', label: 'Acme Corp', fields: { wages: 84_240, fedWithholding: 11_180, stateWithholding: 0 } },
     { id: rid(), type: '1099-int', label: 'Ally Bank', fields: { interest: 850, fedWithholding: 0 } },
     { id: rid(), type: '1099-div', label: 'Fidelity', fields: { ordinaryDividends: 3_200, qualifiedDividends: 2_800, capitalGainDistributions: 1_500, fedWithholding: 0 } },
-    { id: rid(), type: '1099-b', label: 'Fidelity', fields: { shortTermGain: 600, longTermGain: 4_200, fedWithholding: 0 } },
+    { id: rid(), type: '1099-b', label: 'Robinhood / Coinbase', fields: { shortTermGain: 9_542, longTermGain: 3_200, fedWithholding: 0 } },
     { id: rid(), type: 'schedule-c', label: 'Consulting', fields: { grossReceipts: 12_000, totalExpenses: 3_000 }, options: { isSSTB: false } },
     { id: rid(), type: 'schedule-e', label: '123 Oak Street', fields: { rents: 28_800, expenses: 9_000, depreciation: 12_000 } },
     { id: rid(), type: '1098', label: 'Rocket Mortgage', fields: { mortgageInterest: 21_000, points: 0 } },
@@ -294,14 +319,11 @@ export function buildDemoData(): DemoData {
   return {
     accounts, transactions: txns, holdings, properties, leases, maintenance, capex, paystubs, goals,
     taxWorkspace: ws,
-    profile: { name: 'Demo User', navHidden: ['/upload'] },
+    profile: { name: 'Diamond Hands', navHidden: ['/upload'] },
   };
 }
 
 function rid() { return randomUUID(); }
-function h(accountId: string, symbol: string | null, name: string, assetClass: string, quantity: number, costBasis: number, statementPrice: number, statementValue: number, asOf: string): DemoHolding {
-  return { id: rid(), accountId, symbol, name, assetClass, quantity, costBasis, statementPrice, statementValue, asOf };
-}
 
 /** Pay a card from checking near the start of the next month, covering `frac` of last month's net purchases. */
 function settleCard(
