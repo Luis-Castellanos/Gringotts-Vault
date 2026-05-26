@@ -23,15 +23,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   }
 
   const selected = year && years.includes(Number(year)) ? Number(year) : years[0]!;
-  const [report, recurring, anomalies] = await Promise.all([
+  const hasPrev = years.includes(selected - 1);
+  const [report, prevReport, recurring, anomalies] = await Promise.all([
     loadAnnualReport(selected),
+    hasPrev ? loadAnnualReport(selected - 1) : Promise.resolve(null),
     loadRecurring(),
     loadAnomalies(),
   ]);
 
   return (
     <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
-      <ReportsClient years={years} report={report} recurring={recurring} anomalies={anomalies} />
+      <ReportsClient years={years} report={report} prevReport={prevReport} recurring={recurring} anomalies={anomalies} />
     </main>
   );
 }

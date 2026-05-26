@@ -69,14 +69,30 @@ function MonthlyChart({ report }: { report: AnnualReport }) {
   );
 }
 
-function SummaryPanel({ report }: { report: AnnualReport }) {
+function SummaryPanel({ report, prev }: { report: AnnualReport; prev: AnnualReport | null }) {
+  const py = report.year - 1;
+  const yoy = (cur: number, was: number | undefined): string | undefined => {
+    if (was == null || was === 0) return undefined;
+    const d = ((cur - was) / Math.abs(was)) * 100;
+    return `${d >= 0 ? '+' : ''}${d.toFixed(0)}% vs ${py}`;
+  };
+  const savingsDelta = prev?.savingsRate != null && report.savingsRate != null ? report.savingsRate - prev.savingsRate : null;
   return (
     <>
+      {/* Headline */}
+      <p className="text-[14px] text-text-secondary mb-5 leading-relaxed">
+        In <span className="font-semibold text-text-primary">{report.year}</span> you {report.net >= 0 ? 'saved' : 'spent a net'}{' '}
+        <span className={`font-semibold ${report.net >= 0 ? 'text-positive' : 'text-negative'}`}>{money0(Math.abs(report.net))}</span>
+        {report.savingsRate != null && <> — a <span className="font-semibold text-text-primary">{report.savingsRate}%</span> savings rate</>}
+        {savingsDelta != null && (
+          <span className="text-text-tertiary">{' '}({savingsDelta >= 0 ? '+' : ''}{savingsDelta} pts vs {py})</span>
+        )}.
+      </p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-        <StatTile label="Income" value={money0(report.income)} tone="blue" />
-        <StatTile label="Spending" value={money0(report.spending)} tone="neg" />
-        <StatTile label="Net" value={money0(report.net)} tone={report.net >= 0 ? 'pos' : 'neg'} />
-        <StatTile label="Savings rate" value={report.savingsRate != null ? `${report.savingsRate}%` : '—'} />
+        <StatTile label="Income" value={money0(report.income)} tone="blue" sub={yoy(report.income, prev?.income)} />
+        <StatTile label="Spending" value={money0(report.spending)} tone="neg" sub={yoy(report.spending, prev?.spending)} />
+        <StatTile label="Net" value={money0(report.net)} tone={report.net >= 0 ? 'pos' : 'neg'} sub={yoy(report.net, prev?.net)} />
+        <StatTile label="Savings rate" value={report.savingsRate != null ? `${report.savingsRate}%` : '—'} sub={prev?.savingsRate != null ? `was ${prev.savingsRate}%` : undefined} />
       </div>
       <div className="mb-5">
         <MonthlyChart report={report} />
@@ -195,11 +211,13 @@ const TABS: { id: Tab; label: string }[] = [
 export function ReportsClient({
   years,
   report,
+  prevReport,
   recurring,
   anomalies,
 }: {
   years: number[];
   report: AnnualReport;
+  prevReport: AnnualReport | null;
   recurring: RecurringReport;
   anomalies: AnomalyReport;
 }) {
@@ -250,7 +268,7 @@ export function ReportsClient({
         ))}
       </div>
 
-      {tab === 'summary' && <SummaryPanel report={report} />}
+      {tab === 'summary' && <SummaryPanel report={report} prev={prevReport} />}
       {tab === 'recurring' && <RecurringPanel data={recurring} />}
       {tab === 'anomalies' && <AnomaliesPanel data={anomalies} />}
       {tab === 'custom' && <CustomPanel />}
