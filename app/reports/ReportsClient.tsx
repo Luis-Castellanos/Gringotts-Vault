@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import type { AnnualReport, ReportCategory } from '@/lib/reports/load';
+import Link from 'next/link';
+
+import type { AnnualReport, ReportCategory, TopMerchant } from '@/lib/reports/load';
 import type { RecurringReport, Cadence } from '@/lib/reports/recurring';
 import type { AnomalyReport } from '@/lib/reports/anomalies';
 import { PageHeader } from '@/components/PageHeader';
@@ -18,9 +20,12 @@ const CADENCE_LABEL: Record<Cadence, string> = {
 
 type Tab = 'summary' | 'recurring' | 'anomalies' | 'custom';
 
-function Breakdown({ title, cats, tone }: { title: string; cats: ReportCategory[]; tone: 'pos' | 'neg' }) {
+function Breakdown({ title, cats, tone, year }: { title: string; cats: ReportCategory[]; tone: 'pos' | 'neg'; year: number }) {
   const max = cats.length ? Math.max(...cats.map((c) => c.amount)) : 1;
   const barColor = tone === 'pos' ? 'var(--color-positive)' : 'var(--color-negative)';
+  // Click a row → Transactions, filtered to that category for the year.
+  const href = (id: string) =>
+    `/transactions?cats=${encodeURIComponent(id === 'uncat' ? '__uncategorized__' : id)}&from=${year}-01-01&to=${year}-12-31`;
   return (
     <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
       <h2 className="text-[14px] font-semibold mb-4">{title}</h2>
@@ -29,13 +34,13 @@ function Breakdown({ title, cats, tone }: { title: string; cats: ReportCategory[
       ) : (
         <div className="flex flex-col gap-2.5">
           {cats.slice(0, 10).map((c) => (
-            <div key={c.id} className="relative rounded-lg overflow-hidden">
-              <div className="absolute inset-y-0 left-0 rounded-lg opacity-[0.14]" style={{ width: `${(c.amount / max) * 100}%`, background: c.color ?? barColor }} />
+            <Link key={c.id} href={href(c.id)} className="relative rounded-lg overflow-hidden block group" title={`See ${c.name} transactions`}>
+              <div className="absolute inset-y-0 left-0 rounded-lg opacity-[0.14] group-hover:opacity-[0.22] transition-opacity" style={{ width: `${(c.amount / max) * 100}%`, background: c.color ?? barColor }} />
               <div className="relative flex justify-between px-3 py-2 text-[13px]">
-                <span className="truncate text-text-secondary">{c.name}</span>
+                <span className="truncate text-text-secondary group-hover:text-text-primary transition-colors">{c.name}</span>
                 <span className="tabular-nums text-text-primary ml-2">{money0(c.amount)}</span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
@@ -69,8 +74,26 @@ function MonthlyChart({ report }: { report: AnnualReport }) {
   );
 }
 
-function SummaryPanel({ report, prev }: { report: AnnualReport; prev: AnnualReport | null }) {
+function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; prev: AnnualReport | null; topMerchants: TopMerchant[] }) {
   const py = report.year - 1;
+  // Auto-insights derived from the loaded report (no extra queries).
+  const insights: { label: string; value: string }[] = [];
+  if (report.spendingByCategory[0]) insights.push({ label: 'Top spending category', value: `${report.spendingByCategory[0].name} · ${money0(report.spendingByCategory[0].amount)}` });
+  if (report.incomeByCategory[0]) insights.push({ label: 'Largest income source', value: `${report.incomeByCategory[0].name} · ${money0(report.incomeByCategory[0].amount)}` });
+  {
+    let best = 0;
+    let bestMonth = -1;
+    let bestDir = '';
+    for (let i = 1; i < report.months.length; i++) {
+      const d = report.months[i]!.spending - report.months[i - 1]!.spending;
+      if (Math.abs(d) > Math.abs(best)) { best = d; bestMonth = i; bestDir = d >= 0 ? 'up' : 'down'; }
+    }
+    if (bestMonth >= 0 && best !== 0) {
+      const full = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      insights.push({ label: 'Biggest month-over-month swing', value: `Spending ${bestDir} ${money0(Math.abs(best))} in ${full[bestMonth]}` });
+    }
+  }
+  const mMax = topMerchants.length ? Math.max(...topMerchants.map((m) => m.amount)) : 1;
   const yoy = (cur: number, was: number | undefined): string | undefined => {
     if (was == null || was === 0) return undefined;
     const d = ((cur - was) / Math.abs(was)) * 100;
@@ -94,13 +117,51 @@ function SummaryPanel({ report, prev }: { report: AnnualReport; prev: AnnualRepo
         <StatTile label="Net" value={money0(report.net)} tone={report.net >= 0 ? 'pos' : 'neg'} sub={yoy(report.net, prev?.net)} />
         <StatTile label="Savings rate" value={report.savingsRate != null ? `${report.savingsRate}%` : '—'} sub={prev?.savingsRate != null ? `was ${prev.savingsRate}%` : undefined} />
       </div>
+      {/* Auto insights */}
+      {insights.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+          {insights.map((i) => (
+            <div key={i.label} className="rounded-xl bg-surface-1 border border-border-subtle px-4 py-3">
+              <div className="text-[11px] uppercase tracking-[0.06em] text-text-muted mb-1">{i.label}</div>
+              <div className="text-[13.5px] font-medium text-text-primary">{i.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="mb-5">
         <MonthlyChart report={report} />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Breakdown title="Income by source" cats={report.incomeByCategory} tone="pos" />
-        <Breakdown title="Spending by category" cats={report.spendingByCategory} tone="neg" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+        <Breakdown title="Income by source" cats={report.incomeByCategory} tone="pos" year={report.year} />
+        <Breakdown title="Spending by category" cats={report.spendingByCategory} tone="neg" year={report.year} />
       </div>
+
+      {/* Top merchants */}
+      {topMerchants.length > 0 && (
+        <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
+          <h2 className="text-[14px] font-semibold mb-4">Top merchants</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
+            {topMerchants.map((m) => (
+              <Link
+                key={m.merchant}
+                href={`/transactions?merchant=${encodeURIComponent(m.merchant)}&from=${report.year}-01-01&to=${report.year}-12-31`}
+                className="relative rounded-lg overflow-hidden block group"
+                title={`See ${m.merchant} transactions`}
+              >
+                <div className="absolute inset-y-0 left-0 rounded-lg bg-negative opacity-[0.12] group-hover:opacity-20 transition-opacity" style={{ width: `${(m.amount / mMax) * 100}%` }} />
+                <div className="relative flex justify-between items-center px-3 py-2 text-[13px]">
+                  <span className="truncate text-text-secondary group-hover:text-text-primary transition-colors">{m.merchant}</span>
+                  <span className="shrink-0 ml-2 text-right">
+                    <span className="tabular-nums text-text-primary">{money0(m.amount)}</span>
+                    <span className="text-[11px] text-text-muted ml-2 tabular-nums">{m.count}×</span>
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }
@@ -214,12 +275,14 @@ export function ReportsClient({
   prevReport,
   recurring,
   anomalies,
+  topMerchants,
 }: {
   years: number[];
   report: AnnualReport;
   prevReport: AnnualReport | null;
   recurring: RecurringReport;
   anomalies: AnomalyReport;
+  topMerchants: TopMerchant[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('summary');
@@ -268,7 +331,7 @@ export function ReportsClient({
         ))}
       </div>
 
-      {tab === 'summary' && <SummaryPanel report={report} prev={prevReport} />}
+      {tab === 'summary' && <SummaryPanel report={report} prev={prevReport} topMerchants={topMerchants} />}
       {tab === 'recurring' && <RecurringPanel data={recurring} />}
       {tab === 'anomalies' && <AnomaliesPanel data={anomalies} />}
       {tab === 'custom' && <CustomPanel />}

@@ -1,4 +1,4 @@
-import { loadAnnualReport, loadReportYears } from '@/lib/reports/load';
+import { loadAnnualReport, loadReportYears, loadTopMerchants } from '@/lib/reports/load';
 import { loadRecurring } from '@/lib/reports/recurring';
 import { loadAnomalies } from '@/lib/reports/anomalies';
 import { ReportsClient } from './ReportsClient';
@@ -24,16 +24,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   const selected = year && years.includes(Number(year)) ? Number(year) : years[0]!;
   const hasPrev = years.includes(selected - 1);
-  const [report, prevReport, recurring, anomalies] = await Promise.all([
+  const [report, prevReport, recurring, anomalies, topMerchants] = await Promise.all([
     loadAnnualReport(selected),
     hasPrev ? loadAnnualReport(selected - 1) : Promise.resolve(null),
     loadRecurring(),
     loadAnomalies(),
+    loadTopMerchants(selected),
   ]);
 
   return (
     <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
-      <ReportsClient years={years} report={report} prevReport={prevReport} recurring={recurring} anomalies={anomalies} />
+      <ReportsClient years={years} report={report} prevReport={prevReport} recurring={recurring} anomalies={anomalies} topMerchants={topMerchants} />
     </main>
   );
 }

@@ -4,11 +4,43 @@
  * saved/custom reports later. Transfers are excluded (flow_type / isTransfer).
  */
 
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lt, lte, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
 import { categories, transactions } from '@/lib/db/schema';
 import { loadSplitContributions } from '@/lib/transactions/split';
+
+export type TopMerchant = { merchant: string; amount: number; count: number };
+
+/** Top spending merchants for a year (outflows, excluding transfers/splits). */
+export async function loadTopMerchants(year: number, limit = 12): Promise<TopMerchant[]> {
+  const start = `${year}-01-01`;
+  const end = `${year}-12-31`;
+  const nameExpr = sql<string>`COALESCE(NULLIF(${transactions.merchant}, ''), ${transactions.rawDescription})`;
+  const rows = await db
+    .select({
+      merchant: nameExpr,
+      amount: sql<string>`SUM(ABS(${transactions.amount}))::text`,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(transactions)
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(
+      and(
+        gte(transactions.date, start),
+        lte(transactions.date, end),
+        lt(transactions.amount, '0'),
+        eq(transactions.isTransfer, false),
+        eq(transactions.isSplit, false),
+        ne(sql`COALESCE(${categories.flowType}, 'outflow')`, 'inflow'),
+        ne(sql`COALESCE(${categories.flowType}, 'outflow')`, 'transfer'),
+      ),
+    )
+    .groupBy(nameExpr)
+    .orderBy(desc(sql`SUM(ABS(${transactions.amount}))`))
+    .limit(limit);
+  return rows.map((r) => ({ merchant: r.merchant ?? '—', amount: Math.round(Number(r.amount) * 100) / 100, count: Number(r.count) }));
+}
 
 export type ReportCategory = { id: string; name: string; color: string | null; amount: number };
 export type MonthPoint = { month: number; income: number; spending: number; net: number };
