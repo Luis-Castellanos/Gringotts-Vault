@@ -1,8 +1,21 @@
 export type Theme = 'light' | 'dark';
+export type Scheme = 'default' | 'monarch' | 'fidelity' | 'vanguard';
 
 export const THEME_STORAGE_KEY = 'vault:theme';
+export const SCHEME_STORAGE_KEY = 'vault:scheme';
 export const DEFAULT_THEME: Theme = 'dark';
+export const DEFAULT_SCHEME: Scheme = 'default';
 
-// Inline script that runs before first paint to set data-theme on <html>.
-// Avoids a flash of the wrong theme when the user has previously chosen light.
-export const themeInitScript = `(function(){try{var t=localStorage.getItem('${THEME_STORAGE_KEY}')||'${DEFAULT_THEME}';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','${DEFAULT_THEME}');}})();`;
+// Color schemes override the accent token family (everything accent-tinted —
+// active nav, primary buttons, highlights — picks these up). Light/dark surfaces
+// are unchanged; a scheme is layered on top via data-scheme on <html>.
+export const SCHEMES: { id: Scheme; label: string; swatch: string }[] = [
+  { id: 'default', label: 'Vault', swatch: '#f97316' },
+  { id: 'monarch', label: 'Monarch', swatch: '#15a87a' },
+  { id: 'fidelity', label: 'Fidelity', swatch: '#3f8f2e' },
+  { id: 'vanguard', label: 'Vanguard', swatch: '#a01722' },
+];
+
+// Inline script that runs before first paint to set data-theme + data-scheme on
+// <html>, avoiding a flash of the wrong theme/scheme on load.
+export const themeInitScript = `(function(){try{var t=localStorage.getItem('${THEME_STORAGE_KEY}')||'${DEFAULT_THEME}';document.documentElement.setAttribute('data-theme',t);var s=localStorage.getItem('${SCHEME_STORAGE_KEY}')||'${DEFAULT_SCHEME}';document.documentElement.setAttribute('data-scheme',s);}catch(e){document.documentElement.setAttribute('data-theme','${DEFAULT_THEME}');document.documentElement.setAttribute('data-scheme','${DEFAULT_SCHEME}');}})();`;

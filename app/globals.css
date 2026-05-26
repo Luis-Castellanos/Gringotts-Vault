@@ -443,6 +443,30 @@ kbd {
   --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.025), 0 0 0 0.5px var(--line);
 }
 
+/* ── Color schemes — override the accent family, layered on light/dark ──
+   Default (no/`default` scheme) keeps Vault orange from the base tokens. */
+[data-scheme='monarch'] {
+  --color-accent-500: #15a87a;
+  --color-accent-300: #5ed2ac;
+  --color-accent-200: #a7ead4;
+  --color-accent-soft: rgba(21, 168, 122, 0.13);
+  --color-accent-border: rgba(21, 168, 122, 0.28);
+}
+[data-scheme='fidelity'] {
+  --color-accent-500: #3f8f2e;
+  --color-accent-300: #84c46a;
+  --color-accent-200: #c2e3b3;
+  --color-accent-soft: rgba(63, 143, 46, 0.13);
+  --color-accent-border: rgba(63, 143, 46, 0.28);
+}
+[data-scheme='vanguard'] {
+  --color-accent-500: #a01722;
+  --color-accent-300: #de7a82;
+  --color-accent-200: #f0bcc0;
+  --color-accent-soft: rgba(160, 23, 34, 0.14);
+  --color-accent-border: rgba(160, 23, 34, 0.3);
+}
+
 /* ── Default dropdown — components/Select.tsx ──────────────────────────── */
 .vsel { position: relative; display: inline-block; }
 .vsel-trigger {
