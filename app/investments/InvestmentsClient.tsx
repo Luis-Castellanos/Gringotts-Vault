@@ -127,7 +127,7 @@ function groupByAccount(rows: HoldingView[]): [string, HoldingView[]][] {
   return [...m.entries()].sort((a, b) => total(b[1]) - total(a[1]));
 }
 
-function HoldingsSection({ holdings }: { holdings: Holdings }) {
+function HoldingsSection({ holdings, realizedGain }: { holdings: Holdings; realizedGain: number }) {
   const { rows, totalValue, totalCost, totalGain, allocation, anyLive } = holdings;
   const gainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : null;
   return (
@@ -137,10 +137,11 @@ function HoldingsSection({ holdings }: { holdings: Holdings }) {
         <span className="text-[11.5px] text-text-muted">{anyLive ? 'Live prices' : 'Statement values'}</span>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
         <StatTile size="lg" label="Market value" value={money0(totalValue)} />
         <StatTile size="lg" label="Cost basis" value={totalCost > 0 ? money0(totalCost) : '—'} />
-        <StatTile size="lg" label="Total gain" value={totalCost > 0 ? moneySigned(totalGain) : '—'} tone={totalGain >= 0 ? 'pos' : 'neg'} sub={gainPct != null ? `${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%` : undefined} />
+        <StatTile size="lg" label="Unrealized gain" value={totalCost > 0 ? moneySigned(totalGain) : '—'} tone={totalGain >= 0 ? 'pos' : 'neg'} sub={gainPct != null ? `${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%` : undefined} />
+        <StatTile size="lg" label="Realized gain" value={realizedGain !== 0 ? moneySigned(realizedGain) : '—'} tone={realizedGain >= 0 ? 'pos' : 'neg'} sub={realizedGain !== 0 ? 'est. from statements' : 'no sales detected'} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5">
@@ -293,7 +294,7 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
         </section>
       )}
 
-      {holdings.rows.length > 0 && <HoldingsSection holdings={holdings} />}
+      {holdings.rows.length > 0 && <HoldingsSection holdings={holdings} realizedGain={data.realizedGain} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
         {/* Accounts */}

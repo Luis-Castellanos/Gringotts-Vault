@@ -67,6 +67,7 @@ export type InvestmentsData = {
   benchmarkSeries: ValuePoint[]; // S&P 500 (SPY) daily close, for a normalized overlay
   benchmark: Benchmark | null;
   holdings: Holdings;
+  realizedGain: number; // estimated, from statement snapshot reductions
 };
 
 /**
@@ -193,6 +194,52 @@ async function loadBenchmark(): Promise<Benchmark | null> {
   return q ? { symbol: q.symbol, price: q.price, changePct: q.changePct } : null;
 }
 
+/**
+ * Estimated realized gains from statement snapshots: when a position's share
+ * count drops between two consecutive snapshots, treat the reduction as a sale at
+ * that snapshot's price against the prior snapshot's average cost. Approximate —
+ * statements are periodic position snapshots, not trade-level data — so the UI
+ * labels it an estimate. A position vanishing entirely is ignored (could be a
+ * transfer, not a sale).
+ */
+async function loadRealizedGains(accountIds: string[]): Promise<number> {
+  if (accountIds.length === 0) return 0;
+  const rows = await db
+    .select({
+      accountId: holdings.accountId,
+      symbol: holdings.symbol,
+      asOf: holdings.asOf,
+      quantity: holdings.quantity,
+      costBasis: holdings.costBasis,
+      price: holdings.statementPrice,
+    })
+    .from(holdings)
+    .where(inArray(holdings.accountId, accountIds));
+  const groups = new Map<string, { asOf: string; qty: number; cost: number | null; price: number | null }[]>();
+  for (const r of rows) {
+    if (!r.symbol || !r.asOf || r.quantity == null) continue;
+    const key = `${r.accountId}|${r.symbol}`;
+    const arr = groups.get(key) ?? [];
+    arr.push({ asOf: r.asOf, qty: Number(r.quantity), cost: r.costBasis != null ? Number(r.costBasis) : null, price: r.price != null ? Number(r.price) : null });
+    groups.set(key, arr);
+  }
+  let realized = 0;
+  for (const arr of groups.values()) {
+    arr.sort((a, b) => a.asOf.localeCompare(b.asOf));
+    for (let i = 1; i < arr.length; i++) {
+      const prev = arr[i - 1]!;
+      const cur = arr[i]!;
+      const sold = prev.qty - cur.qty;
+      if (sold > 1e-6 && prev.cost != null && prev.qty > 0) {
+        const avgCost = prev.cost / prev.qty;
+        const salePrice = cur.price ?? prev.price;
+        if (salePrice != null) realized += sold * (salePrice - avgCost);
+      }
+    }
+  }
+  return round2(realized);
+}
+
 export async function loadInvestments(): Promise<InvestmentsData> {
   const acctRows = await db
     .select({ id: accounts.id, name: accounts.displayName, type: accounts.type, subtype: accounts.accountSubtype })
@@ -201,7 +248,7 @@ export async function loadInvestments(): Promise<InvestmentsData> {
     .orderBy(asc(accounts.name));
 
   if (acctRows.length === 0) {
-    return { totalValue: 0, delta30: 0, accounts: [], series: [], holdingsSeries: [], benchmarkSeries: [], benchmark: null, holdings: EMPTY_HOLDINGS };
+    return { totalValue: 0, delta30: 0, accounts: [], series: [], holdingsSeries: [], benchmarkSeries: [], benchmark: null, holdings: EMPTY_HOLDINGS, realizedGain: 0 };
   }
 
   const ids = acctRows.map((a) => a.id);
@@ -210,6 +257,7 @@ export async function loadInvestments(): Promise<InvestmentsData> {
   const holdingsP = loadHoldings(ids, nameById);
   const holdingsSeriesP = loadHoldingsSeries(ids);
   const benchmarkSeriesP = loadBenchmarkSeries();
+  const realizedP = loadRealizedGains(ids);
   const txnRows = await db
     .select({
       accountId: transactions.accountId,
@@ -299,5 +347,6 @@ export async function loadInvestments(): Promise<InvestmentsData> {
     benchmarkSeries: await benchmarkSeriesP,
     benchmark: await benchmarkP,
     holdings: holdingsData,
+    realizedGain: await realizedP,
   };
 }
