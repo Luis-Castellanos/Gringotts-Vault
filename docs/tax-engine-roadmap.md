@@ -62,23 +62,30 @@ lib/tax/adapters/               ← Vault-specific. Maps DB → engine input. NO
   stacking** → SE tax + additional Medicare + NIIT → liability →
   withholding/payments → refund/owed, with effective + marginal rate. Smoke-
   validated against known scenarios.
-- **T2 — Credits & adjustments.** Child Tax Credit + ODC (phaseouts) ✓ done;
-  above-the-line HSA / IRA / student-loan / ½-SE-tax ✓ done. *Remaining:*
-  child/dep care, education (AOTC/LLC), saver's, EITC; SE health. (AMT flagged,
-  likely deferred.)
+- **T2 — Credits & adjustments.** Child Tax Credit + ODC (phaseouts), child/dep
+  care (Form 2441), education (AOTC + LLC w/ MAGI phaseout) ✓ done; above-the-line
+  HSA / IRA / student-loan / educator / SE-health / SE-retirement / ½-SE-tax ✓ done.
+  *Intentionally not modeled* (rarely apply to this filer mix; flagged not
+  mis-estimated): EITC, Saver's Credit.
 - **T3 — Schedules.** C (self-employment → SE tax + ordinary + QBI), D (ST/LT
   netting, $3k loss limit, preferential LT), E (rental + royalties + K-1
-  pass-through ordinary), and the **QBI / §199A** deduction (20% with the
-  taxable-income cap and SSTB income-threshold phase-out; W-2/UBIA wage limit
-  noted but not modeled) ✓ done & smoke-validated. *Remaining:* Schedule A
-  (itemized w/ SALT cap) and B detail.
-- **Key figures page** ✓ *done.* `lib/tax-engine/facts.ts` exposes the year's
-  reference numbers (standard deduction, brackets, LTCG breakpoints, retirement
-  / HSA / FSA limits, SS & Medicare, NIIT, CTC, QBI, mileage, estate/gift, AMT,
-  FEIE, SALT cap), each tied to an IRS/SSA source; surfaced at `/tax/figures`.
-- **T4 — Ingestion / reconciliation.** Map parsed **tax docs** (W-2 boxes, the
-  1099 family, 1098/-T/-E — see ROADMAP tax-doc parsing goal) + Vault data into
-  the input model; a reconciliation UI to confirm/override each line.
+  pass-through ordinary), **QBI / §199A** (20% w/ taxable-income cap + SSTB
+  phase-out), Schedule A (medical 7.5% floor + SALT cap), taxable Social Security
+  worksheet, and a simplified **AMT** (Form 6251) ✓ done & smoke-validated.
+- **Key figures page** ✓ *done.* `lib/tax-engine/facts.ts` → reference numbers
+  (std deduction, brackets, LTCG, retirement / HSA / FSA, SS & Medicare, NIIT,
+  CTC, QBI, mileage, estate/gift, AMT, FEIE, SALT cap), each tied to an IRS/SSA
+  source; surfaced at `/tax/figures`.
+- **Standalone workspace (Documents + Work Papers)** ✓ *done.* `documents.ts`
+  (typed source-doc schemas + the `aggregateDocuments` flow-through formula) and
+  `workspace.ts` (`TaxWorkspace` + `workspaceToInput`) keep the engine
+  storage-agnostic. The return emits structured `worksheets[]` (the calc trail).
+  UI at `/tax/prepare`: Profile · Documents · Deductions & Credits · Work Papers ·
+  Summary, persisted as JSON in `app_settings` (`tax_workspace_<year>`) via
+  `/api/tax` — the tool's own data, **not** sourced from Vault's financial tables.
+- **T4 — Ingestion / reconciliation.** *(deferred — pull is intentionally off.)*
+  When wanted: map Vault data + parsed tax-doc PDFs into the workspace as
+  suggestions the user confirms/overrides (never silent auto-fill).
 - **T5 — Withholding & estimates.** YTD withholding vs projected liability;
   quarterly estimated-payment calc + safe-harbor; paycheck what-if.
 - **T6 — Planning sandbox.** Marginal-rate curve, Roth-conversion headroom,

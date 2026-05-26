@@ -33,7 +33,17 @@ export type YearData = {
     threshold: Record<FilingStatus, number>;
     phaseInRange: Record<FilingStatus, number>;
   };
+  /** Alternative Minimum Tax (Form 6251). 26%/28% rates + the 25% exemption phaseout are statutory constants in amt.ts. */
+  amt: {
+    exemption: Record<FilingStatus, number>;
+    phaseoutStart: Record<FilingStatus, number>;
+    rate28Threshold: Record<FilingStatus, number>; // AMT base above which the 28% rate applies
+  };
 };
+
+// ---------------------------------------------------------------------------
+// Schedules (business / investment income that needs its own computation)
+// ---------------------------------------------------------------------------
 
 /** Schedule C — a sole-proprietor / single-member-LLC business (self-employment). */
 export type ScheduleCInput = {
@@ -56,6 +66,28 @@ export type ScheduleEInput = {
   passthroughIsSSTB?: boolean; // the pass-through is a specified service business
 };
 
+/** Schedule A — itemized deductions (the engine applies the medical floor + SALT cap). */
+export type ItemizedInput = {
+  medicalExpenses: number; // total, before the 7.5%-of-AGI floor
+  stateLocalTaxes: number; // SALT (income/sales + property) — capped at $10,000
+  mortgageInterest: number;
+  investmentInterest: number;
+  charitableCash: number;
+  charitableNonCash: number;
+  casualtyTheft: number;
+  otherItemized: number;
+};
+
+export type CreditsInput = {
+  dependentCareExpenses: number; // Form 2441 qualifying care expenses
+  dependentCareQualifyingPersons: number; // caps expenses ($3k for 1, $6k for 2+)
+  aotcStudents: number; // students claiming the American Opportunity Credit
+  aotcExpenses: number; // total qualified expenses for AOTC
+  llcExpenses: number; // expenses for the Lifetime Learning Credit
+  energyCredits: number; // residential clean-energy / efficient-home (user-entered total)
+  otherCredits: number; // any other non-refundable credits
+};
+
 export type TaxReturnInput = {
   taxYear: number;
   filingStatus: FilingStatus;
@@ -68,6 +100,8 @@ export type TaxReturnInput = {
     ordinaryDividends: number; // 1099-DIV box 1a (includes the qualified portion)
     qualifiedDividends: number; // 1099-DIV box 1b — subset taxed at LTCG rates
     iraPensionDistributions: number; // taxable 1099-R distributions
+    socialSecurityBenefits: number; // gross SSA-1099 benefits (taxable portion computed)
+    unemployment: number; // 1099-G unemployment compensation
     otherOrdinaryIncome: number; // anything else taxed at ordinary rates
   };
 
@@ -79,16 +113,23 @@ export type TaxReturnInput = {
     hsa: number;
     iraDeduction: number;
     studentLoanInterest: number;
+    educatorExpenses: number;
+    seHealthInsurance: number;
+    seRetirement: number; // SEP / SIMPLE / solo-401(k) contributions
     other: number; // ½-SE-tax is computed automatically and added on top
   };
 
-  itemizedDeductions: number | null; // total itemized; null → standard. Engine uses the larger.
+  itemized: ItemizedInput | null; // structured itemized; null → standard. Engine uses the larger.
+  credits: CreditsInput;
+
   withholding: number; // federal income tax withheld (W-2 box 2 + 1099 withholding)
   estimatedPayments: number;
-  otherCredits: number; // manual non-refundable credits beyond the CTC
+  priorYearTax: number; // prior-year total tax — drives the safe-harbor estimate
+  priorYearAgiOver150k: boolean; // raises the safe-harbor to 110% of prior-year tax
 };
 
 export type TaxLine = { label: string; amount: number; note?: string };
+export type Worksheet = { id: string; title: string; note?: string; lines: TaxLine[] };
 
 export type TaxReturnResult = {
   taxYear: number;
@@ -97,9 +138,11 @@ export type TaxReturnResult = {
   businessIncome: number; // Schedule C net + Schedule E (rental + royalties + pass-through)
   netCapitalGain: number; // Schedule D amount carried into income (gain, or a limited loss)
   capitalLossDeduction: number; // negative when a net capital loss is deducted (≤ $3,000 / $1,500 MFS)
+  taxableSocialSecurity: number; // taxable portion of SS benefits
   adjustments: number;
   agi: number;
   qbiDeduction: number; // §199A deduction (below the line)
+  itemizedTotal: number; // Schedule A total (after floor/cap), 0 if not provided
   deduction: number;
   deductionKind: 'standard' | 'itemized';
   taxableIncome: number;
@@ -108,17 +151,18 @@ export type TaxReturnResult = {
   ordinaryTax: number;
   capitalGainsTax: number;
   incomeTax: number; // ordinaryTax + capitalGainsTax
+  amtAmount: number; // additional tax from the AMT (0 if regular tax is higher)
   selfEmploymentTax: number;
   additionalMedicareTax: number;
   niitTax: number;
   totalTaxBeforeCredits: number;
-  childTaxCredit: number;
-  otherCredits: number;
-  totalCredits: number;
+  credits: { childTaxCredit: number; dependentCare: number; education: number; energy: number; other: number; total: number };
   totalTax: number;
   payments: number;
   refundOrOwed: number; // payments − totalTax (positive = refund)
+  safeHarborTarget: number | null; // payments needed to avoid an underpayment penalty
   effectiveRate: number | null; // totalTax / totalIncome
   marginalRate: number; // ordinary-bracket marginal rate
-  lines: TaxLine[]; // 1040-style worksheet breakdown
+  lines: TaxLine[]; // 1040-style headline breakdown
+  worksheets: Worksheet[]; // supporting work-paper computations
 };

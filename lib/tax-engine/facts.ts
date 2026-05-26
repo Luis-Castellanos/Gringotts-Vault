@@ -32,7 +32,6 @@ type Extras = {
   ctcRefundable: number;
   estateGift: { annualExclusion: number; lifetimeExemption: number };
   mileage: { business: number; medicalMoving: number; charitable: number };
-  amtExemption: { single: number; mfj: number };
   foreignEarnedIncomeExclusion: number;
   saltCap: number;
 };
@@ -46,7 +45,6 @@ const EXTRAS: Record<number, Extras> = {
     ctcRefundable: 1_700,
     estateGift: { annualExclusion: 19_000, lifetimeExemption: 13_990_000 },
     mileage: { business: 70, medicalMoving: 21, charitable: 14 },
-    amtExemption: { single: 88_100, mfj: 137_000 },
     foreignEarnedIncomeExclusion: 130_000,
     saltCap: 10_000,
   },
@@ -58,7 +56,6 @@ const EXTRAS: Record<number, Extras> = {
     ctcRefundable: 1_700,
     estateGift: { annualExclusion: 18_000, lifetimeExemption: 13_610_000 },
     mileage: { business: 67, medicalMoving: 21, charitable: 14 },
-    amtExemption: { single: 85_700, mfj: 133_300 },
     foreignEarnedIncomeExclusion: 126_500,
     saltCap: 10_000,
   },
@@ -202,8 +199,8 @@ export function taxFacts(year: number): TaxFactsYear {
       source: inflationSrc,
       facts: [
         { label: 'SALT deduction cap', value: usd(x.saltCap), note: 'state & local taxes, itemized' },
-        { label: 'AMT exemption (Single)', value: usd(x.amtExemption.single) },
-        { label: 'AMT exemption (MFJ)', value: usd(x.amtExemption.mfj) },
+        { label: 'AMT exemption (Single)', value: usd(d.amt.exemption.single) },
+        { label: 'AMT exemption (MFJ)', value: usd(d.amt.exemption.mfj) },
         { label: 'Foreign earned income exclusion', value: usd(x.foreignEarnedIncomeExclusion) },
         { label: 'Top ordinary rate', value: pct(37), note: 'highest marginal bracket' },
       ],

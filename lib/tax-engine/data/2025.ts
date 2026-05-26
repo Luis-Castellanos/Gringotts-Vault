@@ -50,4 +50,9 @@ export const YEAR_2025: YearData = {
     threshold: { single: 197_300, mfj: 394_600, mfs: 197_300, hoh: 197_300, qw: 394_600 },
     phaseInRange: { single: 50_000, mfj: 100_000, mfs: 50_000, hoh: 50_000, qw: 100_000 },
   },
+  amt: {
+    exemption: { single: 88_100, mfj: 137_000, mfs: 68_500, hoh: 88_100, qw: 137_000 },
+    phaseoutStart: { single: 626_350, mfj: 1_252_700, mfs: 626_350, hoh: 626_350, qw: 1_252_700 },
+    rate28Threshold: { single: 239_100, mfj: 239_100, mfs: 119_550, hoh: 239_100, qw: 239_100 },
+  },
 };

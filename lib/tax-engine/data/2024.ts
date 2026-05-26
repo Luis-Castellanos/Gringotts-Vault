@@ -49,4 +49,9 @@ export const YEAR_2024: YearData = {
     threshold: { single: 191_950, mfj: 383_900, mfs: 191_950, hoh: 191_950, qw: 383_900 },
     phaseInRange: { single: 50_000, mfj: 100_000, mfs: 50_000, hoh: 50_000, qw: 100_000 },
   },
+  amt: {
+    exemption: { single: 85_700, mfj: 133_300, mfs: 66_650, hoh: 85_700, qw: 133_300 },
+    phaseoutStart: { single: 609_350, mfj: 1_218_700, mfs: 609_350, hoh: 609_350, qw: 1_218_700 },
+    rate28Threshold: { single: 232_600, mfj: 232_600, mfs: 116_300, hoh: 232_600, qw: 232_600 },
+  },
 };

@@ -1,13 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 import type { TaxSummary } from '@/lib/tax/load';
 import { FILING_LABEL } from '@/lib/tax/brackets';
 import { PageHeader } from '@/components/PageHeader';
 import { StatTile } from '@/components/StatTile';
 import { fmtMoney0 as money0 } from '@/lib/format';
+import { TaxTabs } from './TaxTabs';
 
 function Row({ label, value, strong = false, muted = false }: { label: string; value: string; strong?: boolean; muted?: boolean }) {
   return (
@@ -30,12 +30,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 export function TaxClient({ years, summary }: { years: number[]; summary: TaxSummary }) {
   const router = useRouter();
   const s = summary;
-  const tabs = (
-    <div className="inline-flex rounded-lg bg-surface-2 border border-border-subtle p-0.5 text-[12.5px]">
-      <span className="rounded-[7px] px-3 py-1 bg-surface-1 text-text-primary font-medium shadow-sm">Summary</span>
-      <Link href="/tax/figures" className="rounded-[7px] px-3 py-1 text-text-tertiary hover:text-text-secondary">Key figures</Link>
-    </div>
-  );
+  const tabs = <TaxTabs />;
   const yearSelect = (
     <select
       className="rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500"

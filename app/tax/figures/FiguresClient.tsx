@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 import type { FilingStatus } from '@/lib/tax-engine';
 import type { TaxFactsYear } from '@/lib/tax-engine';
 import { PageHeader } from '@/components/PageHeader';
+import { TaxTabs } from '../TaxTabs';
 
 const FILING: { id: FilingStatus; short: string }[] = [
   { id: 'single', short: 'Single' },
@@ -46,19 +46,12 @@ export function FiguresClient({ data }: { data: TaxFactsYear }) {
     </select>
   );
 
-  const tabs = (
-    <Seg>
-      <Link href="/tax" className="rounded-[7px] px-3 py-1 text-text-tertiary hover:text-text-secondary">Summary</Link>
-      <span className="rounded-[7px] px-3 py-1 bg-surface-1 text-text-primary font-medium shadow-sm">Key figures</span>
-    </Seg>
-  );
-
   return (
     <>
       <PageHeader
         title="Tax"
         subtitle={`Key federal figures · ${data.year} — verify against the linked IRS source`}
-        actions={<>{tabs}{yearSelect}</>}
+        actions={<><TaxTabs />{yearSelect}</>}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
