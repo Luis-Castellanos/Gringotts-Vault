@@ -520,59 +520,46 @@ function AccountLogo({ institution, size = 22 }: { institution: string; size?: n
   );
 }
 
-// ─── Inline filter dropdowns (one per dimension, next to the search box) ──
-function FilterChip({
-  label, count, width = 300, onClear, children,
-}: {
-  label: string;
-  count: number;
-  width?: number;
-  onClear?: () => void;
-  children: (close: () => void) => React.ReactNode;
-}) {
-  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
-  return (
-    <div className="tx-filter">
-      <button
-        type="button"
-        className={'tx-toolbar-btn' + (count > 0 ? ' has-filters' : '')}
-        onClick={(e) => {
-          if (anchor) { setAnchor(null); return; }
-          const r = e.currentTarget.getBoundingClientRect();
-          setAnchor({ x: Math.min(r.left, window.innerWidth - width - 12), y: r.bottom + 4 });
-        }}
-      >
-        {label}
-        {count > 0 && <span className="badge">{count}</span>}
-        <svg className="tx-filter-chev" width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3.5 5l3.5 3.5L10.5 5" />
-        </svg>
-      </button>
-      {anchor && (
-        <>
-          <div className="tx-inline-backdrop" onClick={(e) => { e.stopPropagation(); setAnchor(null); }} />
-          <div className="tx-filter-pop" style={{ left: anchor.x, top: anchor.y, width }} onClick={(e) => e.stopPropagation()}>
-            {children(() => setAnchor(null))}
-            {onClear && count > 0 && (
-              <div className="tx-filter-foot">
-                <button type="button" className="tx-filter-clear" onClick={onClear}>Clear</button>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 const SearchIcon = () => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="6" cy="6" r="4" /><path d="M9.5 9.5L12 12" />
   </svg>
 );
 
+const FilterIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1.5 3h11M3.5 7h7M5.5 11h3" />
+  </svg>
+);
+
+// One collapsible dimension inside the single Filters panel (replaces the old
+// row of per-dimension chips — same content, just consolidated + accordion'd).
+function FilterSection({
+  label, count, isOpen, onToggle, children,
+}: {
+  label: string;
+  count: number;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={'tx-fsec' + (isOpen ? ' open' : '')}>
+      <button type="button" className="tx-fsec-head" onClick={onToggle}>
+        <span className="tx-fsec-label">{label}</span>
+        {count > 0 && <span className="badge">{count}</span>}
+        <svg className="tx-fsec-chev" width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3.5 5l3.5 3.5L10.5 5" />
+        </svg>
+      </button>
+      {isOpen && <div className="tx-fsec-body">{children}</div>}
+    </div>
+  );
+}
+
+// All filter dimensions, consolidated behind one "Filters" button + accordion.
 function FiltersBar({
-  filters, setFilters, categories, accounts, allMerchants, scoped,
+  filters, setFilters, categories, accounts, allMerchants, scoped, onClearAll,
 }: {
   filters: Filters;
   setFilters: (next: Filters) => void;
@@ -580,7 +567,10 @@ function FiltersBar({
   accounts: AcctLite[];
   allMerchants: string[];
   scoped: boolean;
+  onClearAll: () => void;
 }) {
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [section, setSection] = useState<string | null>('category');
   const [catSearch, setCatSearch] = useState('');
   const [merchSearch, setMerchSearch] = useState('');
   const [acctSearch, setAcctSearch] = useState('');
@@ -590,9 +580,6 @@ function FiltersBar({
   const parents = useMemo(() => categories.filter((c) => c.parentId === null), [categories]);
   const childrenOf = (pid: string) => categories.filter((c) => c.parentId === pid);
 
-  // A parent reflects its children: checking it selects/deselects them all, and
-  // it shows checked / indeterminate / empty based on how many children are on
-  // (a leaf top-level with no children just toggles itself).
   const parentSel = (pid: string): 'all' | 'some' | 'none' => {
     const kids = childrenOf(pid).map((c) => c.id);
     if (kids.length === 0) return filters.categoryIds.includes(pid) ? 'all' : 'none';
@@ -619,203 +606,216 @@ function FiltersBar({
     ? accounts.filter((a) => a.name.toLowerCase().includes(acctQ) || a.institution.toLowerCase().includes(acctQ))
     : accounts;
 
+  const PANEL_W = 360;
+  const total = activeFilterCount(filters) - (scoped && filters.accountIds.length > 0 ? 1 : 0);
+  const toggle = (id: string) => setSection((s) => (s === id ? null : id));
+
   return (
-    <>
-      <FilterChip label="Category" count={filters.categoryIds.length} width={320} onClear={() => setFilters({ ...filters, categoryIds: [] })}>
-        {() => (
-          <>
-            <div className="filter-search">
-              <SearchIcon />
-              <input type="search" placeholder="Search categories…" value={catSearch} onChange={(e) => setCatSearch(e.target.value)} />
-            </div>
-            <div className="filter-list">
-              <label className="filter-option">
-                <input type="checkbox" checked={filters.categoryIds.includes('__uncategorized__')}
-                  onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, '__uncategorized__') })} />
-                <span className="swatch" style={{ background: 'var(--surface-elev)', border: '1px dashed var(--text-3)' }} />
-                <span className="lbl">Uncategorized</span>
-              </label>
-              {catQ
-                ? filteredCats.map((c) => (
-                    <label key={c.id} className="filter-option">
-                      <input type="checkbox" checked={filters.categoryIds.includes(c.id)}
-                        onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, c.id) })} />
-                      <span className="swatch" style={c.color ? { background: c.color } : undefined} />
-                      <span className="lbl">{c.parentName ? `${c.parentName} → ${c.name}` : c.name}</span>
-                    </label>
-                  ))
-                : parents.map((parent) => (
-                    <div key={parent.id}>
-                      <label className="filter-option">
-                        <input
-                          type="checkbox"
-                          ref={(el) => { if (el) el.indeterminate = parentSel(parent.id) === 'some'; }}
-                          checked={parentSel(parent.id) === 'all'}
-                          onChange={() => toggleParent(parent.id)}
-                        />
-                        <span className="swatch" style={parent.color ? { background: parent.color } : undefined} />
-                        <span className="lbl"><strong>{parent.name}</strong></span>
-                      </label>
-                      {childrenOf(parent.id).map((c) => (
-                        <label key={c.id} className="filter-option indent">
+    <div className="tx-filter">
+      <button
+        type="button"
+        className={'tx-toolbar-btn' + (total > 0 ? ' has-filters' : '')}
+        onClick={(e) => {
+          if (anchor) { setAnchor(null); return; }
+          const r = e.currentTarget.getBoundingClientRect();
+          setAnchor({ x: Math.min(r.left, window.innerWidth - PANEL_W - 12), y: r.bottom + 6 });
+        }}
+      >
+        <FilterIcon />
+        Filters
+        {total > 0 && <span className="badge">{total}</span>}
+        <svg className="tx-filter-chev" width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3.5 5l3.5 3.5L10.5 5" />
+        </svg>
+      </button>
+      {anchor && (
+        <>
+          <div className="tx-inline-backdrop" onClick={(e) => { e.stopPropagation(); setAnchor(null); }} />
+          <div className="tx-filters-panel" style={{ left: anchor.x, top: anchor.y, width: PANEL_W }} onClick={(e) => e.stopPropagation()}>
+            <div className="tx-filters-scroll">
+              <FilterSection label="Category" count={filters.categoryIds.length} isOpen={section === 'category'} onToggle={() => toggle('category')}>
+                <div className="filter-search">
+                  <SearchIcon />
+                  <input type="search" placeholder="Search categories…" value={catSearch} onChange={(e) => setCatSearch(e.target.value)} />
+                </div>
+                <div className="filter-list">
+                  <label className="filter-option">
+                    <input type="checkbox" checked={filters.categoryIds.includes('__uncategorized__')}
+                      onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, '__uncategorized__') })} />
+                    <span className="swatch" style={{ background: 'var(--surface-elev)', border: '1px dashed var(--text-3)' }} />
+                    <span className="lbl">Uncategorized</span>
+                  </label>
+                  {catQ
+                    ? filteredCats.map((c) => (
+                        <label key={c.id} className="filter-option">
                           <input type="checkbox" checked={filters.categoryIds.includes(c.id)}
                             onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, c.id) })} />
                           <span className="swatch" style={c.color ? { background: c.color } : undefined} />
-                          <span className="lbl">{c.name}</span>
+                          <span className="lbl">{c.parentName ? `${c.parentName} → ${c.name}` : c.name}</span>
                         </label>
+                      ))
+                    : parents.map((parent) => (
+                        <div key={parent.id}>
+                          <label className="filter-option">
+                            <input
+                              type="checkbox"
+                              ref={(el) => { if (el) el.indeterminate = parentSel(parent.id) === 'some'; }}
+                              checked={parentSel(parent.id) === 'all'}
+                              onChange={() => toggleParent(parent.id)}
+                            />
+                            <span className="swatch" style={parent.color ? { background: parent.color } : undefined} />
+                            <span className="lbl"><strong>{parent.name}</strong></span>
+                          </label>
+                          {childrenOf(parent.id).map((c) => (
+                            <label key={c.id} className="filter-option indent">
+                              <input type="checkbox" checked={filters.categoryIds.includes(c.id)}
+                                onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, c.id) })} />
+                              <span className="swatch" style={c.color ? { background: c.color } : undefined} />
+                              <span className="lbl">{c.name}</span>
+                            </label>
+                          ))}
+                        </div>
                       ))}
-                    </div>
-                  ))}
-            </div>
-          </>
-        )}
-      </FilterChip>
+                </div>
+              </FilterSection>
 
-      {!scoped && (
-        <FilterChip label="Account" count={filters.accountIds.length} width={300} onClear={() => setFilters({ ...filters, accountIds: [] })}>
-          {() => (
-            <>
-              <div className="filter-search">
-                <SearchIcon />
-                <input type="search" placeholder="Search accounts…" value={acctSearch} onChange={(e) => setAcctSearch(e.target.value)} />
-              </div>
-              <div className="filter-list">
-                {shownAccounts.map((a) => (
-                  <label key={a.id} className="filter-option">
-                    <input type="checkbox" checked={filters.accountIds.includes(a.id)}
-                      onChange={() => setFilters({ ...filters, accountIds: toggleArr(filters.accountIds, a.id) })} />
-                    <AccountLogo institution={a.institution} size={20} />
-                    <span className="lbl">{a.name}</span>
-                  </label>
-                ))}
-              </div>
-            </>
-          )}
-        </FilterChip>
-      )}
-
-      <FilterChip label="Merchant" count={filters.merchants.length} width={300} onClear={() => setFilters({ ...filters, merchants: [] })}>
-        {() => (
-          <>
-            <div className="filter-search">
-              <SearchIcon />
-              <input type="search" placeholder="Search merchants…" value={merchSearch} onChange={(e) => setMerchSearch(e.target.value)} />
-            </div>
-            <div className="filter-list">
-              {shownMerchants.length === 0 && <div className="filter-empty">No merchants match.</div>}
-              {shownMerchants.map((m) => (
-                <label key={m} className="filter-option">
-                  <input type="checkbox" checked={filters.merchants.includes(m)}
-                    onChange={() => setFilters({ ...filters, merchants: toggleArr(filters.merchants, m) })} />
-                  <VendorLogo merchant={m} size={20} />
-                  <span className="lbl">{m}</span>
-                </label>
-              ))}
-            </div>
-          </>
-        )}
-      </FilterChip>
-
-      <FilterChip label="Date" count={filters.dateRange !== 'all' ? 1 : 0} width={300} onClear={() => setFilters({ ...filters, dateRange: 'all', customFrom: '', customTo: '' })}>
-        {() => (
-          <div className="filter-section">
-            <div className="preset-row">
-              {DATE_PRESETS.map((p) => (
-                <button type="button" key={p.id}
-                  className={'preset-btn' + (filters.dateRange === p.id ? ' active' : '')}
-                  onClick={() => setFilters({ ...filters, dateRange: p.id })}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            {filters.dateRange === 'custom' && (
-              <div className="row-2">
-                <label className="field">From
-                  <input type="date" value={filters.customFrom} max={filters.customTo || TODAY}
-                    onChange={(e) => setFilters({ ...filters, customFrom: e.target.value })} />
-                </label>
-                <label className="field">To
-                  <input type="date" value={filters.customTo} min={filters.customFrom} max={TODAY}
-                    onChange={(e) => setFilters({ ...filters, customTo: e.target.value })} />
-                </label>
-              </div>
-            )}
-          </div>
-        )}
-      </FilterChip>
-
-      <FilterChip
-        label="Amount"
-        count={(amountActive(filters) ? 1 : 0) + (filters.amountType !== 'all' ? 1 : 0)}
-        width={280}
-        onClear={() => setFilters({ ...filters, amountMode: 'between', amountValue: '', amountMin: '', amountMax: '', amountType: 'all' })}
-      >
-        {() => (
-          <div className="filter-section">
-            <div className="filter-subhead">Amount</div>
-            <div className="preset-row">
-              {([['gt', 'Greater than'], ['lt', 'Less than'], ['eq', 'Equal to'], ['between', 'Between']] as const).map(
-                ([m, lbl]) => (
-                  <button type="button" key={m}
-                    className={'preset-btn' + (filters.amountMode === m ? ' active' : '')}
-                    onClick={() => setFilters({ ...filters, amountMode: m })}>
-                    {lbl}
-                  </button>
-                ),
+              {!scoped && (
+                <FilterSection label="Account" count={filters.accountIds.length} isOpen={section === 'account'} onToggle={() => toggle('account')}>
+                  <div className="filter-search">
+                    <SearchIcon />
+                    <input type="search" placeholder="Search accounts…" value={acctSearch} onChange={(e) => setAcctSearch(e.target.value)} />
+                  </div>
+                  <div className="filter-list">
+                    {shownAccounts.map((a) => (
+                      <label key={a.id} className="filter-option">
+                        <input type="checkbox" checked={filters.accountIds.includes(a.id)}
+                          onChange={() => setFilters({ ...filters, accountIds: toggleArr(filters.accountIds, a.id) })} />
+                        <AccountLogo institution={a.institution} size={20} />
+                        <span className="lbl">{a.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </FilterSection>
               )}
-            </div>
-            {filters.amountMode === 'between' ? (
-              <div className="row-2">
-                <label className="field">Min ($)
-                  <input type="number" value={filters.amountMin} step="0.01" inputMode="decimal" placeholder="0"
-                    onChange={(e) => setFilters({ ...filters, amountMin: e.target.value })} />
+
+              <FilterSection label="Merchant" count={filters.merchants.length} isOpen={section === 'merchant'} onToggle={() => toggle('merchant')}>
+                <div className="filter-search">
+                  <SearchIcon />
+                  <input type="search" placeholder="Search merchants…" value={merchSearch} onChange={(e) => setMerchSearch(e.target.value)} />
+                </div>
+                <div className="filter-list">
+                  {shownMerchants.length === 0 && <div className="filter-empty">No merchants match.</div>}
+                  {shownMerchants.map((m) => (
+                    <label key={m} className="filter-option">
+                      <input type="checkbox" checked={filters.merchants.includes(m)}
+                        onChange={() => setFilters({ ...filters, merchants: toggleArr(filters.merchants, m) })} />
+                      <VendorLogo merchant={m} size={20} />
+                      <span className="lbl">{m}</span>
+                    </label>
+                  ))}
+                </div>
+              </FilterSection>
+
+              <FilterSection label="Date" count={filters.dateRange !== 'all' ? 1 : 0} isOpen={section === 'date'} onToggle={() => toggle('date')}>
+                <div className="filter-section">
+                  <div className="preset-row">
+                    {DATE_PRESETS.map((p) => (
+                      <button type="button" key={p.id}
+                        className={'preset-btn' + (filters.dateRange === p.id ? ' active' : '')}
+                        onClick={() => setFilters({ ...filters, dateRange: p.id })}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  {filters.dateRange === 'custom' && (
+                    <div className="row-2">
+                      <label className="field">From
+                        <input type="date" value={filters.customFrom} max={filters.customTo || TODAY}
+                          onChange={(e) => setFilters({ ...filters, customFrom: e.target.value })} />
+                      </label>
+                      <label className="field">To
+                        <input type="date" value={filters.customTo} min={filters.customFrom} max={TODAY}
+                          onChange={(e) => setFilters({ ...filters, customTo: e.target.value })} />
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </FilterSection>
+
+              <FilterSection
+                label="Amount"
+                count={(amountActive(filters) ? 1 : 0) + (filters.amountType !== 'all' ? 1 : 0)}
+                isOpen={section === 'amount'}
+                onToggle={() => toggle('amount')}
+              >
+                <div className="filter-section">
+                  <div className="filter-subhead">Amount</div>
+                  <div className="preset-row">
+                    {([['gt', 'Greater than'], ['lt', 'Less than'], ['eq', 'Equal to'], ['between', 'Between']] as const).map(
+                      ([m, lbl]) => (
+                        <button type="button" key={m}
+                          className={'preset-btn' + (filters.amountMode === m ? ' active' : '')}
+                          onClick={() => setFilters({ ...filters, amountMode: m })}>
+                          {lbl}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  {filters.amountMode === 'between' ? (
+                    <div className="row-2">
+                      <label className="field">Min ($)
+                        <input type="number" value={filters.amountMin} step="0.01" inputMode="decimal" placeholder="0"
+                          onChange={(e) => setFilters({ ...filters, amountMin: e.target.value })} />
+                      </label>
+                      <label className="field">Max ($)
+                        <input type="number" value={filters.amountMax} step="0.01" inputMode="decimal" placeholder="Any"
+                          onChange={(e) => setFilters({ ...filters, amountMax: e.target.value })} />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="field">Amount ($)
+                      <input type="number" value={filters.amountValue} step="0.01" inputMode="decimal" placeholder="0.00"
+                        onChange={(e) => setFilters({ ...filters, amountValue: e.target.value })} />
+                    </label>
+                  )}
+                  <div className="filter-subhead">Type</div>
+                  <div className="preset-row">
+                    <button type="button"
+                      className={'preset-btn' + (filters.amountType === 'debit' ? ' active' : '')}
+                      onClick={() => setFilters({ ...filters, amountType: filters.amountType === 'debit' ? 'all' : 'debit' })}>
+                      Debits only
+                    </button>
+                    <button type="button"
+                      className={'preset-btn' + (filters.amountType === 'credit' ? ' active' : '')}
+                      onClick={() => setFilters({ ...filters, amountType: filters.amountType === 'credit' ? 'all' : 'credit' })}>
+                      Credits only
+                    </button>
+                  </div>
+                  <p className="filter-hint">Amount compares against the absolute value.</p>
+                </div>
+              </FilterSection>
+
+              <div className="tx-filters-toggles">
+                <label className="filter-option">
+                  <input type="checkbox" checked={filters.hideTransfers}
+                    onChange={(e) => setFilters({ ...filters, hideTransfers: e.target.checked })} />
+                  <span className="lbl">Hide transfers</span>
                 </label>
-                <label className="field">Max ($)
-                  <input type="number" value={filters.amountMax} step="0.01" inputMode="decimal" placeholder="Any"
-                    onChange={(e) => setFilters({ ...filters, amountMax: e.target.value })} />
+                <label className="filter-option">
+                  <input type="checkbox" checked={filters.needsReviewOnly}
+                    onChange={(e) => setFilters({ ...filters, needsReviewOnly: e.target.checked })} />
+                  <span className="lbl">Only needs review</span>
                 </label>
               </div>
-            ) : (
-              <label className="field">Amount ($)
-                <input type="number" value={filters.amountValue} step="0.01" inputMode="decimal" placeholder="0.00"
-                  onChange={(e) => setFilters({ ...filters, amountValue: e.target.value })} />
-              </label>
-            )}
-            <div className="filter-subhead">Type</div>
-            <div className="preset-row">
-              <button type="button"
-                className={'preset-btn' + (filters.amountType === 'debit' ? ' active' : '')}
-                onClick={() => setFilters({ ...filters, amountType: filters.amountType === 'debit' ? 'all' : 'debit' })}>
-                Debits only
-              </button>
-              <button type="button"
-                className={'preset-btn' + (filters.amountType === 'credit' ? ' active' : '')}
-                onClick={() => setFilters({ ...filters, amountType: filters.amountType === 'credit' ? 'all' : 'credit' })}>
-                Credits only
-              </button>
             </div>
-            <p className="filter-hint">Amount compares against the absolute value.</p>
+            <div className="tx-filters-foot">
+              <button type="button" className="tx-filter-clear" disabled={total === 0} onClick={onClearAll}>Clear all</button>
+              <button type="button" className="tx-filters-done" onClick={() => setAnchor(null)}>Done</button>
+            </div>
           </div>
-        )}
-      </FilterChip>
-
-      <FilterChip label="More" count={(filters.hideTransfers ? 1 : 0) + (filters.needsReviewOnly ? 1 : 0)} width={280} onClear={() => setFilters({ ...filters, hideTransfers: false, needsReviewOnly: false })}>
-        {() => (
-          <div className="filter-list" style={{ paddingTop: 8 }}>
-            <label className="filter-option">
-              <input type="checkbox" checked={filters.hideTransfers}
-                onChange={(e) => setFilters({ ...filters, hideTransfers: e.target.checked })} />
-              <span className="lbl">Hide transfers</span>
-            </label>
-            <label className="filter-option">
-              <input type="checkbox" checked={filters.needsReviewOnly}
-                onChange={(e) => setFilters({ ...filters, needsReviewOnly: e.target.checked })} />
-              <span className="lbl">Only needs review</span>
-            </label>
-          </div>
-        )}
-      </FilterChip>
-    </>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1494,15 +1494,40 @@ export function TransactionsClient({
   const hasAnyFilter = filterCount > 0 || filters.search !== '';
   const clearFilters = () => setFilters(baseFilters);
 
+  // Active filters surfaced as removable pills under the toolbar (one per
+  // dimension; the ✕ clears that dimension).
+  const catName = (id: string) =>
+    id === '__uncategorized__' ? 'Uncategorized' : (categories.find((c) => c.id === id)?.name ?? 'Category');
+  const acctName = (id: string) => accounts.find((a) => a.id === id)?.name ?? 'Account';
+  const amountLabel = (): string => {
+    const { amountMode: m, amountValue: v, amountMin: lo, amountMax: hi } = filters;
+    if (m === 'between') return lo && hi ? `$${lo}–$${hi}` : lo ? `≥ $${lo}` : hi ? `≤ $${hi}` : 'Amount';
+    return `${m === 'gt' ? '>' : m === 'lt' ? '<' : '='} $${v}`;
+  };
+  type Pill = { key: string; label: string; onRemove: () => void };
+  const pills: Pill[] = [];
+  if (filters.search) pills.push({ key: 'search', label: `“${filters.search}”`, onRemove: () => setFilters({ ...filters, search: '' }) });
+  if (filters.categoryIds.length) pills.push({ key: 'cat', label: filters.categoryIds.length === 1 ? catName(filters.categoryIds[0]!) : `Category · ${filters.categoryIds.length}`, onRemove: () => setFilters({ ...filters, categoryIds: [] }) });
+  if (!scoped && filters.accountIds.length) pills.push({ key: 'acct', label: filters.accountIds.length === 1 ? acctName(filters.accountIds[0]!) : `Account · ${filters.accountIds.length}`, onRemove: () => setFilters({ ...filters, accountIds: [] }) });
+  if (filters.merchants.length) pills.push({ key: 'merch', label: filters.merchants.length === 1 ? filters.merchants[0]! : `Merchant · ${filters.merchants.length}`, onRemove: () => setFilters({ ...filters, merchants: [] }) });
+  if (filters.dateRange !== 'all') pills.push({ key: 'date', label: DATE_PRESETS.find((p) => p.id === filters.dateRange)?.label ?? 'Date', onRemove: () => setFilters({ ...filters, dateRange: 'all', customFrom: '', customTo: '' }) });
+  if (amountActive(filters)) pills.push({ key: 'amt', label: amountLabel(), onRemove: () => setFilters({ ...filters, amountValue: '', amountMin: '', amountMax: '' }) });
+  if (filters.amountType !== 'all') pills.push({ key: 'amttype', label: filters.amountType === 'debit' ? 'Debits only' : 'Credits only', onRemove: () => setFilters({ ...filters, amountType: 'all' }) });
+  if (filters.hideTransfers) pills.push({ key: 'notransfer', label: 'Hide transfers', onRemove: () => setFilters({ ...filters, hideTransfers: false }) });
+  if (filters.needsReviewOnly) pills.push({ key: 'needsreview', label: 'Needs review', onRemove: () => setFilters({ ...filters, needsReviewOnly: false }) });
+
   return (
     <>
       <div className="tx-toolbar">
-        <input
-          type="search"
-          placeholder="Search"
-          value={filters.search}
-          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-        />
+        <div className="tx-search">
+          <SearchIcon />
+          <input
+            type="search"
+            placeholder="Search transactions…"
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+          />
+        </div>
         <FiltersBar
           filters={filters}
           setFilters={setFilters}
@@ -1510,97 +1535,95 @@ export function TransactionsClient({
           accounts={accounts}
           allMerchants={allMerchants}
           scoped={scoped}
+          onClearAll={clearFilters}
         />
-        <button
-          type="button"
-          className={'tx-toolbar-btn' + (selectMode ? ' has-filters' : '')}
-          onClick={() => (selectMode ? exitSelect() : enterSelect())}
-        >
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 4.5h6M2 9.5h6M10.5 3l1.5 1.5L10.5 6M10.5 8l1.5 1.5L10.5 11" />
-          </svg>
-          {selectMode ? 'Done' : 'Select'}
-        </button>
-        {!scoped && (
-          <div className="tx-views">
-            <button
-              type="button"
-              className={'tx-toolbar-btn' + (viewsOpen ? ' has-filters' : '')}
-              onClick={() => setViewsOpen((o) => !o)}
-            >
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 3.5h10M2 7h10M2 10.5h6" />
-              </svg>
-              Views
-              {views.length > 0 && <span className="badge">{views.length}</span>}
-            </button>
-            {viewsOpen && (
-              <>
-                <div className="tx-views-backdrop" onClick={() => setViewsOpen(false)} />
-                <div className="tx-views-pop">
-                  {views.length === 0 ? (
-                    <div className="tx-views-empty">No saved views yet.</div>
-                  ) : (
-                    <div className="tx-views-list">
-                      {views.map((v) => (
-                        <div className="tx-view-row" key={v.id}>
-                          <button type="button" className="name" onClick={() => applyView(v)}>{v.name}</button>
-                          <button type="button" className="del" aria-label={`Delete ${v.name}`} onClick={() => deleteView(v.id)}>×</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="tx-views-save">
-                    <input
-                      type="text"
-                      placeholder="Save current filters as…"
-                      value={viewName}
-                      onChange={(e) => setViewName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') saveCurrentView(); }}
-                      maxLength={40}
-                    />
-                    <button type="button" disabled={!viewName.trim()} onClick={saveCurrentView}>Save</button>
+        <div className="spacer" />
+
+        {/* Display, sort, views & select — consolidated into one ⋯ menu */}
+        <div className="tx-views">
+          <button
+            type="button"
+            className={'tx-toolbar-btn icon' + (viewsOpen ? ' has-filters' : '') + (selectMode ? ' active-mode' : '')}
+            onClick={() => setViewsOpen((o) => !o)}
+            aria-label="Display, sort & views"
+            title="Display, sort & views"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+              <circle cx="3" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="13" cy="8" r="1.4" />
+            </svg>
+          </button>
+          {viewsOpen && (
+            <>
+              <div className="tx-views-backdrop" onClick={() => setViewsOpen(false)} />
+              <div className="tx-display-menu" onClick={(e) => e.stopPropagation()}>
+                <div className="tx-dm-sec">
+                  <div className="tx-dm-label">Layout</div>
+                  <div className="tx-seg" role="group" aria-label="Layout">
+                    <button type="button" className={viewMode === 'list' ? 'active' : ''} onClick={() => changeView('list')}>List</button>
+                    <button type="button" className={viewMode === 'table' ? 'active' : ''} onClick={() => changeView('table')}>Table</button>
                   </div>
                 </div>
-              </>
-            )}
-          </div>
-        )}
-        <div className="spacer" />
-        <div className="tx-seg" role="group" aria-label="View mode">
-          <button type="button" className={viewMode === 'list' ? 'active' : ''} onClick={() => changeView('list')} aria-label="List view" title="List view">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M2 3.5h10M2 7h10M2 10.5h10" />
-            </svg>
-          </button>
-          <button type="button" className={viewMode === 'table' ? 'active' : ''} onClick={() => changeView('table')} aria-label="Table view" title="Table view">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="2" y="2.5" width="10" height="9" rx="1" /><path d="M2 5.5h10M6 5.5v6" strokeLinecap="round" />
-            </svg>
-          </button>
+                <div className="tx-dm-sec">
+                  <div className="tx-dm-label">Density</div>
+                  <div className="tx-seg" role="group" aria-label="Density">
+                    <button type="button" className={density === 'comfortable' ? 'active' : ''} onClick={() => changeDensity('comfortable')}>Comfortable</button>
+                    <button type="button" className={density === 'compact' ? 'active' : ''} onClick={() => changeDensity('compact')}>Compact</button>
+                  </div>
+                </div>
+                <div className="tx-dm-sec">
+                  <div className="tx-dm-label">Sort</div>
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortId)}>
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.id} value={opt.id}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="button" className="tx-dm-action" onClick={() => { setViewsOpen(false); if (selectMode) exitSelect(); else enterSelect(); }}>
+                  {selectMode ? 'Exit selection' : 'Select multiple'}
+                </button>
+                {!scoped && (
+                  <div className="tx-dm-sec">
+                    <div className="tx-dm-label">Saved views</div>
+                    {views.length === 0 ? (
+                      <div className="tx-views-empty">None yet.</div>
+                    ) : (
+                      <div className="tx-views-list">
+                        {views.map((v) => (
+                          <div className="tx-view-row" key={v.id}>
+                            <button type="button" className="name" onClick={() => applyView(v)}>{v.name}</button>
+                            <button type="button" className="del" aria-label={`Delete ${v.name}`} onClick={() => deleteView(v.id)}>×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="tx-views-save">
+                      <input
+                        type="text"
+                        placeholder="Save current as…"
+                        value={viewName}
+                        onChange={(e) => setViewName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveCurrentView(); }}
+                        maxLength={40}
+                      />
+                      <button type="button" disabled={!viewName.trim()} onClick={saveCurrentView}>Save</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
-        <button
-          type="button"
-          className="tx-toolbar-btn icon"
-          onClick={() => changeDensity(density === 'compact' ? 'comfortable' : 'compact')}
-          title={density === 'compact' ? 'Comfortable rows' : 'Compact rows'}
-          aria-label="Toggle density"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            {density === 'compact'
-              ? <path d="M2 3.5h10M2 7h10M2 10.5h10" />
-              : <path d="M2 4h10M2 10h10" />}
-          </svg>
-        </button>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortId)}>
-          {SORT_OPTIONS.map((opt) => (
-            <option key={opt.id} value={opt.id}>{opt.label}</option>
-          ))}
-        </select>
-        {hasAnyFilter && (
-          <button type="button" className="clear-btn" onClick={clearFilters}>
-            Clear filters
-          </button>
+
+        {pills.length > 0 && (
+          <div className="tx-pills">
+            {pills.map((p) => (
+              <button type="button" key={p.key} className="tx-pill" onClick={p.onRemove} title={`Remove ${p.label}`}>
+                <span className="lbl">{p.label}</span>
+                <span className="x" aria-hidden>×</span>
+              </button>
+            ))}
+            <button type="button" className="tx-pills-clear" onClick={clearFilters}>Clear all</button>
+          </div>
         )}
       </div>
 
