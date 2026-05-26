@@ -22,6 +22,4 @@ export const CHALLENGE_COOKIE = 'vault_challenge';
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 const rawSecret = process.env.SESSION_SECRET || 'dev-insecure-session-secret-change-me-0000';
-/** True when running on the built-in dev fallback secret (never use in prod). */
-export const USING_DEV_SECRET = !process.env.SESSION_SECRET;
 export const SESSION_SECRET = new TextEncoder().encode(rawSecret);

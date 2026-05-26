@@ -24,10 +24,6 @@ async function apiKey(): Promise<string | null> {
   return fromDb || process.env.MARKET_DATA_KEY || null;
 }
 
-export async function marketDataConfigured(): Promise<boolean> {
-  return (await apiKey()) != null;
-}
-
 /** Current (delayed) quotes for the given symbols. Empty map when unconfigured. */
 export async function getQuotes(symbols: string[]): Promise<Map<string, Quote>> {
   const out = new Map<string, Quote>();

@@ -6,8 +6,6 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 
-export type ApiResponse<T> = { data: T } | { error: { code: string; message: string } };
-
 export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json({ data }, init);
 }

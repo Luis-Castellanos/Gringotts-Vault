@@ -38,14 +38,3 @@ export function GenericPageSkeleton({ tiles = 3 }: { tiles?: number }) {
     </div>
   );
 }
-
-/** A vertical stack of list-row skeletons (used by table/list-heavy pages). */
-export function RowsSkeleton({ rows = 10, rowClassName = 'h-12' }: { rows?: number; rowClassName?: string }) {
-  return (
-    <div className="flex flex-col gap-2">
-      {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} className={`${rowClassName} w-full rounded-lg`} />
-      ))}
-    </div>
-  );
-}

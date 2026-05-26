@@ -84,11 +84,6 @@ export async function loadReportYears(): Promise<number[]> {
   return rows.map((r) => Number(r.y)).sort((a, b) => b - a);
 }
 
-/** Back-compat: a full calendar year. */
-export function loadAnnualReport(year: number): Promise<AnnualReport> {
-  return loadReport(`${year}-01-01`, `${year}-12-31`, String(year));
-}
-
 /** Income/spending/net summary for an arbitrary date range, bucketed by month. */
 export async function loadReport(from: string, to: string, label: string): Promise<AnnualReport> {
   const start = from;

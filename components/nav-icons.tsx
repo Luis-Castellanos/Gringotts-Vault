@@ -45,25 +45,6 @@ export function IconAudit({ className, size = 18, strokeWidth }: IconProps) {
   );
 }
 
-export function IconAccounts({ className, size = 18, strokeWidth }: IconProps) {
-  return (
-    <svg {...base(size, className, strokeWidth)}>
-      <path d="M3 7l9-4 9 4-9 4-9-4z" />
-      <path d="M3 12l9 4 9-4" />
-      <path d="M3 17l9 4 9-4" />
-    </svg>
-  );
-}
-
-export function IconCategories({ className, size = 18, strokeWidth }: IconProps) {
-  return (
-    <svg {...base(size, className, strokeWidth)}>
-      <path d="M3 11.5V5a2 2 0 0 1 2-2h6.5a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8l-6.5 6.5a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 3 11.5z" />
-      <circle cx="7.5" cy="7.5" r="1.3" />
-    </svg>
-  );
-}
-
 export function IconTransfers({ className, size = 18, strokeWidth }: IconProps) {
   return (
     <svg {...base(size, className, strokeWidth)}>
@@ -208,15 +189,6 @@ export function IconSearch({ className, size = 16, strokeWidth }: IconProps) {
     <svg {...base(size, className, strokeWidth)}>
       <circle cx="11" cy="11" r="6.5" />
       <path d="M16.5 16.5L21 21" />
-    </svg>
-  );
-}
-
-export function IconBell({ className, size = 16, strokeWidth }: IconProps) {
-  return (
-    <svg {...base(size, className, strokeWidth)}>
-      <path d="M18 16H6a4 4 0 0 1-1-3l1-3a6 6 0 0 1 12 0l1 3a4 4 0 0 1-1 3z" />
-      <path d="M10 20a2 2 0 0 0 4 0" />
     </svg>
   );
 }
