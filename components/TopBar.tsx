@@ -31,7 +31,7 @@ export function TopBar() {
 
   return (
     <div
-      className="sticky top-0 z-50 flex items-center gap-3 px-4 h-11 bg-surface-1 border-b border-border-subtle"
+      className="sticky top-0 z-50 flex items-center gap-3 px-4 h-11 bg-surface-1 border-b border-border-subtle print:hidden"
     >
       <button
         type="button"

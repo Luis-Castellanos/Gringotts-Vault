@@ -296,16 +296,23 @@ export function ReportsClient({
           tab === 'summary' ? (
             <>
               <select
-                className="rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500"
+                className="rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[13px] text-text-secondary focus:outline-none focus:border-accent-500 print:hidden"
                 value={report.year}
                 onChange={(e) => router.push(`/reports?year=${e.target.value}`)}
                 aria-label="Report year"
               >
                 {years.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2 print:hidden"
+              >
+                Print / PDF
+              </button>
               <a
                 href={`/api/export/transactions?from=${report.year}-01-01&to=${report.year}-12-31`}
-                className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2"
+                className="rounded-lg border border-border-subtle px-3 py-1.5 text-[13px] font-medium text-text-secondary hover:bg-surface-2 print:hidden"
               >
                 Export {report.year} ↓
               </a>
@@ -314,7 +321,7 @@ export function ReportsClient({
         }
       />
 
-      <div className="flex items-center gap-1 mb-6 border-b border-border-subtle">
+      <div className="flex items-center gap-1 mb-6 border-b border-border-subtle print:hidden">
         {TABS.map((t) => (
           <button
             key={t.id}

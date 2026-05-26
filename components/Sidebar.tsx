@@ -158,7 +158,7 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
 
   return (
     <aside
-      className="sticky self-start flex flex-col bg-surface-1 border-r border-border-subtle"
+      className="sticky self-start flex flex-col bg-surface-1 border-r border-border-subtle print:hidden"
       style={{ width, top: 44, height: 'calc(100vh - 44px)' }}
     >
       {/* Top: profile (avatar + name) + collapse */}
