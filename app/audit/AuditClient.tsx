@@ -168,25 +168,33 @@ function StatementRow({ stmt }: { stmt: StmtAudit }) {
   );
 }
 
-function CoverageStrip({ statements }: { statements: StmtAudit[] }) {
+// Time-proportional coverage bar on a SHARED date axis (all accounts align),
+// Valid8-style — each statement is positioned + sized by its actual dates, so
+// gaps read as real empty stretches.
+function CoverageTimeline({ statements, min, max }: { statements: StmtAudit[]; min: number; max: number }) {
+  const range = Math.max(1, max - min);
+  const pos = (d: string) => ((Date.parse(d + 'T00:00:00') - min) / range) * 100;
   return (
-    <div className="flex items-center gap-0.5 mb-3" title="Coverage timeline — each segment is a statement">
-      {statements.map((s) => (
-        <span key={s.id} className="contents">
-          {s.gapDaysBefore != null && <span className="w-1.5 h-2.5 bg-amber-400/40 rounded-sm shrink-0" title={`${s.gapDaysBefore} days uncovered`} />}
+    <div className="relative h-3 w-full rounded bg-surface-2 mb-3 overflow-hidden" title="Statement coverage over time">
+      {statements.map((s) => {
+        if (!s.start || !s.end) return null;
+        const left = Math.max(0, pos(s.start));
+        const width = Math.max(0.6, pos(s.end) - left);
+        const cls = s.status === 'ok' ? 'bg-positive/75' : s.status === 'discrepancy' ? 'bg-negative/80' : 'bg-text-muted/45';
+        return (
           <span
-            className={`h-2.5 flex-1 min-w-[3px] rounded-sm ${
-              s.status === 'ok' ? 'bg-positive/70' : s.status === 'discrepancy' ? 'bg-negative/70' : 'bg-text-muted/40'
-            }`}
+            key={s.id}
+            className={`absolute inset-y-0 ${cls}`}
+            style={{ left: `${left}%`, width: `${width}%` }}
             title={`${s.periodLabel} · ${STATUS[s.status].label}`}
           />
-        </span>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-function AccountCard({ acct }: { acct: AccountAudit }) {
+function AccountCard({ acct, min, max }: { acct: AccountAudit; min: number; max: number }) {
   return (
     <section className="rounded-2xl bg-surface-1 border border-border-subtle p-5 mb-5">
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
@@ -200,7 +208,7 @@ function AccountCard({ acct }: { acct: AccountAudit }) {
           )}
         </div>
       </div>
-      <CoverageStrip statements={acct.statements} />
+      <CoverageTimeline statements={acct.statements} min={min} max={max} />
       <div className="flex flex-col divide-y divide-border-subtle/60">
         {acct.statements.map((s) => <StatementRow key={s.id} stmt={s} />)}
       </div>
@@ -210,6 +218,15 @@ function AccountCard({ acct }: { acct: AccountAudit }) {
 
 export function AuditClient({ data }: { data: StatementAudit }) {
   const { accounts, summary } = data;
+  // Shared date axis for the coverage timelines (so every account aligns).
+  const times = accounts
+    .flatMap((a) => a.statements.flatMap((s) => [s.start, s.end]))
+    .filter((d): d is string => !!d)
+    .map((d) => Date.parse(d + 'T00:00:00'))
+    .filter((t) => Number.isFinite(t));
+  const min = times.length ? Math.min(...times) : 0;
+  const max = times.length ? Math.max(...times) : 1;
+  const fmtSpan = (t: number) => new Date(t).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
   return (
     <>
@@ -237,7 +254,18 @@ export function AuditClient({ data }: { data: StatementAudit }) {
             <StatTile label="Coverage gaps" value={String(summary.gaps)} tone={summary.gaps > 0 ? 'neg' : 'default'} sub="Uncovered periods" />
           </div>
 
-          {accounts.map((a) => <AccountCard key={a.accountId ?? a.accountName} acct={a} />)}
+          {/* Shared coverage axis + legend */}
+          <div className="flex items-center justify-between gap-3 mb-3 text-[11px] text-text-muted flex-wrap">
+            <span className="tabular-nums">{fmtSpan(min)}</span>
+            <span className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-positive/75" /> Reconciles</span>
+              <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-negative/80" /> Discrepancy</span>
+              <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-text-muted/45" /> No stated totals</span>
+            </span>
+            <span className="tabular-nums">{fmtSpan(max)}</span>
+          </div>
+
+          {accounts.map((a) => <AccountCard key={a.accountId ?? a.accountName} acct={a} min={min} max={max} />)}
 
           <p className="text-[12px] text-text-muted mt-2 leading-relaxed">
             Reconciliation compares each statement’s PDF-stated control totals (beginning/ending balance, deposit/withdrawal
