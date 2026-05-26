@@ -13,6 +13,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { SESSION_COOKIE } from '@/lib/auth/config';
 import { isValidSession } from '@/lib/auth/session';
+import { DEMO_MODE } from '@/lib/demo/mode';
 
 function isPublic(pathname: string): boolean {
   return pathname === '/login' || pathname.startsWith('/api/auth/');
@@ -20,6 +21,20 @@ function isPublic(pathname: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Demo deployment: no passkey. Everyone's let straight in (the DB is a
+  // throwaway demo DB, never the owner's real data). The login UI is pointless
+  // here, so bounce it to the app.
+  if (DEMO_MODE) {
+    if (pathname === '/login') {
+      const url = req.nextUrl.clone();
+      url.pathname = '/';
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
   if (isPublic(pathname)) return NextResponse.next();
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;

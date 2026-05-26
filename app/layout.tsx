@@ -3,6 +3,7 @@ import './globals.css';
 import { themeInitScript } from '@/lib/theme';
 import { TopBar } from '@/components/TopBar';
 import { Sidebar } from '@/components/Sidebar';
+import { DemoBanner } from '@/components/DemoBanner';
 
 export const metadata: Metadata = {
   title: 'Vault',
@@ -31,6 +32,7 @@ export default function RootLayout({
             {children}
           </div>
         </div>
+        <DemoBanner />
       </body>
     </html>
   );

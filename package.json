@@ -15,7 +15,8 @@
     "db:seed": "tsx scripts/seed-categories.ts",
     "db:load-master": "tsx scripts/load-master.ts",
     "db:reset": "tsx scripts/reset-data.ts --yes",
-    "db:reset:all": "tsx scripts/reset-data.ts --yes --accounts"
+    "db:reset:all": "tsx scripts/reset-data.ts --yes --accounts",
+    "db:seed-demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
