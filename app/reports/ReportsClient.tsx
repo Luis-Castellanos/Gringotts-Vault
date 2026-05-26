@@ -164,49 +164,73 @@ function MonthlyChart({ report, prev }: { report: AnnualReport; prev: AnnualRepo
   );
 }
 
-function FlowBar({ title, total, segs }: { title: string; total: number; segs: { name: string; amount: number; color: string }[] }) {
-  if (total <= 0 || segs.length === 0) return null;
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[12px] font-medium text-text-secondary">{title}</span>
-        <span className="text-[12px] tabular-nums text-text-tertiary">{money0(total)}</span>
-      </div>
-      <div className="flex h-7 w-full overflow-hidden rounded-lg">
-        {segs.map((s) => (
-          <div
-            key={s.name}
-            className="h-full first:rounded-l-lg last:rounded-r-lg min-w-[2px]"
-            style={{ width: `${(s.amount / total) * 100}%`, background: s.color }}
-            title={`${s.name} · ${money0(s.amount)} (${Math.round((s.amount / total) * 100)}%)`}
-          />
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-        {segs.slice(0, 8).map((s) => (
-          <span key={s.name} className="flex items-center gap-1.5 text-[11px] text-text-tertiary">
-            <span className="size-2 rounded-sm shrink-0" style={{ background: s.color }} />
-            {s.name} <span className="tabular-nums text-text-muted">{Math.round((s.amount / total) * 100)}%</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function MoneyFlow({ report }: { report: AnnualReport }) {
-  const incSegs = report.incomeByCategory.map((c) => ({ name: c.name, amount: c.amount, color: c.color ?? 'var(--color-cat-blue)' }));
-  const outSegs = report.spendingByCategory.map((c) => ({ name: c.name, amount: c.amount, color: c.color ?? 'var(--color-negative)' }));
-  const outTotal = report.spending + Math.max(0, report.net);
-  if (report.net > 0) outSegs.push({ name: 'Saved', amount: report.net, color: 'var(--color-positive)' });
-  if (report.income <= 0 && report.spending <= 0) return null;
+  // Curved Sankey: a single "Income" source on the left flows to spending
+  // categories (+ Saved) on the right, link width ∝ amount.
+  const cats = report.spendingByCategory;
+  const TOP = 9;
+  const right: { name: string; amount: number; color: string }[] = cats
+    .slice(0, TOP)
+    .map((c) => ({ name: c.name, amount: c.amount, color: c.color ?? 'var(--color-negative)' }));
+  const otherAmt = cats.slice(TOP).reduce((s, c) => s + c.amount, 0);
+  if (otherAmt > 0) right.push({ name: 'Other', amount: otherAmt, color: 'var(--color-text-muted)' });
+  if (report.net > 0) right.push({ name: 'Saved', amount: report.net, color: 'var(--color-positive)' });
+  const total = right.reduce((s, r) => s + r.amount, 0);
+  if (total <= 0 || right.length === 0) return null;
+
+  const W = 720;
+  const padTop = 22;
+  const rowH = 34;
+  const gap = 8;
+  const H = padTop + right.length * rowH;
+  const chartH = right.length * rowH - 6;
+  const leftX = 2;
+  const leftW = 14;
+  const rightNodeX = 246;
+  const rightNodeW = 14;
+  const linkStart = leftX + leftW;
+  const totalGap = gap * (right.length - 1);
+  const rightAvail = chartH - totalGap;
+  const midX = (linkStart + rightNodeX) / 2;
+
+  let lY = padTop;
+  let rY = padTop;
+  const bands = right.map((n) => {
+    const frac = n.amount / total;
+    const lh = frac * chartH;
+    const rh = Math.max(1.5, frac * rightAvail);
+    const b = { ...n, lY, lh, rY, rh };
+    lY += lh;
+    rY += rh + gap;
+    return b;
+  });
+
   return (
     <section className="rounded-xl bg-surface-1 border border-border-subtle p-5 mb-5">
-      <h2 className="text-[14px] font-semibold mb-4">Money flow</h2>
-      <div className="flex flex-col gap-5">
-        <FlowBar title="Income in" total={report.income} segs={incSegs} />
-        <FlowBar title="…flows out to" total={outTotal} segs={outSegs} />
-      </div>
+      <h2 className="text-[14px] font-semibold mb-1">Money flow</h2>
+      <p className="text-[12px] text-text-tertiary mb-3">Income → where it goes.</p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: H }} role="img" aria-label="Income to spending flow">
+        {bands.map((b) => (
+          <path
+            key={b.name}
+            d={`M ${linkStart},${b.lY} C ${midX},${b.lY} ${midX},${b.rY} ${rightNodeX},${b.rY} L ${rightNodeX},${b.rY + b.rh} C ${midX},${b.rY + b.rh} ${midX},${b.lY + b.lh} ${linkStart},${b.lY + b.lh} Z`}
+            fill={b.color}
+            opacity={0.3}
+          >
+            <title>{b.name} · {money0(b.amount)} ({Math.round((b.amount / total) * 100)}%)</title>
+          </path>
+        ))}
+        <rect x={leftX} y={padTop} width={leftW} height={chartH} rx={3} fill="var(--color-cat-blue)" />
+        <text x={leftX} y={padTop - 8} fontSize="11" fill="var(--color-text-muted)">Income {money0(report.income)}</text>
+        {bands.map((b) => (
+          <g key={b.name}>
+            <rect x={rightNodeX} y={b.rY} width={rightNodeW} height={b.rh} rx={3} fill={b.color} />
+            <text x={rightNodeX + rightNodeW + 8} y={b.rY + b.rh / 2} dominantBaseline="middle" fontSize="12.5" fill="var(--color-text-secondary)">
+              {(b.name.length > 26 ? b.name.slice(0, 25) + '…' : b.name)} · {money0(b.amount)}
+            </text>
+          </g>
+        ))}
+      </svg>
     </section>
   );
 }
