@@ -82,6 +82,53 @@ function MonthlyChart({ report, prev }: { report: AnnualReport; prev: AnnualRepo
   );
 }
 
+function FlowBar({ title, total, segs }: { title: string; total: number; segs: { name: string; amount: number; color: string }[] }) {
+  if (total <= 0 || segs.length === 0) return null;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[12px] font-medium text-text-secondary">{title}</span>
+        <span className="text-[12px] tabular-nums text-text-tertiary">{money0(total)}</span>
+      </div>
+      <div className="flex h-7 w-full overflow-hidden rounded-lg">
+        {segs.map((s) => (
+          <div
+            key={s.name}
+            className="h-full first:rounded-l-lg last:rounded-r-lg min-w-[2px]"
+            style={{ width: `${(s.amount / total) * 100}%`, background: s.color }}
+            title={`${s.name} · ${money0(s.amount)} (${Math.round((s.amount / total) * 100)}%)`}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+        {segs.slice(0, 8).map((s) => (
+          <span key={s.name} className="flex items-center gap-1.5 text-[11px] text-text-tertiary">
+            <span className="size-2 rounded-sm shrink-0" style={{ background: s.color }} />
+            {s.name} <span className="tabular-nums text-text-muted">{Math.round((s.amount / total) * 100)}%</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MoneyFlow({ report }: { report: AnnualReport }) {
+  const incSegs = report.incomeByCategory.map((c) => ({ name: c.name, amount: c.amount, color: c.color ?? 'var(--color-cat-blue)' }));
+  const outSegs = report.spendingByCategory.map((c) => ({ name: c.name, amount: c.amount, color: c.color ?? 'var(--color-negative)' }));
+  const outTotal = report.spending + Math.max(0, report.net);
+  if (report.net > 0) outSegs.push({ name: 'Saved', amount: report.net, color: 'var(--color-positive)' });
+  if (report.income <= 0 && report.spending <= 0) return null;
+  return (
+    <section className="rounded-xl bg-surface-1 border border-border-subtle p-5 mb-5">
+      <h2 className="text-[14px] font-semibold mb-4">Money flow</h2>
+      <div className="flex flex-col gap-5">
+        <FlowBar title="Income in" total={report.income} segs={incSegs} />
+        <FlowBar title="…flows out to" total={outTotal} segs={outSegs} />
+      </div>
+    </section>
+  );
+}
+
 function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; prev: AnnualReport | null; topMerchants: TopMerchant[] }) {
   const py = report.year - 1;
   // Auto-insights derived from the loaded report (no extra queries).
@@ -136,6 +183,8 @@ function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; pr
           ))}
         </div>
       )}
+
+      <MoneyFlow report={report} />
 
       <div className="mb-5">
         <MonthlyChart report={report} prev={prev} />
