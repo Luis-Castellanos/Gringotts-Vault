@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { VendorLogo } from '@/components/VendorLogo';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { iconBg, iconFor } from '@/lib/categories/icons';
 import { SplitModal } from './SplitModal';
 
@@ -653,7 +654,7 @@ function FiltersBar({
             <label className="filter-option">
               <input type="checkbox" checked={filters.categoryIds.includes('__uncategorized__')}
                 onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, '__uncategorized__') })} />
-              <span className="swatch" style={{ background: 'var(--surface-elev)', border: '1px dashed var(--text-3)' }} />
+              <CategoryIcon name="uncategorized" color={null} size={20} />
               <span className="lbl">Uncategorized</span>
             </label>
           )}
@@ -662,7 +663,7 @@ function FiltersBar({
                 <label key={c.id} className="filter-option">
                   <input type="checkbox" checked={filters.categoryIds.includes(c.id)}
                     onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, c.id) })} />
-                  <span className="swatch" style={c.color ? { background: c.color } : undefined} />
+                  <CategoryIcon name={c.name} color={c.color} size={20} />
                   <span className="lbl">{c.parentName ? `${c.parentName} → ${c.name}` : c.name}</span>
                 </label>
               ))
@@ -677,14 +678,14 @@ function FiltersBar({
                         checked={parentSel(parent.id) === 'all'}
                         onChange={() => toggleParent(parent.id)}
                       />
-                      <span className="swatch" style={parent.color ? { background: parent.color } : undefined} />
+                      <CategoryIcon name={parent.name} color={parent.color} size={20} />
                       <span className="lbl"><strong>{parent.name}</strong></span>
                     </label>
                     {kids.map((c) => (
                       <label key={c.id} className="filter-option indent">
                         <input type="checkbox" checked={filters.categoryIds.includes(c.id)}
                           onChange={() => setFilters({ ...filters, categoryIds: toggleArr(filters.categoryIds, c.id) })} />
-                        <span className="swatch" style={c.color ? { background: c.color } : undefined} />
+                        <CategoryIcon name={c.name} color={c.color} size={20} />
                         <span className="lbl">{c.name}</span>
                       </label>
                     ))}

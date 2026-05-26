@@ -10,6 +10,7 @@ import type { RecurringReport, Cadence } from '@/lib/reports/recurring';
 import type { AnomalyReport } from '@/lib/reports/anomalies';
 import { PageHeader } from '@/components/PageHeader';
 import { StatTile } from '@/components/StatTile';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { fmtMoney0 as money0, fmtDate } from '@/lib/format';
 import { CustomPanel } from './CustomPanel';
 
@@ -36,9 +37,12 @@ function Breakdown({ title, cats, tone, year }: { title: string; cats: ReportCat
           {cats.slice(0, 10).map((c) => (
             <Link key={c.id} href={href(c.id)} className="relative rounded-lg overflow-hidden block group" title={`See ${c.name} transactions`}>
               <div className="absolute inset-y-0 left-0 rounded-lg opacity-[0.14] group-hover:opacity-[0.22] transition-opacity" style={{ width: `${(c.amount / max) * 100}%`, background: c.color ?? barColor }} />
-              <div className="relative flex justify-between px-3 py-2 text-[13px]">
-                <span className="truncate text-text-secondary group-hover:text-text-primary transition-colors">{c.name}</span>
-                <span className="tabular-nums text-text-primary ml-2">{money0(c.amount)}</span>
+              <div className="relative flex justify-between items-center gap-2 px-3 py-2 text-[13px]">
+                <span className="flex items-center gap-2 min-w-0">
+                  <CategoryIcon name={c.name} color={c.color} size={20} />
+                  <span className="truncate text-text-secondary group-hover:text-text-primary transition-colors">{c.name}</span>
+                </span>
+                <span className="tabular-nums text-text-primary ml-2 shrink-0">{money0(c.amount)}</span>
               </div>
             </Link>
           ))}
