@@ -5,15 +5,15 @@
  */
 
 import { getSetting, setSetting } from '@/lib/settings';
-import { ALL_NAV_HREFS } from '@/components/nav-config';
-import { DEFAULT_AVATAR_GRADIENT, type AvatarKind, type ProfileData } from './avatars';
+import { ALL_NAV_HREFS, normalizeSections } from '@/components/nav-config';
+import { DEFAULT_AVATAR_GRADIENT, type AvatarKind, type NavSection, type ProfileData } from './avatars';
 
 const NAME_KEY = 'profile_name';
 const KIND_KEY = 'profile_avatar_kind';
 const GRADIENT_KEY = 'profile_avatar_gradient';
 const IMAGE_KEY = 'profile_avatar_image';
 const NAV_HIDDEN_KEY = 'nav_hidden';
-const NAV_ORDER_KEY = 'nav_order';
+const NAV_LAYOUT_KEY = 'nav_layout';
 
 const VALID_HREFS = new Set<string>(ALL_NAV_HREFS);
 
@@ -29,33 +29,26 @@ function parseHidden(raw: string | null): string[] {
   }
 }
 
-// The custom nav order: stored hrefs (valid + de-duped) first, then any nav
-// hrefs not yet in the stored order appended in their default position — so new
-// pages always show up even after a custom order was saved.
-function parseOrder(raw: string | null): string[] {
-  let stored: string[] = [];
-  if (raw) {
-    try {
-      const arr = JSON.parse(raw) as unknown;
-      if (Array.isArray(arr)) stored = arr.filter((h): h is string => typeof h === 'string' && VALID_HREFS.has(h));
-    } catch {
-      stored = [];
-    }
+// The custom sidebar layout (sections + ordered pages). normalizeSections drops
+// stale/duplicate hrefs and appends any new pages, so the result is always valid.
+function parseLayout(raw: string | null): NavSection[] {
+  if (!raw) return normalizeSections(null);
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return normalizeSections(Array.isArray(parsed) ? (parsed as NavSection[]) : null);
+  } catch {
+    return normalizeSections(null);
   }
-  const seen = new Set(stored);
-  const ordered = [...stored];
-  for (const h of ALL_NAV_HREFS) if (!seen.has(h)) ordered.push(h);
-  return ordered;
 }
 
 export async function getProfile(): Promise<ProfileData> {
-  const [name, kind, gradient, image, navHidden, navOrder] = await Promise.all([
+  const [name, kind, gradient, image, navHidden, navLayout] = await Promise.all([
     getSetting(NAME_KEY),
     getSetting(KIND_KEY),
     getSetting(GRADIENT_KEY),
     getSetting(IMAGE_KEY),
     getSetting(NAV_HIDDEN_KEY),
-    getSetting(NAV_ORDER_KEY),
+    getSetting(NAV_LAYOUT_KEY),
   ]);
   return {
     name: name ?? '',
@@ -63,7 +56,7 @@ export async function getProfile(): Promise<ProfileData> {
     avatarGradient: gradient || DEFAULT_AVATAR_GRADIENT,
     avatarImage: image || null,
     navHidden: parseHidden(navHidden),
-    navOrder: parseOrder(navOrder),
+    navLayout: parseLayout(navLayout),
   };
 }
 
@@ -73,7 +66,7 @@ export type ProfilePatch = {
   avatarGradient?: string;
   avatarImage?: string | null;
   navHidden?: string[];
-  navOrder?: string[];
+  navLayout?: NavSection[];
 };
 
 export async function setProfile(patch: ProfilePatch): Promise<void> {
@@ -86,9 +79,8 @@ export async function setProfile(patch: ProfilePatch): Promise<void> {
     const clean = patch.navHidden.filter((h) => VALID_HREFS.has(h));
     writes.push(setSetting(NAV_HIDDEN_KEY, JSON.stringify(clean)));
   }
-  if (patch.navOrder !== undefined) {
-    const clean = patch.navOrder.filter((h) => VALID_HREFS.has(h));
-    writes.push(setSetting(NAV_ORDER_KEY, JSON.stringify(clean)));
+  if (patch.navLayout !== undefined) {
+    writes.push(setSetting(NAV_LAYOUT_KEY, JSON.stringify(normalizeSections(patch.navLayout))));
   }
   await Promise.all(writes);
 }

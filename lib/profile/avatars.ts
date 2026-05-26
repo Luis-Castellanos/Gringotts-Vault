@@ -40,13 +40,16 @@ export function initialsFromName(name: string | null | undefined): string {
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
+/** A user-defined sidebar section: a heading + an ordered list of page hrefs. */
+export type NavSection = { id: string; label: string; items: string[] };
+
 export type ProfileData = {
   name: string;
   avatarKind: AvatarKind;
   avatarGradient: string;
   avatarImage: string | null;
   navHidden: string[];
-  navOrder: string[];
+  navLayout: NavSection[];
 };
 
 /** Event the Settings editor dispatches so the Sidebar updates without a reload. */

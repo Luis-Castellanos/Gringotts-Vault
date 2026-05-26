@@ -109,7 +109,7 @@ export default async function SettingsPage() {
       <SettingsTabs
         tabs={[
           { id: 'profile', label: 'Profile', content: <ProfileSettings initial={profile} /> },
-          { id: 'sidebar', label: 'Sidebar', content: <SidebarSettings initialHidden={profile.navHidden} initialOrder={profile.navOrder} /> },
+          { id: 'sidebar', label: 'Sidebar', content: <SidebarSettings initialHidden={profile.navHidden} initialLayout={profile.navLayout} /> },
           { id: 'accounts', label: 'Accounts', content: <div className="acctset-page"><AccountsSettingsClient accounts={acctRowsView} /></div> },
           { id: 'account-types', label: 'Account Types', content: <SettingsClient groups={groupRows} rows={rows} /> },
           { id: 'categories', label: 'Categories', content: <div className="categories-page"><CategoriesClient nodes={catNodes} /></div> },

@@ -4,6 +4,7 @@
  * Sidebar.tsx, so both can import the same source of truth (href + label + icon).
  */
 
+import type { NavSection } from '@/lib/profile/avatars';
 import {
   IconAudit,
   IconCashflow,
@@ -94,26 +95,49 @@ export const ALL_NAV_ITEMS: readonly NavItem[] = NAV_GROUPS.flatMap((g) => g.ite
 /** Every nav href in default display order — used to validate stored prefs. */
 export const ALL_NAV_HREFS: readonly NavHref[] = ALL_NAV_ITEMS.map((i) => i.href);
 
-const ITEM_BY_HREF = new Map<string, NavItem>(ALL_NAV_ITEMS.map((i) => [i.href, i]));
+export const ITEM_BY_HREF = new Map<string, NavItem>(ALL_NAV_ITEMS.map((i) => [i.href, i]));
+
+/** Sensible starting sections (replaces the old dev-status grouping). */
+export const DEFAULT_SECTIONS: NavSection[] = [
+  { id: 'spending', label: 'Spending', items: ['/review', '/transactions', '/payroll', '/credit-cards'] },
+  { id: 'insights', label: 'Insights', items: ['/', '/net-worth', '/cashflow', '/reports'] },
+  { id: 'planning', label: 'Planning', items: ['/goals', '/forecasting', '/tax', '/rentals', '/investments', '/transfers'] },
+  { id: 'data', label: 'Data', items: ['/upload', '/files', '/audit'] },
+];
 
 /**
- * Resolve the sidebar's nav to a single flat list: items in the user's custom
- * `navOrder`, minus anything in `navHidden`, with any items not yet in the order
- * appended (so new pages still appear). No group headers.
+ * Normalize a (possibly partial/stale) layout into a complete, valid one: drop
+ * unknown/duplicate hrefs, keep only real sections, and ensure every nav page is
+ * placed exactly once — any missing pages (new routes) are appended to the last
+ * section. Empty input falls back to DEFAULT_SECTIONS.
  */
-export function orderedNav(navOrder: readonly string[], navHidden: readonly string[]): NavItem[] {
+export function normalizeSections(raw: NavSection[] | null | undefined): NavSection[] {
+  const source = raw && raw.length ? raw : DEFAULT_SECTIONS;
+  const placed = new Set<string>();
+  let sections: NavSection[] = source
+    .filter((s) => s && typeof s.label === 'string')
+    .map((s, i) => {
+      const items = (Array.isArray(s.items) ? s.items : []).filter((h) => ITEM_BY_HREF.has(h) && !placed.has(h));
+      items.forEach((h) => placed.add(h));
+      return { id: s.id || `sec-${i}`, label: s.label, items };
+    });
+  if (sections.length === 0) sections = [{ id: 'main', label: 'Menu', items: [] }];
+  const missing = ALL_NAV_ITEMS.map((i) => i.href).filter((h) => !placed.has(h));
+  if (missing.length) sections[sections.length - 1]!.items.push(...missing);
+  return sections;
+}
+
+/** For rendering: sections with resolved NavItems, hidden pages removed, empties dropped. */
+export function resolveSections(
+  layout: NavSection[],
+  navHidden: readonly string[],
+): { id: string; label: string; items: NavItem[] }[] {
   const hidden = new Set(navHidden);
-  const seen = new Set<string>();
-  const out: NavItem[] = [];
-  for (const href of navOrder) {
-    const item = ITEM_BY_HREF.get(href);
-    if (item && !hidden.has(href) && !seen.has(href)) {
-      out.push(item);
-      seen.add(href);
-    }
-  }
-  for (const item of ALL_NAV_ITEMS) {
-    if (!seen.has(item.href) && !hidden.has(item.href)) out.push(item);
-  }
-  return out;
+  return normalizeSections(layout)
+    .map((s) => ({
+      id: s.id,
+      label: s.label,
+      items: s.items.map((h) => ITEM_BY_HREF.get(h)).filter((it): it is NavItem => !!it && !hidden.has(it.href)),
+    }))
+    .filter((s) => s.items.length > 0);
 }

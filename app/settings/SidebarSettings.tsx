@@ -1,70 +1,33 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
-import { ALL_NAV_ITEMS, type NavItem } from '@/components/nav-config';
-import { PROFILE_EVENT, type ProfileData } from '@/lib/profile/avatars';
+import { ITEM_BY_HREF, normalizeSections } from '@/components/nav-config';
+import { PROFILE_EVENT, type NavSection, type ProfileData } from '@/lib/profile/avatars';
+import { Select } from '@/components/Select';
 
-const BY_HREF = new Map<string, NavItem>(ALL_NAV_ITEMS.map((i) => [i.href, i]));
-
-/** Full nav list in `order`, with any missing items appended (incl. hidden ones). */
-function orderedAll(order: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const h of order) if (BY_HREF.has(h) && !seen.has(h)) { out.push(h); seen.add(h); }
-  for (const it of ALL_NAV_ITEMS) if (!seen.has(it.href)) out.push(it.href);
-  return out;
-}
-
-function CheckBox({ on }: { on: boolean }) {
-  return (
-    <span
-      className={`size-[18px] rounded-[5px] flex items-center justify-center border transition-colors shrink-0 ${
-        on ? 'border-accent-500 bg-accent-500' : 'border-border-strong bg-transparent'
-      }`}
-    >
-      {on && (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M5 12l5 5L20 6" />
-        </svg>
-      )}
-    </span>
-  );
-}
-
-export function SidebarSettings({ initialHidden, initialOrder }: { initialHidden: string[]; initialOrder: string[] }) {
-  const [order, setOrder] = useState<string[]>(() => orderedAll(initialOrder));
+export function SidebarSettings({ initialLayout, initialHidden }: { initialLayout: NavSection[]; initialHidden: string[] }) {
+  const [layout, setLayout] = useState<NavSection[]>(() => normalizeSections(initialLayout));
   const [hidden, setHidden] = useState<Set<string>>(new Set(initialHidden));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [dragging, setDragging] = useState<string | null>(null);
-  const dragHref = useRef<string | null>(null);
 
-  const shown = (href: string) => !hidden.has(href);
-
-  function toggle(href: string) {
-    setMsg(null);
-    setHidden((prev) => {
-      const next = new Set(prev);
-      if (next.has(href)) next.delete(href);
-      else next.add(href);
-      return next;
-    });
-  }
-
-  function drop(targetHref: string) {
-    const from = dragHref.current;
-    dragHref.current = null;
-    setDragging(null);
-    if (!from || from === targetHref) return;
-    setMsg(null);
-    setOrder((prev) => {
-      const next = prev.filter((h) => h !== from);
-      const idx = next.indexOf(targetHref);
-      next.splice(idx < 0 ? next.length : idx, 0, from);
-      return next;
-    });
-  }
+  const dirty = () => setMsg(null);
+  const shown = (h: string) => !hidden.has(h);
+  const toggleVis = (h: string) => { dirty(); setHidden((prev) => { const n = new Set(prev); if (n.has(h)) n.delete(h); else n.add(h); return n; }); };
+  const rename = (id: string, label: string) => { dirty(); setLayout((ls) => ls.map((s) => (s.id === id ? { ...s, label } : s))); };
+  const addSection = () => { dirty(); setLayout((ls) => [...ls, { id: `sec-${Date.now()}`, label: 'New section', items: [] }]); };
+  const deleteSection = (id: string) => {
+    dirty();
+    setLayout((ls) => (ls.length <= 1 ? ls : normalizeSections(ls.filter((s) => s.id !== id))));
+  };
+  const moveTo = (href: string, toId: string) => {
+    dirty();
+    setLayout((ls) => ls.map((s) => ({
+      ...s,
+      items: s.id === toId ? (s.items.includes(href) ? s.items : [...s.items, href]) : s.items.filter((h) => h !== href),
+    })));
+  };
 
   async function save() {
     setBusy(true);
@@ -72,63 +35,101 @@ export function SidebarSettings({ initialHidden, initialOrder }: { initialHidden
     const res = await fetch('/api/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ navHidden: [...hidden], navOrder: order }),
+      body: JSON.stringify({ navLayout: layout, navHidden: [...hidden] }),
     });
     setBusy(false);
     const json = await res.json().catch(() => ({}));
     if (json.error) setMsg(json.error.message ?? 'Could not save.');
     else {
       setMsg('Saved.');
-      if (json.data) window.dispatchEvent(new CustomEvent(PROFILE_EVENT, { detail: json.data as ProfileData }));
+      if (json.data) {
+        const data = json.data as ProfileData;
+        setLayout(normalizeSections(data.navLayout));
+        window.dispatchEvent(new CustomEvent(PROFILE_EVENT, { detail: data }));
+      }
     }
   }
 
+  const sectionOptions = layout.map((s) => ({ value: s.id, label: s.label || 'Untitled' }));
   const hiddenCount = hidden.size;
 
   return (
     <section className="rounded-xl border border-border-subtle bg-surface-1 p-5 mb-8">
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-[15px] font-semibold">Sidebar pages</h2>
+        <h2 className="text-[15px] font-semibold">Sidebar sections</h2>
         <span className="text-[11px] text-text-tertiary">{hiddenCount > 0 ? `${hiddenCount} hidden` : 'All shown'}</span>
       </div>
       <p className="text-[12.5px] text-text-tertiary mb-4">
-        Drag <span className="text-text-secondary">⋮⋮</span> to reorder the sidebar. Click a row to show/hide it (hidden pages still exist at their URL).
+        Organize the sidebar into your own sections. Rename a heading, move a page to another section, or hide it.
+        You can also <span className="text-text-secondary">drag the ⠿ handles directly in the sidebar</span> to reorder pages and sections.
       </p>
 
-      <div className="max-w-[440px] rounded-lg border border-border-subtle divide-y divide-border-subtle">
-        {order.map((href) => {
-          const item = BY_HREF.get(href);
-          if (!item) return null;
-          const Icon = item.Icon;
-          const on = shown(href);
-          return (
-            <div
-              key={href}
-              draggable
-              onDragStart={() => { dragHref.current = href; setDragging(href); }}
-              onDragEnd={() => { dragHref.current = null; setDragging(null); }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => drop(href)}
-              className={`flex items-center gap-2.5 px-3 py-2 ${dragging === href ? 'opacity-40' : ''}`}
-            >
-              <span className="cursor-grab active:cursor-grabbing text-text-muted hover:text-text-secondary select-none leading-none" title="Drag to reorder">⋮⋮</span>
+      <div className="flex flex-col gap-4 max-w-[520px]">
+        {layout.map((section) => (
+          <div key={section.id} className="rounded-lg border border-border-subtle bg-surface-base">
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle">
+              <input
+                value={section.label}
+                onChange={(e) => rename(section.id, e.target.value)}
+                placeholder="Section name"
+                maxLength={40}
+                className="flex-1 bg-transparent text-[12px] font-semibold uppercase tracking-[0.07em] text-text-secondary focus:outline-none focus:text-text-primary"
+              />
               <button
                 type="button"
-                role="checkbox"
-                aria-checked={on}
-                onClick={() => toggle(href)}
-                className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                onClick={() => deleteSection(section.id)}
+                disabled={layout.length <= 1}
+                title={layout.length <= 1 ? 'Keep at least one section' : 'Delete section (its pages move to the last section)'}
+                className="text-text-muted hover:text-negative disabled:opacity-30 disabled:hover:text-text-muted transition-colors text-[15px] leading-none"
+                aria-label={`Delete ${section.label}`}
               >
-                <CheckBox on={on} />
-                <Icon size={16} className={on ? 'text-text-secondary' : 'text-text-muted'} />
-                <span className={`text-[13px] truncate ${on ? 'text-text-primary' : 'text-text-muted line-through'}`}>{item.label}</span>
+                ×
               </button>
             </div>
-          );
-        })}
+            <div className="flex flex-col py-1">
+              {section.items.length === 0 && <div className="px-3 py-2 text-[12px] text-text-muted">No pages — move some here.</div>}
+              {section.items.map((href) => {
+                const item = ITEM_BY_HREF.get(href);
+                if (!item) return null;
+                const Icon = item.Icon;
+                const on = shown(href);
+                return (
+                  <div key={href} className="flex items-center gap-2.5 px-3 py-1.5">
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={on}
+                      onClick={() => toggleVis(href)}
+                      className={`size-[18px] rounded-[5px] flex items-center justify-center border shrink-0 transition-colors ${on ? 'border-accent-500 bg-accent-500' : 'border-border-strong bg-transparent'}`}
+                      title={on ? 'Visible — click to hide' : 'Hidden — click to show'}
+                    >
+                      {on && (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M5 12l5 5L20 6" />
+                        </svg>
+                      )}
+                    </button>
+                    <Icon size={16} className={on ? 'text-text-secondary' : 'text-text-muted'} />
+                    <span className={`text-[13px] flex-1 min-w-0 truncate ${on ? 'text-text-primary' : 'text-text-muted line-through'}`}>{item.label}</span>
+                    <Select
+                      value={section.id}
+                      onChange={(v) => moveTo(href, v)}
+                      options={sectionOptions}
+                      className="vsel-sm shrink-0"
+                      ariaLabel={`Move ${item.label} to section`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="flex items-center gap-3 mt-5">
+      <div className="flex items-center gap-3 mt-4">
+        <button type="button" onClick={addSection} className="rounded-lg border border-border-subtle hover:bg-surface-2 text-text-secondary text-[13px] font-medium px-3.5 py-2 transition-colors">
+          + Add section
+        </button>
         <button type="button" onClick={save} disabled={busy} className="rounded-lg bg-accent-500 hover:brightness-110 disabled:opacity-50 text-white text-[13px] font-medium px-4 py-2 transition-colors">
           {busy ? 'Saving…' : 'Save sidebar'}
         </button>
