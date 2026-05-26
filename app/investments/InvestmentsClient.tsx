@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 
 import type { Holdings, HoldingView, InvAccount, InvestmentsData, ValuePoint } from '@/lib/investments/load';
 import { accountTypeLabel } from '@/lib/account-types';
@@ -208,16 +209,35 @@ function HoldingsSection({ holdings, realizedGain }: { holdings: Holdings; reali
   );
 }
 
+const PERIODS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const;
+type Period = (typeof PERIODS)[number];
+function periodCutoff(p: Period): string | null {
+  if (p === 'ALL') return null;
+  const d = new Date();
+  if (p === 'YTD') return `${d.getFullYear()}-01-01`;
+  d.setMonth(d.getMonth() - (p === '1M' ? 1 : p === '3M' ? 3 : p === '6M' ? 6 : 12));
+  return d.toISOString().slice(0, 10);
+}
+function slicePeriod(series: ValuePoint[], p: Period): ValuePoint[] {
+  const cut = periodCutoff(p);
+  return cut ? series.filter((x) => x.date >= cut) : series;
+}
+
 export function InvestmentsClient({ data }: { data: InvestmentsData }) {
   const { totalValue, delta30, accounts, series, holdingsSeries, benchmarkSeries, benchmark, holdings } = data;
+  const [period, setPeriod] = useState<Period>('ALL');
   // Prefer the true market-value series (from holdings snapshots); fall back to
   // the cash-flow (net contributions) series when there's no holdings history.
   const hasMV = holdingsSeries.length >= 2;
-  const chartSeries = hasMV ? holdingsSeries : series;
-  const benchAligned = hasMV ? alignBenchmark(holdingsSeries.map((p) => p.date), benchmarkSeries) : [];
-  const showPerf = hasMV && benchAligned.length >= 2;
-  const portPct = showPerf ? toPct(holdingsSeries) : [];
-  const benchPct = showPerf ? toPct(benchAligned) : [];
+  const baseSeries = hasMV ? holdingsSeries : series;
+  const chartSeries = slicePeriod(baseSeries, period);
+  const benchFull = hasMV ? alignBenchmark(holdingsSeries.map((p) => p.date), benchmarkSeries) : [];
+  // Performance %s are period-relative (normalized to the first point in range).
+  const portSliced = slicePeriod(holdingsSeries, period);
+  const benchSliced = slicePeriod(benchFull, period);
+  const showPerf = hasMV && benchSliced.length >= 2 && portSliced.length >= 2;
+  const portPct = showPerf ? toPct(portSliced) : [];
+  const benchPct = showPerf ? toPct(benchSliced) : [];
   const portReturn = portPct.length ? portPct[portPct.length - 1]!.pct : null;
   const benchReturn = benchPct.length ? benchPct[benchPct.length - 1]!.pct : null;
 
@@ -269,6 +289,20 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
             {moneySigned(delta30)} <span className="text-text-tertiary">last 30 days</span>
           </div>
         </div>
+        <div className="flex justify-end mb-2">
+          <div className="inline-flex items-center gap-0.5 rounded-lg border border-border-subtle p-0.5">
+            {PERIODS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${period === p ? 'bg-accent-500 text-white' : 'text-text-tertiary hover:text-text-primary'}`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
         <AreaChart series={chartSeries} />
         <div className="text-[11px] text-text-muted mt-1">{hasMV ? 'Market value from statement holdings.' : 'Net contributions from account history (upload brokerage statements for true market value).'}</div>
       </section>
@@ -289,8 +323,8 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
               </span>
             </div>
           </div>
-          <PerformanceChart portfolio={holdingsSeries} benchmark={benchAligned} />
-          <div className="text-[11px] text-text-muted mt-1">% growth since {holdingsSeries[0]!.date}. Benchmark is SPY (S&amp;P 500 proxy), aligned to your statement dates.</div>
+          <PerformanceChart portfolio={portSliced} benchmark={benchSliced} />
+          <div className="text-[11px] text-text-muted mt-1">% growth since {portSliced[0]!.date}. Benchmark is SPY (S&amp;P 500 proxy), aligned to your statement dates.</div>
         </section>
       )}
 
