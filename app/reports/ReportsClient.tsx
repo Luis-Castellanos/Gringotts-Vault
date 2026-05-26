@@ -48,27 +48,35 @@ function Breakdown({ title, cats, tone, year }: { title: string; cats: ReportCat
   );
 }
 
-function MonthlyChart({ report }: { report: AnnualReport }) {
-  const max = Math.max(1, ...report.months.flatMap((m) => [m.income, m.spending]));
+function MonthlyChart({ report, prev }: { report: AnnualReport; prev: AnnualReport | null }) {
+  const py = report.year - 1;
+  const max = Math.max(1, ...report.months.flatMap((m) => [m.income, m.spending]), ...(prev?.months.map((m) => m.spending) ?? []));
   return (
     <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-[14px] font-semibold">Monthly income vs spending</h2>
         <div className="flex items-center gap-3 text-[11px] text-text-tertiary">
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-cat-blue" /> Income</span>
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-negative" /> Spending</span>
+          {prev && <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-text-muted/40" /> {py} spend</span>}
         </div>
       </div>
       <div className="flex items-end justify-between gap-2 h-40">
-        {report.months.map((m) => (
-          <div key={m.month} className="flex-1 flex flex-col items-center gap-1.5">
-            <div className="flex items-end gap-0.5 h-32 w-full justify-center">
-              <div className="w-2.5 rounded-t bg-cat-blue" style={{ height: `${(m.income / max) * 100}%` }} title={`Income ${money0(m.income)}`} />
-              <div className="w-2.5 rounded-t bg-negative" style={{ height: `${(m.spending / max) * 100}%` }} title={`Spending ${money0(m.spending)}`} />
+        {report.months.map((m, i) => {
+          const prevSpend = prev?.months[i]?.spending ?? null;
+          return (
+            <div key={m.month} className="flex-1 flex flex-col items-center gap-1.5">
+              <div className="flex items-end gap-0.5 h-32 w-full justify-center">
+                {prevSpend != null && (
+                  <div className="w-1.5 rounded-t bg-text-muted/35" style={{ height: `${(prevSpend / max) * 100}%` }} title={`${py} spending ${money0(prevSpend)}`} />
+                )}
+                <div className="w-2.5 rounded-t bg-cat-blue" style={{ height: `${(m.income / max) * 100}%` }} title={`Income ${money0(m.income)}`} />
+                <div className="w-2.5 rounded-t bg-negative" style={{ height: `${(m.spending / max) * 100}%` }} title={`Spending ${money0(m.spending)}`} />
+              </div>
+              <span className="text-[10px] text-text-muted">{MONTHS[m.month - 1]}</span>
             </div>
-            <span className="text-[10px] text-text-muted">{MONTHS[m.month - 1]}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -130,7 +138,7 @@ function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; pr
       )}
 
       <div className="mb-5">
-        <MonthlyChart report={report} />
+        <MonthlyChart report={report} prev={prev} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <Breakdown title="Income by source" cats={report.incomeByCategory} tone="pos" year={report.year} />
