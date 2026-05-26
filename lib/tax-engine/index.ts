@@ -15,8 +15,8 @@ export { DOCUMENT_SCHEMAS, DOCUMENT_ORDER, aggregateDocuments } from './document
 export type { TaxDocument, TaxDocumentType, DocSchema, DocFieldDef, DocOptionDef, DocumentAggregate } from './documents';
 export { WORKSPACE_VERSION, defaultWorkspace, workspaceToInput, computeWorkspace, normalizeWorkspace } from './workspace';
 export type { TaxWorkspace } from './workspace';
-export { emptyLevers, leversActive, applyLevers, bracketSegments, bracketHeadroom, scenarioConsequences } from './scenario';
-export type { ScenarioLevers, BracketSegment, Consequence } from './scenario';
+export { emptyLevers, leversActive, applyLevers, bracketSegments, bracketHeadroom, scenarioConsequences, rothFillTargets } from './scenario';
+export type { ScenarioLevers, BracketSegment, Consequence, SavedScenario, RothFillTarget } from './scenario';
 
 import type { TaxReturnInput, TaxReturnResult } from './model';
 import { computeFederalReturn } from './federal/return';

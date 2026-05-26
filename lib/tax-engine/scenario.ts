@@ -5,6 +5,8 @@
  */
 
 import type { TaxReturnInput, TaxReturnResult, FilingStatus, Bracket } from './model';
+import { computeFederalReturn } from './federal/return';
+import { yearData } from './data';
 
 export type ScenarioLevers = {
   additionalOrdinaryIncome: number; // extra ordinary income (bonus, interest, a side W-2…)
@@ -16,6 +18,9 @@ export type ScenarioLevers = {
   additionalCharitable: number; // additional charitable giving (itemized)
   filingStatus: FilingStatus | null; // filing-status what-if (null = keep baseline)
 };
+
+/** A named, saved set of levers — for side-by-side comparison. */
+export type SavedScenario = { id: string; name: string; levers: ScenarioLevers };
 
 export function emptyLevers(): ScenarioLevers {
   return {
@@ -89,6 +94,30 @@ export function bracketHeadroom(taxableIncome: number, brackets: Bracket[]): { r
     prev = b.upTo;
   }
   return { rate: brackets[brackets.length - 1]?.rate ?? 0, nextRate: null, headroom: Infinity };
+}
+
+// --- Roth-conversion bracket-fill optimizer --------------------------------
+
+export type RothFillTarget = { rate: number; nextRate: number | null; top: number; fill: number };
+
+/**
+ * How much additional ordinary income (a Roth conversion) would exactly fill
+ * each remaining ordinary bracket, starting from the scenario's ordinary taxable
+ * income *excluding* any current Roth-conversion lever. Approximate — ignores
+ * second-order effects (e.g. a conversion nudging Social-Security taxability).
+ */
+export function rothFillTargets(baseInput: TaxReturnInput, leversExceptRoth: ScenarioLevers): { ordinaryTaxable: number; targets: RothFillTarget[] } {
+  const r = computeFederalReturn(applyLevers(baseInput, { ...leversExceptRoth, rothConversion: 0 }));
+  const brackets = yearData(r.taxYear).ordinaryBrackets[r.filingStatus];
+  const ord = r.ordinaryTaxableIncome;
+  const targets: RothFillTarget[] = [];
+  for (let i = 0; i < brackets.length; i++) {
+    const b = brackets[i];
+    if (Number.isFinite(b.upTo) && b.upTo > ord) {
+      targets.push({ rate: b.rate, nextRate: brackets[i + 1]?.rate ?? null, top: b.upTo, fill: b.upTo - ord });
+    }
+  }
+  return { ordinaryTaxable: ord, targets };
 }
 
 // --- Consequences ----------------------------------------------------------

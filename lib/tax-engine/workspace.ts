@@ -9,6 +9,7 @@
 import type { FilingStatus, TaxReturnInput, TaxReturnResult } from './model';
 import { computeFederalReturn } from './federal/return';
 import { aggregateDocuments, type TaxDocument } from './documents';
+import type { SavedScenario } from './scenario';
 
 export const WORKSPACE_VERSION = 1;
 
@@ -57,6 +58,7 @@ export type TaxWorkspace = {
     priorYearAgiOver150k: boolean;
   };
   notes: string; // free-text work-paper notes
+  scenarios: SavedScenario[]; // saved what-if scenarios (Plan tab)
 };
 
 export function defaultWorkspace(taxYear: number, filingStatus: FilingStatus = 'single'): TaxWorkspace {
@@ -71,6 +73,7 @@ export function defaultWorkspace(taxYear: number, filingStatus: FilingStatus = '
     credits: { dependentCareExpenses: 0, dependentCareQualifyingPersons: 0, energyCredits: 0, otherCredits: 0 },
     payments: { estimatedPayments: 0, priorYearTax: 0, priorYearAgiOver150k: false },
     notes: '',
+    scenarios: [],
   };
 }
 
@@ -153,6 +156,7 @@ export function normalizeWorkspace(raw: unknown, taxYear: number, filingStatus: 
     credits: { ...base.credits, ...(w.credits ?? {}) },
     payments: { ...base.payments, ...(w.payments ?? {}) },
     documents: Array.isArray(w.documents) ? w.documents : [],
+    scenarios: Array.isArray(w.scenarios) ? w.scenarios : [],
     version: WORKSPACE_VERSION,
   };
 }
