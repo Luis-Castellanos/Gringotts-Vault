@@ -478,9 +478,14 @@ function CategoryPills({
   onPick: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const pick = (id: string) => { onPick(id); setOpen(false); };
+  const [q, setQ] = useState('');
+  const pick = (id: string) => { onPick(id); setOpen(false); setQ(''); };
   const parents = all.filter((c) => !c.parent);
   const childrenOf = (pid: string) => all.filter((c) => c.parent?.id === pid);
+  const query = q.trim().toLowerCase();
+  const searchHits = query
+    ? all.filter((c) => c.slug !== 'uncategorized' && (c.name.toLowerCase().includes(query) || (c.parent?.name ?? '').toLowerCase().includes(query)))
+    : [];
 
   const row = (c: Category) => (
     <button
@@ -497,7 +502,7 @@ function CategoryPills({
   return (
     <div className="relative mb-4">
       <div className="flex flex-wrap items-center gap-2.5">
-        {quick.map((c, i) => {
+        {quick.slice(0, 9).map((c, i) => {
           const isPending = pendingId === c.id;
           const isSuggested = !pendingId && suggestedId === c.id;
           const ringClass =
@@ -523,26 +528,61 @@ function CategoryPills({
           onClick={() => setOpen((o) => !o)}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface-base border border-border-strong rounded-full text-[15px] text-text-tertiary cursor-pointer hover:border-text-muted"
         >
-          + More…
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="6" cy="6" r="4" /><path d="M9.5 9.5L12 12" />
+          </svg>
+          Search…
         </button>
       </div>
 
       {open && (
         <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-2 z-40 w-[420px] max-w-full max-h-[360px] overflow-y-auto bg-surface-2 border border-border-strong rounded-xl shadow-2xl p-2">
-            {parents.map((p) => {
-              const kids = childrenOf(p.id);
-              if (kids.length === 0) return row(p);
-              return (
-                <div key={p.id} className="mb-1">
-                  <div className="px-2.5 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                    {p.name}
-                  </div>
-                  {kids.map((c) => row(c))}
-                </div>
-              );
-            })}
+          <div className="fixed inset-0 z-30" onClick={() => { setOpen(false); setQ(''); }} />
+          <div className="absolute left-0 top-full mt-2 z-40 w-[420px] max-w-full bg-surface-2 border border-border-strong rounded-xl shadow-2xl p-2">
+            <div className="flex items-center gap-2 px-2.5 py-2 mb-1 border-b border-border-subtle">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-tertiary" aria-hidden>
+                <circle cx="6" cy="6" r="4" /><path d="M9.5 9.5L12 12" />
+              </svg>
+              <input
+                autoFocus
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search all categories…"
+                className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+              />
+            </div>
+            <div className="max-h-[320px] overflow-y-auto">
+              {query ? (
+                searchHits.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-text-muted">No categories match.</div>
+                ) : (
+                  searchHits.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => pick(c.id)}
+                      className={`flex items-center gap-2.5 w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-surface-3 ${pendingId === c.id ? 'bg-accent-soft text-accent-200' : 'text-text-secondary'}`}
+                    >
+                      <span className="text-base leading-none">{iconFor(c.name)}</span>
+                      <span className="truncate">{c.parent ? <span className="text-text-muted">{c.parent.name} → </span> : null}{c.name}</span>
+                    </button>
+                  ))
+                )
+              ) : (
+                parents.map((p) => {
+                  const kids = childrenOf(p.id);
+                  if (kids.length === 0) return row(p);
+                  return (
+                    <div key={p.id} className="mb-1">
+                      <div className="px-2.5 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                        {p.name}
+                      </div>
+                      {kids.map((c) => row(c))}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </>
       )}
