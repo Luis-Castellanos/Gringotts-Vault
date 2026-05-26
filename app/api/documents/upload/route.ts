@@ -27,6 +27,7 @@ import { db } from '@/lib/db/client';
 import { documents, imports } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { runExtractor, type ExtractResult } from '@/lib/parser/extract';
+import { parserAvailable, PARSER_UNAVAILABLE_MESSAGE } from '@/lib/parser/availability';
 import { ingestBalanceSnapshot, ingestHoldings, ingestParsedStatement, ingestPaystub, loadIngestMaps } from '@/lib/ingest';
 
 export const runtime = 'nodejs';
@@ -324,6 +325,10 @@ async function processItem(item: ParsedItem, maps: Awaited<ReturnType<typeof loa
 }
 
 export const POST = handler(async (req: NextRequest) => {
+  if (!parserAvailable()) {
+    return fail('parser_unavailable', PARSER_UNAVAILABLE_MESSAGE, 503);
+  }
+
   const form = await req.formData();
   const files = form.getAll('files').filter((f): f is File => f instanceof File);
   if (files.length === 0) {

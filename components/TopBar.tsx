@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   SIDEBAR_EVENT,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/sidebar-state';
 
 export function TopBar() {
+  const pathname = usePathname();
   const [open, setOpen] = useState<boolean>(true);
 
   useEffect(() => {
@@ -24,6 +26,8 @@ export function TopBar() {
   function toggle() {
     writeSidebarState({ open: !open });
   }
+
+  if (pathname === '/login') return null;
 
   return (
     <div

@@ -687,6 +687,21 @@ export const balanceSnapshots = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// webauthn_credentials — passkeys for the single owner (Phase 3 auth). No user
+// table: this is a single-user app, so every credential belongs to the owner.
+// ---------------------------------------------------------------------------
+
+export const webauthnCredentials = pgTable('webauthn_credentials', {
+  id: text('id').primaryKey(), // credential ID (base64url)
+  publicKey: text('public_key').notNull(), // base64url-encoded COSE public key
+  counter: integer('counter').notNull().default(0),
+  transports: text('transports'), // JSON array of AuthenticatorTransport
+  deviceLabel: text('device_label'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+});
+
+// ---------------------------------------------------------------------------
 // Inferred types — use these throughout the app
 // ---------------------------------------------------------------------------
 

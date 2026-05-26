@@ -14,6 +14,7 @@ import { db } from '@/lib/db/client';
 import { documents } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { runExtractor } from '@/lib/parser/extract';
+import { parserAvailable, PARSER_UNAVAILABLE_MESSAGE } from '@/lib/parser/availability';
 import { previewIngest } from '@/lib/ingest';
 
 export const runtime = 'nodejs';
@@ -112,6 +113,10 @@ async function previewFile(file: File): Promise<PreviewResult> {
 }
 
 export const POST = handler(async (req: NextRequest) => {
+  if (!parserAvailable()) {
+    return fail('parser_unavailable', PARSER_UNAVAILABLE_MESSAGE, 503);
+  }
+
   const form = await req.formData();
   const files = form.getAll('files').filter((f): f is File => f instanceof File);
   if (files.length === 0) return fail('no_files', 'No files uploaded.', 400);

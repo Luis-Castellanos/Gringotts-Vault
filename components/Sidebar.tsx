@@ -159,6 +159,7 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
     writeSidebarState({ open: false });
   }
 
+  if (pathname === '/login') return null;
   if (!open) return null;
 
   return (
@@ -257,6 +258,20 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
           </div>
         </div>
         <ThemeToggle className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0" />
+        <button
+          type="button"
+          onClick={async () => {
+            await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+            window.location.href = '/login';
+          }}
+          aria-label="Sign out"
+          title="Sign out"
+          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0"
+        >
+          <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M7 15.5H4a1.5 1.5 0 0 1-1.5-1.5V4A1.5 1.5 0 0 1 4 2.5h3M12 12.5 15.5 9 12 5.5M15.5 9h-9" />
+          </svg>
+        </button>
       </div>
 
       {/* Drag handle on the right edge */}

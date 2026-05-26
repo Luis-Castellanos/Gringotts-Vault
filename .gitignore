@@ -28,3 +28,6 @@ env/
 *.xlsx
 *.xls
 *.csv
+
+# Parser scratch dir (repo-relative temp for local parsing runs)
+_scratch/

@@ -2,6 +2,21 @@
 
 Reverse chronological. The latest thing first.
 
+- 2026-05-25 — **Passkey auth + hosting (deploy-ready).** Vault now has real login
+  so it can live at a permanent URL instead of a local dev server. **Auth** is a
+  WebAuthn **passkey** for the single owner (Face ID / Touch ID / security key, no
+  password): first visit registers, then registration locks (`/api/auth/register`
+  403s once a passkey exists and you're not signed in). Edge middleware
+  (`middleware.ts`) gates every route except `/login`, `/api/auth/*`, and static
+  assets; sessions are jose-signed HS256 JWTs in an httpOnly cookie (30d). New:
+  `webauthn_credentials` table, `lib/auth/{config,session,webauthn,cookies}.ts`,
+  `app/api/auth/*`, `app/login`, a sign-out button in the sidebar. Deps:
+  `@simplewebauthn/{server,browser}`, `jose`. **Hosting**: targets Vercel; the
+  Python/poppler parser can't run there, so uploads **degrade gracefully** — the
+  hosted `/upload` shows a "run locally" notice and the upload/preview routes 503
+  (`lib/parser/availability.ts` auto-detects Vercel; `PARSER_ENABLED` overrides).
+  Full walkthrough (Vercel project, env vars, buying/pointing a domain, first-run
+  passkey) in `docs/deploy.md`.
 - 2026-05-25 — **Tax page (first pass) + Forecasting page (first pass)** — the two
   formerly-deferred "too heavy" pages, both now real and out of "Not started".
   **Forecasting** (`/forecasting`): current net worth + trailing-12mo savings seed
