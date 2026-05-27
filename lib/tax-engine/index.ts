@@ -17,6 +17,8 @@ export { WORKSPACE_VERSION, defaultWorkspace, workspaceToInput, computeWorkspace
 export type { TaxWorkspace } from './workspace';
 export { emptyLevers, leversActive, applyLevers, bracketSegments, bracketHeadroom, scenarioConsequences, rothFillTargets } from './scenario';
 export type { ScenarioLevers, BracketSegment, Consequence, SavedScenario, RothFillTarget } from './scenario';
+export { LIFE_EVENTS, LIFE_EVENT_BY_ID, applyLifeEvent } from './life-events';
+export type { LifeEvent, LifeEventParam, EventParamKind } from './life-events';
 
 import type { TaxReturnInput, TaxReturnResult } from './model';
 import { computeFederalReturn } from './federal/return';

@@ -5,13 +5,16 @@ import { useRouter } from 'next/navigation';
 
 import {
   workspaceToInput, computeReturn, applyLevers, emptyLevers, leversActive, scenarioConsequences, bracketSegments, yearData, rothFillTargets,
-  type TaxWorkspace, type ScenarioLevers, type FilingStatus, type Consequence, type SavedScenario, type TaxReturnResult,
+  applyLifeEvent, LIFE_EVENTS, LIFE_EVENT_BY_ID,
+  type TaxWorkspace, type ScenarioLevers, type FilingStatus, type Consequence, type SavedScenario, type TaxReturnResult, type TaxReturnInput, type LifeEventParam,
 } from '@/lib/tax-engine';
 import { PageHeader } from '@/components/PageHeader';
 import { fmtMoney0 } from '@/lib/format';
 import { TaxTabs } from '../TaxTabs';
-import { MoneyInput } from '../prepare/ui';
+import { MoneyInput, IntInput, Toggle } from '../prepare/ui';
 import { BracketLadder, BracketFill, CompareBar } from './viz';
+
+type EventParams = Record<string, number | boolean>;
 
 type LeverKey = Exclude<keyof ScenarioLevers, 'filingStatus'>;
 const LEVERS: { key: LeverKey; label: string; hint: string; min: number; max: number; step: number }[] = [
@@ -38,15 +41,31 @@ export function PlanClient({ initialWorkspace, year, supportedYears }: { initial
   const router = useRouter();
   const ws = initialWorkspace;
   const [levers, setLevers] = useState<ScenarioLevers>(emptyLevers());
+  const [eventId, setEventId] = useState<string | null>(null);
+  const [eventParams, setEventParams] = useState<EventParams>({});
   const [scenarios, setScenarios] = useState<SavedScenario[]>(ws.scenarios ?? []);
   const [name, setName] = useState('');
 
   const baseInput = useMemo(() => workspaceToInput(ws), [ws]);
   const base = useMemo(() => computeReturn(baseInput), [baseInput]);
-  const scen = useMemo(() => computeReturn(applyLevers(baseInput, levers)), [baseInput, levers]);
-  const active = leversActive(levers);
+  const leveredInput = useMemo(() => applyLevers(baseInput, levers), [baseInput, levers]);
+  const eventResult = useMemo(
+    () => (eventId ? applyLifeEvent(leveredInput, eventId, eventParams) : { input: leveredInput, notes: [] as string[] }),
+    [leveredInput, eventId, eventParams],
+  );
+  const scen = useMemo(() => computeReturn(eventResult.input), [eventResult]);
+  const eventNotes = eventResult.notes;
+  const active = leversActive(levers) || eventId !== null;
   const consequences = useMemo(() => (active ? scenarioConsequences(base, scen) : []), [active, base, scen]);
   const roth = useMemo(() => rothFillTargets(baseInput, levers), [baseInput, levers]);
+
+  const selectEvent = (id: string | null) => {
+    setEventId(id);
+    const init: EventParams = {};
+    if (id) for (const p of LIFE_EVENT_BY_ID.get(id)?.params ?? []) init[p.key] = p.default;
+    setEventParams(init);
+  };
+  const setEventParam = (key: string, v: number | boolean) => setEventParams((p) => ({ ...p, [key]: v }));
 
   const brackets = yearData(year).ordinaryBrackets[scen.filingStatus];
   const baseSegs = useMemo(() => bracketSegments(base.taxableIncome, yearData(year).ordinaryBrackets[base.filingStatus]), [base, year]);
@@ -68,10 +87,17 @@ export function PlanClient({ initialWorkspace, year, supportedYears }: { initial
   };
   const saveScenario = () => {
     if (!active) return;
-    persist([...scenarios, { id: crypto.randomUUID(), name: name.trim() || `Scenario ${scenarios.length + 1}`, levers }]);
+    const fallback = eventId ? LIFE_EVENT_BY_ID.get(eventId)?.label ?? `Scenario ${scenarios.length + 1}` : `Scenario ${scenarios.length + 1}`;
+    persist([...scenarios, { id: crypto.randomUUID(), name: name.trim() || fallback, levers, event: eventId ? { id: eventId, params: eventParams } : null }]);
     setName('');
   };
   const deleteScenario = (id: string) => persist(scenarios.filter((s) => s.id !== id));
+  const loadScenario = (s: SavedScenario) => {
+    setLevers(s.levers);
+    if (s.event) { setEventId(s.event.id); setEventParams(s.event.params); }
+    else { setEventId(null); setEventParams({}); }
+  };
+  const resetAll = () => { setLevers(emptyLevers()); selectEvent(null); };
 
   const yearSelect = (
     <select
@@ -95,11 +121,15 @@ export function PlanClient({ initialWorkspace, year, supportedYears }: { initial
       )}
 
       <div className="grid lg:grid-cols-[340px_1fr] gap-5">
+        <div className="flex flex-col gap-4 self-start">
+        {/* Life events */}
+        <LifeEventsCard eventId={eventId} params={eventParams} onSelect={selectEvent} onParam={setEventParam} />
+
         {/* Levers */}
-        <div className="rounded-xl bg-surface-1 border border-border-subtle overflow-hidden self-start">
+        <div className="rounded-xl bg-surface-1 border border-border-subtle overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle">
             <h3 className="text-[13.5px] font-semibold">What-if levers</h3>
-            {active && <button onClick={() => setLevers(emptyLevers())} className="text-[11px] text-text-muted hover:text-accent-500">Reset</button>}
+            {active && <button onClick={resetAll} className="text-[11px] text-text-muted hover:text-accent-500">Reset</button>}
           </div>
           <div className="p-4 flex flex-col gap-4">
             <div>
@@ -147,6 +177,7 @@ export function PlanClient({ initialWorkspace, year, supportedYears }: { initial
             ))}
           </div>
         </div>
+        </div>
 
         {/* Results */}
         <div className="flex flex-col gap-5 min-w-0">
@@ -178,6 +209,20 @@ export function PlanClient({ initialWorkspace, year, supportedYears }: { initial
             </button>
           </div>
 
+          {/* What this life event does */}
+          {eventNotes.length > 0 && eventId && (
+            <section className="rounded-xl bg-surface-1 border border-border-subtle overflow-hidden">
+              <h3 className="text-[13px] font-semibold px-4 py-2.5 border-b border-border-subtle flex items-center gap-2">
+                <span>{LIFE_EVENT_BY_ID.get(eventId)?.icon}</span> {LIFE_EVENT_BY_ID.get(eventId)?.label}
+              </h3>
+              <ul className="p-4 flex flex-col gap-1.5">
+                {eventNotes.map((nt, i) => (
+                  <li key={i} className="text-[12px] text-text-secondary leading-snug flex gap-2"><span className="text-accent-500">•</span><span>{nt}</span></li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {/* Consequences */}
           {active && consequences.length > 0 && (
             <section className="rounded-xl bg-surface-1 border border-border-subtle overflow-hidden">
@@ -185,13 +230,13 @@ export function PlanClient({ initialWorkspace, year, supportedYears }: { initial
               <div className="p-3 flex flex-col gap-2">{consequences.map((c, i) => <ConsequenceRow key={i} c={c} />)}</div>
             </section>
           )}
-          {active && consequences.length === 0 && (
+          {active && consequences.length === 0 && eventNotes.length === 0 && (
             <p className="text-[12px] text-text-tertiary">No bracket crossings or surtax/credit triggers — the change stays within your current marginal rate.</p>
           )}
 
           {/* Compare saved scenarios */}
           {scenarios.length > 0 && (
-            <CompareTable base={base} active={active ? scen : null} scenarios={scenarios} baseInput={baseInput} onLoad={setLevers} onDelete={deleteScenario} />
+            <CompareTable base={base} active={active ? scen : null} scenarios={scenarios} baseInput={baseInput} onLoad={loadScenario} onDelete={deleteScenario} />
           )}
 
           {/* Comparison bars */}
@@ -227,13 +272,19 @@ export function PlanClient({ initialWorkspace, year, supportedYears }: { initial
   );
 }
 
+function scenarioResult(baseInput: TaxReturnInput, s: SavedScenario): TaxReturnResult {
+  const levered = applyLevers(baseInput, s.levers);
+  const withEvent = s.event ? applyLifeEvent(levered, s.event.id, s.event.params).input : levered;
+  return computeReturn(withEvent);
+}
+
 function CompareTable({ base, active, scenarios, baseInput, onLoad, onDelete }: {
   base: TaxReturnResult; active: TaxReturnResult | null; scenarios: SavedScenario[];
-  baseInput: import('@/lib/tax-engine').TaxReturnInput; onLoad: (l: ScenarioLevers) => void; onDelete: (id: string) => void;
+  baseInput: TaxReturnInput; onLoad: (s: SavedScenario) => void; onDelete: (id: string) => void;
 }) {
   const cols: { key: string; name: string; result: TaxReturnResult; saved?: SavedScenario }[] = [
     { key: 'base', name: 'Now', result: base },
-    ...scenarios.map((s) => ({ key: s.id, name: s.name, result: computeReturn(applyLevers(baseInput, s.levers)), saved: s })),
+    ...scenarios.map((s) => ({ key: s.id, name: s.name, result: scenarioResult(baseInput, s), saved: s })),
   ];
   if (active) cols.push({ key: 'active', name: 'Active', result: active });
 
@@ -282,7 +333,7 @@ function CompareTable({ base, active, scenarios, baseInput, onLoad, onDelete }: 
                 <td key={c.key} className="px-3 py-2 text-right">
                   {c.saved && (
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => onLoad(c.saved!.levers)} className="text-[10.5px] text-accent-500 hover:underline">Load</button>
+                      <button onClick={() => onLoad(c.saved!)} className="text-[10.5px] text-accent-500 hover:underline">Load</button>
                       <button onClick={() => onDelete(c.saved!.id)} className="text-[10.5px] text-text-muted hover:text-negative">Delete</button>
                     </div>
                   )}
@@ -317,6 +368,74 @@ function PlainTile({ label, value, sub, accent }: { label: string; value: string
       <div className={`text-[20px] font-semibold tabular-nums ${accent ? 'text-accent-500' : 'text-text-primary'}`}>{value}</div>
       {sub && <div className="text-[11.5px] text-text-muted mt-0.5">{sub}</div>}
     </section>
+  );
+}
+
+function LifeEventsCard({ eventId, params, onSelect, onParam }: {
+  eventId: string | null; params: EventParams; onSelect: (id: string | null) => void; onParam: (key: string, v: number | boolean) => void;
+}) {
+  const active = eventId ? LIFE_EVENT_BY_ID.get(eventId) : null;
+  return (
+    <div className="rounded-xl bg-surface-1 border border-border-subtle overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle">
+        <h3 className="text-[13.5px] font-semibold">Life events</h3>
+        {active && <button onClick={() => onSelect(null)} className="text-[11px] text-text-muted hover:text-accent-500">Clear</button>}
+      </div>
+      <div className="p-3">
+        <div className="grid grid-cols-3 gap-1.5">
+          {LIFE_EVENTS.map((e) => (
+            <button
+              key={e.id}
+              onClick={() => onSelect(eventId === e.id ? null : e.id)}
+              title={e.blurb}
+              className={`rounded-lg border px-2 py-2 text-center transition-colors ${eventId === e.id ? 'border-accent-500 bg-accent-500/10' : 'border-border-subtle bg-surface-2 hover:border-accent-500'}`}
+            >
+              <div className="text-[16px]">{e.icon}</div>
+              <div className="text-[10.5px] text-text-secondary mt-0.5 leading-tight">{e.label}</div>
+            </button>
+          ))}
+        </div>
+        {active && (
+          <div className="mt-3 flex flex-col gap-2.5 border-t border-border-subtle pt-3">
+            <p className="text-[11px] text-text-muted leading-snug">{active.blurb}</p>
+            {active.params.map((p) => (
+              <EventParamInput key={p.key} def={p} value={params[p.key] ?? p.default} onChange={(v) => onParam(p.key, v)} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EventParamInput({ def, value, onChange }: { def: LifeEventParam; value: number | boolean; onChange: (v: number | boolean) => void }) {
+  if (def.kind === 'toggle') return <Toggle checked={value === true} onChange={onChange} label={def.label} />;
+  const num = typeof value === 'number' ? value : 0;
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[12px] text-text-secondary">{def.label}</span>
+      <div className="w-[120px] shrink-0">
+        {def.kind === 'money' ? <MoneyInput value={num} onChange={onChange} />
+          : def.kind === 'int' ? <IntInput value={num} onChange={onChange} />
+          : <PctInput value={num} onChange={onChange} />}
+      </div>
+    </div>
+  );
+}
+
+function PctInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <div className="relative w-full">
+      <input
+        type="number"
+        step={0.1}
+        value={value || ''}
+        placeholder="0"
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+        className="w-full rounded-lg bg-surface-2 border border-border-subtle pl-2.5 pr-6 py-1.5 text-[13px] text-text-primary tabular-nums text-right focus:outline-none focus:border-accent-500"
+      />
+      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[12px] pointer-events-none">%</span>
+    </div>
   );
 }
 

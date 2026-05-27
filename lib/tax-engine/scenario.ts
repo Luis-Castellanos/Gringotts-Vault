@@ -19,8 +19,8 @@ export type ScenarioLevers = {
   filingStatus: FilingStatus | null; // filing-status what-if (null = keep baseline)
 };
 
-/** A named, saved set of levers — for side-by-side comparison. */
-export type SavedScenario = { id: string; name: string; levers: ScenarioLevers };
+/** A named, saved scenario (levers + optional life event) — for side-by-side comparison. */
+export type SavedScenario = { id: string; name: string; levers: ScenarioLevers; event?: { id: string; params: Record<string, number | boolean> } | null };
 
 export function emptyLevers(): ScenarioLevers {
   return {
