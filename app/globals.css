@@ -9,35 +9,34 @@
 --------------------------------------------------------------------------- */
 
 @theme {
-  /* Surface — warm dark layers (Monarch-style depth: sidebar slightly darker
-     than page bg). Aligned with the artifact's --bg / --surface palette. */
-  --color-surface-base: #14110d;
-  --color-surface-1: #0d0b08;
-  --color-surface-2: #1f1c17;
-  --color-surface-3: #2a2620;
+  /* Surface — Chase-inspired charcoal dark mode: dark, but not black. */
+  --color-surface-base: #202324;
+  --color-surface-1: #171a1b;
+  --color-surface-2: #242829;
+  --color-surface-3: #313638;
 
   /* Borders */
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
-  --color-border-strong: rgba(255, 255, 255, 0.12);
+  --color-border-subtle: rgba(220, 226, 228, 0.14);
+  --color-border-strong: rgba(220, 226, 228, 0.24);
 
-  /* Text — warm cream/taupe instead of cool gray */
-  --color-text-primary: #faf7f2;
-  --color-text-secondary: #d4cfc4;
-  --color-text-tertiary: #a1998d;
-  --color-text-muted: #6b6358;
-  --color-text-faint: #4f4a42;
+  /* Text — warm off-white and gray, closer to Chase dark surfaces. */
+  --color-text-primary: #eeeae4;
+  --color-text-secondary: #d0cbc3;
+  --color-text-tertiary: #aaa49a;
+  --color-text-muted: #817b72;
+  --color-text-faint: #5d5953;
 
-  /* Accent — Vault orange (used sparingly for primary actions) */
-  --color-accent-500: #f97316;
-  --color-accent-300: #fdba74;
-  --color-accent-200: #fed7aa;
-  --color-accent-soft: rgba(249, 115, 22, 0.12);
-  --color-accent-border: rgba(249, 115, 22, 0.25);
+  /* Accent — Chase-inspired blue for actions, links, and selected states. */
+  --color-accent-500: #5aa9ff;
+  --color-accent-300: #83c0ff;
+  --color-accent-200: #bfddff;
+  --color-accent-soft: rgba(90, 169, 255, 0.15);
+  --color-accent-border: rgba(90, 169, 255, 0.38);
 
   /* Semantic — green (positive), red (negative), category palette */
-  --color-positive: #10b981;
-  --color-positive-bright: #22c55e;
-  --color-negative: #ef4444;
+  --color-positive: #67c587;
+  --color-positive-bright: #8be0a6;
+  --color-negative: #ff737a;
 
   --color-cat-blue: #3b82f6;
   --color-cat-purple: #a855f7;
@@ -103,6 +102,8 @@ body {
 body {
   margin: 0;
   min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 /* Focus ring — subtle but always visible (Apple-y) */
@@ -118,13 +119,153 @@ body {
   font-family: var(--font-numeric);
 }
 
-/* Eyebrow label utility — used everywhere */
+/* Shared typography + component primitives. Prefer these over one-off text sizes
+   when cleaning pages so app chrome, panels, and tables converge gradually. */
+.ui-page-title {
+  color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.ui-section-title {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.ui-body {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.ui-caption {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.ui-label,
 .eyebrow {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 650;
+  line-height: 1.25;
   letter-spacing: var(--tracking-eyebrow);
   color: var(--color-text-muted);
   text-transform: uppercase;
+}
+
+.ui-panel,
+.dashboard-panel {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    var(--color-surface-1);
+  box-shadow: var(--shadow-panel, 0 12px 34px rgba(0, 0, 0, 0.18)), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.ui-panel-muted {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 14px;
+  background: var(--color-surface-2);
+}
+
+.ui-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-1);
+  color: var(--color-text-secondary);
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+.ui-button:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+.ui-button-primary {
+  border-color: var(--color-accent-500);
+  background: var(--color-accent-500);
+  color: var(--color-accent-contrast, #fff);
+}
+.ui-button-primary:hover {
+  border-color: var(--color-accent-300);
+  background: var(--color-accent-300);
+  color: var(--color-accent-contrast, #fff);
+}
+.ui-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--color-text-tertiary);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.ui-icon-button:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.app-topbar {
+  background: var(--color-chrome);
+  border-color: transparent;
+  color: var(--color-chrome-text);
+}
+.app-topbar .ui-icon-button {
+  color: var(--color-chrome-text);
+  opacity: 0.88;
+}
+.app-topbar .ui-icon-button:hover {
+  background: rgba(255, 255, 255, 0.13);
+  color: #ffffff;
+  opacity: 1;
+}
+.app-brand {
+  color: var(--color-chrome-text);
+}
+
+.dashboard-hero {
+  border: 1px solid var(--color-accent-border);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--color-accent-500) 20%, transparent), transparent 34%),
+    radial-gradient(circle at 18% 82%, color-mix(in srgb, var(--color-accent-300) 11%, transparent), transparent 38%),
+    linear-gradient(135deg, #1b1f21 0%, #171a1b 58%, #202324 100%);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.panel-link {
+  border-radius: 9999px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 9px;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.panel-link:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-500);
 }
 
 /* kbd — keyboard shortcut hint */
@@ -150,31 +291,35 @@ kbd {
 :root,
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0f0e0c;
-  --surface: #1a1815;
-  --surface-hover: #211e1a;
-  --surface-elev: #14130f;
-  --text-1: #faf7f2;
-  --text-2: #a1998d;
-  --text-3: #6b6358;
-  --line: rgba(255, 255, 255, 0.06);
-  --line-strong: rgba(255, 255, 255, 0.12);
-  --green: #4ade80;
-  --green-tint: rgba(34, 197, 94, 0.15);
-  --green-text: #4ade80;
-  --blue: #60a5fa;
-  --blue-tint: rgba(59, 130, 246, 0.15);
-  --blue-text: #60a5fa;
-  --red: #f87171;
-  --red-tint: rgba(239, 68, 68, 0.15);
-  --red-text: #f87171;
+  --bg: #202324;
+  --surface: #171a1b;
+  --surface-hover: #242829;
+  --surface-elev: #141718;
+  --text-1: #eeeae4;
+  --text-2: #d0cbc3;
+  --text-3: #aaa49a;
+  --line: rgba(220, 226, 228, 0.14);
+  --line-strong: rgba(220, 226, 228, 0.24);
+  --green: #67c587;
+  --green-tint: rgba(103, 197, 135, 0.15);
+  --green-text: #8be0a6;
+  --blue: #5aa9ff;
+  --blue-tint: rgba(90, 169, 255, 0.15);
+  --blue-text: #83c0ff;
+  --red: #ff737a;
+  --red-tint: rgba(255, 115, 122, 0.15);
+  --red-text: #ff969b;
   --purple: #a78bfa;
   --purple-tint: rgba(139, 92, 246, 0.15);
   --purple-text: #a78bfa;
   --amber: #fbbf24;
   --amber-tint: rgba(245, 158, 11, 0.15);
   --amber-text: #fbbf24;
-  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.25), 0 0 0 0.5px var(--line);
+  --color-accent-contrast: #ffffff;
+  --color-chrome: #245594;
+  --color-chrome-text: #f3f5f8;
+  --shadow-panel: 0 12px 30px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.22), 0 0 0 0.5px var(--line);
   --ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -404,47 +549,71 @@ kbd {
   /* Override Vault @theme tokens for light mode so Tailwind utilities
      (used by Sidebar / TopBar / Review) adapt alongside the theme-aware
      tokens used by page-scoped CSS (.accounts-page, .cc-page, etc.). */
-  --color-surface-base: #faf7f2;
-  --color-surface-1: #fdf8ef;
-  --color-surface-2: #f5f0e8;
-  --color-surface-3: #ece4d6;
-  --color-border-subtle: rgba(0, 0, 0, 0.06);
-  --color-border-strong: rgba(0, 0, 0, 0.12);
-  --color-text-primary: #1a1815;
-  --color-text-secondary: #3b3530;
-  --color-text-tertiary: #6b6358;
-  --color-text-muted: #8b8278;
-  --color-text-faint: #a89f93;
+  --color-surface-base: #f3eadc;
+  --color-surface-1: #fbf4e8;
+  --color-surface-2: #efe4d2;
+  --color-surface-3: #e3d3bb;
+  --color-border-subtle: rgba(42, 32, 22, 0.1);
+  --color-border-strong: rgba(42, 32, 22, 0.18);
+  --color-text-primary: #1d1711;
+  --color-text-secondary: #423629;
+  --color-text-tertiary: #746655;
+  --color-text-muted: #978875;
+  --color-text-faint: #b7a996;
 
-  --bg: #faf7f2;
-  --surface: #fffdf9;
-  --surface-hover: #f5f0e8;
-  --surface-elev: #f0ebe2;
-  --text-1: #1a1815;
-  --text-2: #6b6358;
-  --text-3: #8b8278;
-  --line: rgba(0, 0, 0, 0.06);
-  --line-strong: rgba(0, 0, 0, 0.12);
-  --green: #16a34a;
-  --green-tint: #d4f5e0;
-  --green-text: #15803d;
-  --blue: #2563eb;
-  --blue-tint: #dbeafe;
-  --blue-text: #1d4ed8;
-  --red: #dc2626;
-  --red-tint: #fee2e2;
-  --red-text: #b91c1c;
-  --purple: #7c3aed;
-  --purple-tint: #ede9fe;
-  --purple-text: #6d28d9;
-  --amber: #b45309;
-  --amber-tint: #fef3c7;
-  --amber-text: #92400e;
-  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.025), 0 0 0 0.5px var(--line);
+  /* Chase-inspired blue for light mode. It is action color only; positive
+     financial movement remains green so status meaning stays consistent. */
+  --color-accent-500: #005eb8;
+  --color-accent-300: #0b75d1;
+  --color-accent-200: #7ab7ee;
+  --color-accent-contrast: #ffffff;
+  --color-accent-soft: rgba(0, 94, 184, 0.11);
+  --color-accent-border: rgba(0, 94, 184, 0.28);
+  --color-chrome: #245594;
+  --color-chrome-text: #f3f5f8;
+
+  --color-positive: #147a3d;
+  --color-positive-bright: #1f8f4e;
+  --color-negative: #ba3038;
+
+  --bg: #f3eadc;
+  --surface: #fbf4e8;
+  --surface-hover: #efe4d2;
+  --surface-elev: #eadbc6;
+  --text-1: #1d1711;
+  --text-2: #423629;
+  --text-3: #746655;
+  --line: rgba(42, 32, 22, 0.1);
+  --line-strong: rgba(42, 32, 22, 0.18);
+  --green: #147a3d;
+  --green-tint: #d7ead9;
+  --green-text: #147a3d;
+  --blue: #005eb8;
+  --blue-tint: #d7e8f8;
+  --blue-text: #004b93;
+  --red: #ba3038;
+  --red-tint: #f4d7d8;
+  --red-text: #93262d;
+  --purple: #7660a7;
+  --purple-tint: #e6def4;
+  --purple-text: #604c90;
+  --amber: #a46212;
+  --amber-tint: #f5e4bf;
+  --amber-text: #7e4b0f;
+  --shadow-panel: 0 8px 24px rgba(57, 42, 23, 0.08);
+  --shadow-card: 0 1px 4px rgba(57, 42, 23, 0.06), 0 0 0 0.5px var(--line);
+}
+
+[data-theme='light'] .dashboard-hero {
+  background:
+    radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--color-accent-500) 12%, transparent), transparent 34%),
+    radial-gradient(circle at 18% 82%, rgba(255, 255, 255, 0.38), transparent 38%),
+    linear-gradient(135deg, #fbf4e8 0%, #f2e6d4 58%, #eadbc6 100%);
+  box-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255, 255, 255, 0.58);
 }
 
 /* ── Color schemes — override the accent family, layered on light/dark ──
-   Default (no/`default` scheme) keeps Vault orange from the base tokens. */
+   Default follows the Chase-inspired blue cleanup direction. */
 [data-scheme='monarch'] {
   /* Monarch's emerald/teal green */
   --color-accent-500: #0ea47b;
@@ -481,7 +650,9 @@ kbd {
   border-radius: 10px;
   padding: 8px 12px;
   font-size: 13px;
+  font-weight: 550;
   line-height: 1.2;
+  letter-spacing: 0;
   cursor: pointer;
   transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
@@ -500,7 +671,7 @@ kbd {
   border: 1px solid var(--color-border-subtle);
   border-radius: 12px;
   padding: 5px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), 0 0 0 0.5px var(--color-border-subtle);
+  box-shadow: var(--shadow-panel), 0 0 0 0.5px var(--color-border-subtle);
   max-height: 280px; overflow-y: auto;
   transform-origin: top center;
   animation: vsel-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -513,7 +684,7 @@ kbd {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   width: 100%; text-align: left;
   border: 0; background: transparent; color: var(--color-text-secondary);
-  border-radius: 8px; padding: 8px 10px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; font-weight: 500; letter-spacing: 0; cursor: pointer; white-space: nowrap;
   transition: background-color 120ms ease, color 120ms ease;
 }
 .vsel-opt.active { background: var(--color-surface-2); color: var(--color-text-primary); }

@@ -26,14 +26,14 @@ export function DemoBanner() {
   };
 
   return (
-    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full bg-surface-1/95 backdrop-blur border border-border-subtle shadow-lg px-4 py-2">
-      <span className="text-[12px] text-text-secondary">
+    <div className="fixed bottom-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-border-subtle bg-surface-1/95 px-4 py-2 shadow-lg backdrop-blur">
+      <span className="ui-caption text-text-secondary">
         <span className="font-semibold text-accent-500">Live demo</span> · sample data, not real
       </span>
       <button
         onClick={reset}
         disabled={resetting}
-        className="rounded-full bg-surface-2 border border-border-subtle px-2.5 py-1 text-[11.5px] font-medium text-text-secondary hover:border-accent-500 disabled:opacity-50"
+        className="rounded-full border border-border-subtle bg-surface-2 px-2.5 py-1 text-[11.5px] font-semibold tracking-[0] text-text-secondary hover:border-accent-500 disabled:opacity-50"
       >
         {resetting ? 'Resetting…' : 'Reset demo data'}
       </button>

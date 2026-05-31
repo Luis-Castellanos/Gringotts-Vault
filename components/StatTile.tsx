@@ -29,12 +29,12 @@ export function StatTile({
   className?: string;
 }) {
   return (
-    <section className={`rounded-xl bg-surface-1 border border-border-subtle px-5 py-4 ${className}`}>
-      <div className="text-[11px] uppercase tracking-[0.07em] text-text-muted mb-1.5">{label}</div>
-      <div className={`font-semibold tracking-[-0.01em] tabular-nums ${size === 'lg' ? 'text-[24px]' : 'text-[22px]'} ${TONE[tone]}`}>
+    <section className={`ui-panel px-5 py-4 ${className}`}>
+      <div className="ui-label mb-1.5">{label}</div>
+      <div className={`numeric font-semibold tracking-[0] ${size === 'lg' ? 'text-[24px]' : 'text-[22px]'} ${TONE[tone]}`}>
         {value}
       </div>
-      {sub != null && <div className="text-[12px] text-text-tertiary mt-1">{sub}</div>}
+      {sub != null && <div className="ui-caption mt-1">{sub}</div>}
     </section>
   );
 }

@@ -172,15 +172,15 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
             size={34}
             className="ring-1 ring-border-subtle"
           />
-          <div className="flex-1 min-w-0">
-            <div className="text-[13.5px] font-semibold truncate group-hover:text-accent-300 transition-colors">{profile?.name?.trim() || 'Set your name'}</div>
-            <div className="text-[11px] text-text-muted truncate">Owner</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13.5px] font-semibold tracking-[0] transition-colors group-hover:text-accent-500">{profile?.name?.trim() || 'Set your name'}</div>
+            <div className="ui-caption truncate">Owner</div>
           </div>
         </Link>
         <button
           type="button"
           onClick={collapseSidebar}
-          className="size-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0"
+          className="ui-icon-button size-8 shrink-0 rounded-md"
           aria-label="Hide sidebar"
           title="Hide sidebar"
         >
@@ -201,7 +201,7 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
               draggable
               onDragStart={() => { dragSection.current = section.id; setDragging(`sec:${section.id}`); }}
               onDragEnd={() => { dragSection.current = null; setDragging(null); }}
-              className={`flex items-center gap-1.5 px-3 pt-2 pb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-text-tertiary cursor-grab active:cursor-grabbing ${dragging === `sec:${section.id}` ? 'opacity-40' : ''}`}
+              className={`ui-label flex cursor-grab items-center gap-1.5 px-3 pb-1.5 pt-2 active:cursor-grabbing ${dragging === `sec:${section.id}` ? 'opacity-40' : ''}`}
               title="Drag to reorder section"
             >
               <DragHandle className="opacity-0 group-hover/sec:opacity-50 transition-opacity" />
@@ -222,9 +222,9 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
                 >
                   <Link
                     href={item.href}
-                    className={`relative flex items-center justify-between gap-2 pl-3.5 pr-3 py-2.5 rounded-lg text-[15px] transition-colors ${
+                    className={`relative flex items-center justify-between gap-2 rounded-lg py-2.5 pl-3.5 pr-3 text-[14px] font-medium tracking-[0] transition-colors ${
                       active
-                        ? 'bg-accent-soft text-accent-300 font-semibold'
+                        ? 'bg-accent-soft text-accent-500 font-semibold'
                         : 'text-text-secondary hover:text-text-primary hover:bg-surface-2 font-medium'
                     } ${dragging === item.href ? 'opacity-40' : ''}`}
                   >
@@ -237,7 +237,7 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
                     </span>
                     <span className="flex items-center gap-1.5 shrink-0">
                       {item.showBadge && reviewCount !== undefined && reviewCount > 0 && (
-                        <span className="bg-accent-500 text-white text-[10.5px] font-semibold px-1.5 py-0.5 rounded-md tabular-nums">
+                        <span className="rounded-md bg-accent-500 px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums text-[var(--color-accent-contrast)]">
                           {reviewCount}
                         </span>
                       )}
@@ -257,11 +257,11 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
           href="/settings"
           aria-label="Settings"
           title="Settings"
-          className="size-9 rounded-lg flex items-center justify-center text-text-tertiary hover:text-accent-300 hover:bg-surface-2 transition-colors"
+          className="ui-icon-button"
         >
           <IconSettings size={18} />
         </Link>
-        <ThemeToggle className="size-9 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors" />
+        <ThemeToggle className="ui-icon-button" />
         <button
           type="button"
           onClick={async () => {
@@ -270,7 +270,7 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
           }}
           aria-label="Sign out"
           title="Sign out"
-          className="size-9 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-2 transition-colors"
+          className="ui-icon-button"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M7 15.5H4a1.5 1.5 0 0 1-1.5-1.5V4A1.5 1.5 0 0 1 4 2.5h3M12 12.5 15.5 9 12 5.5M15.5 9h-9" />

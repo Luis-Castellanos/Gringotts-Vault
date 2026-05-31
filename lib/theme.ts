@@ -8,9 +8,10 @@ export const DEFAULT_SCHEME: Scheme = 'default';
 
 // Color schemes override the accent token family (everything accent-tinted —
 // active nav, primary buttons, highlights — picks these up). Light/dark surfaces
-// are unchanged; a scheme is layered on top via data-scheme on <html>.
+// are unchanged; a scheme is layered on top via data-scheme on <html>. The
+// default scheme follows the Chase-inspired blue cleanup direction.
 export const SCHEMES: { id: Scheme; label: string; swatch: string }[] = [
-  { id: 'default', label: 'Vault', swatch: '#f97316' },
+  { id: 'default', label: 'Vault', swatch: '#5aa9ff' },
   { id: 'monarch', label: 'Monarch', swatch: '#15a87a' },
   { id: 'fidelity', label: 'Fidelity', swatch: '#3f8f2e' },
   { id: 'vanguard', label: 'Vanguard', swatch: '#a01722' },

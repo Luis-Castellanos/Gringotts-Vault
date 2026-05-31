@@ -2,6 +2,12 @@
 
 > Last updated: 2026-05-25
 
+## Current Focus: UI Cleanup Freeze
+
+Feature work is paused. The active priority is UI cleanup: component layout, shared primitives, color scheme, typography consistency, and page-by-page visual QA. New feature slices should wait until the interface system is coherent enough to build on.
+
+See `docs/rebuild/UI_CLEANUP_PLAN.md` for the working plan.
+
 ## Vision
 
 Vault is a personal finance operating system, designed for one user with sophisticated needs:
