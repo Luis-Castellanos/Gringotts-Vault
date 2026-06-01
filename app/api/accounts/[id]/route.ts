@@ -13,7 +13,7 @@ import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db/client';
-import { accounts, transactions } from '@/lib/db/schema';
+import { accounts, imports, transactions } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { assetClassForType } from '@/lib/account-types';
 
@@ -22,6 +22,7 @@ const bodySchema = z.object({
   // Taxonomy slug; integrity enforced by the accounts.type → account_types FK.
   type: z.string().min(1).max(60).optional(),
   institution: z.string().max(120).nullable().optional(),
+  institutionDomain: z.string().max(120).nullable().optional(),
   accountNumber: z.string().max(32).nullable().optional(),
   isActive: z.boolean().optional(),
   openedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
@@ -78,6 +79,7 @@ export const PATCH = handler(
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (body.name !== undefined) patch.name = body.name;
     if (body.institution !== undefined) patch.institution = body.institution;
+    if (body.institutionDomain !== undefined) patch.institutionDomain = body.institutionDomain;
     if (body.accountNumber !== undefined) patch.accountNumber = body.accountNumber;
     if (body.openedAt !== undefined) patch.openedAt = body.openedAt;
     if (body.creditLimit !== undefined) {
@@ -120,11 +122,13 @@ export const PATCH = handler(
 
 /**
  * DELETE /api/accounts/[id]
- * Refuses if the account still has transactions — merge it into another account
- * first (so history isn't orphaned).
+ * Refuses if the account still has transactions unless `?unassign=1` is passed.
+ * Unassigning keeps the history and removes the account link from transactions
+ * and imports before deleting the account.
  */
-export const DELETE = handler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+export const DELETE = handler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const { id } = await ctx.params;
+  const unassign = req.nextUrl.searchParams.get('unassign') === '1';
 
   const [acct] = await db.select().from(accounts).where(eq(accounts.id, id)).limit(1);
   if (!acct) return fail('not_found', 'Account not found.', 404);
@@ -134,9 +138,16 @@ export const DELETE = handler(async (_req: NextRequest, ctx: { params: Promise<{
     .from(transactions)
     .where(eq(transactions.accountId, id));
   if (n > 0) {
-    return fail('has_transactions', `This account has ${n} transaction${n === 1 ? '' : 's'}. Merge it into another account first.`, 409);
+    if (!unassign) {
+      return fail('has_transactions', `This account has ${n} transaction${n === 1 ? '' : 's'}. Merge it into another account or leave them unassigned first.`, 409);
+    }
+    await db
+      .update(transactions)
+      .set({ accountId: null, updatedAt: new Date() })
+      .where(eq(transactions.accountId, id));
   }
 
+  await db.update(imports).set({ accountId: null }).where(eq(imports.accountId, id));
   await db.delete(accounts).where(eq(accounts.id, id));
   return ok({ id });
 });

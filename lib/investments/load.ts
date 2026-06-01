@@ -272,6 +272,7 @@ export async function loadInvestments(): Promise<InvestmentsData> {
   const byAccount = new Map<string, { date: string; net: number }[]>();
   const dailyTotals = new Map<string, number>();
   for (const r of txnRows) {
+    if (!r.accountId) continue;
     const net = Number(r.net);
     const arr = byAccount.get(r.accountId) ?? [];
     arr.push({ date: r.date, net });

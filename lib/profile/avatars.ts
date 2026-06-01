@@ -40,8 +40,8 @@ export function initialsFromName(name: string | null | undefined): string {
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
-/** A user-defined sidebar section: a heading + an ordered list of page hrefs. */
-export type NavSection = { id: string; label: string; items: string[] };
+/** A user-defined sidebar section: a heading + ordered page hrefs + optional custom page labels. */
+export type NavSection = { id: string; label: string; items: string[]; labels?: Record<string, string> };
 
 export type ProfileData = {
   name: string;

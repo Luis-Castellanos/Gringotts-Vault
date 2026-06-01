@@ -117,6 +117,7 @@ export default async function SettingsPage() {
       id: a.id,
       name: a.name,
       institution: a.institution ?? '',
+      institutionDomain: a.institutionDomain ?? '',
       last4: a.accountNumber ?? '',
       type: a.type,
       icon: taxStyle.typeIcon[a.type] ?? '📁',

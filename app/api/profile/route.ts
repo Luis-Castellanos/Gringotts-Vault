@@ -27,7 +27,12 @@ const patchSchema = z.object({
   avatarImage: z.string().max(2_000_000).nullable().optional(),
   navHidden: z.array(z.string().max(60)).max(40).optional(),
   navLayout: z
-    .array(z.object({ id: z.string().max(60), label: z.string().max(60), items: z.array(z.string().max(60)).max(60) }))
+    .array(z.object({
+      id: z.string().max(60),
+      label: z.string().max(60),
+      items: z.array(z.string().max(60)).max(60),
+      labels: z.record(z.string().max(60), z.string().max(60)).optional(),
+    }))
     .max(30)
     .optional(),
 });

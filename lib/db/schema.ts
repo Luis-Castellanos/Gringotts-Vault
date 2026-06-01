@@ -105,6 +105,7 @@ export const accounts = pgTable(
     name: text('name').notNull(),
     displayName: text('display_name').notNull(),
     institution: text('institution'),
+    institutionDomain: text('institution_domain'),
     accountNumber: text('account_number'),
     type: text('type').notNull().references(() => accountTypes.slug),
     assetClass: assetClassEnum('asset_class').notNull(),
@@ -548,9 +549,7 @@ export const transactions = pgTable(
   'transactions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    accountId: uuid('account_id')
-      .notNull()
-      .references(() => accounts.id, { onDelete: 'restrict' }),
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
     categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
     // Real Estate attribution (manual tag). A transaction also rolls up to a
     // property implicitly when it sits on that property's mortgage/escrow account

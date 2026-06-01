@@ -1,5 +1,5 @@
 // Loading-state primitives. These render inside each route's loading.tsx; the
-// TopBar + Sidebar live in app/layout.tsx and stay put, so only the page body
+// app shell lives in app/layout.tsx and stays put, so only the page body
 // (the <main>) is replaced by a skeleton while the server data loads.
 
 /** A single shimmering block. Size it with className (w-/h-) or style. */

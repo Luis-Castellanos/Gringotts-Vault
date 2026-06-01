@@ -60,7 +60,7 @@
   /* Toolbar — search + filter selects + sort + count */
   .tx-toolbar {
     position: sticky;
-    top: 44px; /* sits just below the global TopBar */
+    top: 0;
     z-index: 30;
     display: flex;
     align-items: center;

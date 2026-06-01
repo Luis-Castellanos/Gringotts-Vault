@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ACCOUNT_TYPES, ACCOUNT_TYPE_GROUPS, accountTypeLabel, assetClassForType } from '@/lib/account-types';
+import { faviconUrl, INST_DOMAINS, instDomain, instInitials } from '@/lib/institution-logo';
 
 // Account type is now an open taxonomy slug (see lib/account-types.ts), not a
 // fixed union, so the list can be edited in Settings.
@@ -13,6 +14,7 @@ export type AcctRow = {
   id: string;
   name: string;
   institution: string;
+  institutionDomain: string;
   last4: string;
   type: AcctType;
   icon: string;
@@ -62,27 +64,29 @@ function fmtShort(n: number): string {
 }
 
 // ── Institution logo (favicon by domain + initials fallback) ─────────────────
-const INST_DOMAINS: Record<string, string> = {
-  'Chase': 'chase.com', 'Bank of America': 'bankofamerica.com', 'American Express': 'americanexpress.com',
-  'Capital One': 'capitalone.com', 'Discover': 'discover.com', 'Citi': 'citi.com', 'Ally Bank': 'ally.com',
-  'U.S. Bank': 'usbank.com', 'Charles Schwab': 'schwab.com', 'Fidelity': 'fidelity.com', 'Vanguard': 'vanguard.com',
-  'Apple / Goldman Sachs': 'apple.com', 'Goldman Sachs / Apple': 'apple.com', 'Apple / Green Dot Bank': 'apple.com',
-  'Synchrony Bank / Venmo': 'venmo.com', 'Gain Federal Credit Union': 'gainfcu.com',
-};
-function instDomain(inst: string): string | null {
-  if (!inst) return null;
-  if (INST_DOMAINS[inst]) return INST_DOMAINS[inst];
-  return inst.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+const COMMON_INSTITUTIONS = Object.entries(INST_DOMAINS).map(([name, domain]) => ({ name, domain }));
+const CUSTOM_INSTITUTION = '__custom__';
+
+function normalizeDomainInput(raw: string): string {
+  const s = raw.trim().toLowerCase();
+  if (!s) return '';
+  try {
+    const url = new URL(s.includes('://') ? s : `https://${s}`);
+    return url.hostname.replace(/^www\./, '');
+  } catch {
+    return s.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] ?? '';
+  }
 }
-function InstLogo({ institution }: { institution: string }) {
-  const domain = instDomain(institution);
-  const initial = (institution || '?').split(/[\s/-]/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
+function InstLogo({ institution, domainHint }: { institution: string; domainHint?: string }) {
+  const domain = domainHint || instDomain(institution);
+  const initial = instInitials(institution);
   const [failed, setFailed] = useState(false);
   return (
     <span className="acctset-logo">
       {!failed && domain ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} alt="" onError={() => setFailed(true)} />
+        <img src={faviconUrl(domain)} alt="" onError={() => setFailed(true)} />
       ) : (
         <span className="acctset-logo-fb">{initial || '?'}</span>
       )}
@@ -156,7 +160,7 @@ export function AccountsSettingsClient({
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(open ? null : a.id); } }}
         >
           <Caret open={open} small />
-          <InstLogo institution={a.institution} />
+          <InstLogo institution={a.institution} domainHint={a.institutionDomain} />
           <span className="acctset-name">
             {a.name}
             {a.last4 && <span className="acctset-last4">····{a.last4}</span>}
@@ -205,7 +209,7 @@ export function AccountsSettingsClient({
           onClick={(e) => { e.stopPropagation(); onDelete(a); }}
         >×</button>
         <div className="acctset-card-top">
-          <InstLogo institution={a.institution} />
+          <InstLogo institution={a.institution} domainHint={a.institutionDomain} />
           <div className="acctset-card-id">
             <span className="acctset-card-name">
               {a.name}{!a.isActive && <span className="acctset-badge">Closed</span>}
@@ -290,9 +294,59 @@ export function AccountsSettingsClient({
   }
   function onCardDragEnd() { setDraggingId(null); setDraggingBucket(null); setDropTarget(null); }
 
+  const modalNode = modal?.mode === 'merge' ? (
+    <MergeModal
+      acct={modal.acct}
+      accounts={accounts}
+      busy={busy}
+      error={error}
+      onClose={() => { setModal(null); setError(null); }}
+      onMerge={(targetId) => call('POST', `/api/accounts/${modal.acct.id}/merge`, { targetId })}
+      onDeleteUnassigned={() => call('DELETE', `/api/accounts/${modal.acct.id}?unassign=1`)}
+    />
+  ) : modal?.mode === 'add' ? (
+    <AddModal
+      busy={busy}
+      error={error}
+      accounts={accounts}
+      onClose={() => { setModal(null); setError(null); }}
+      onCreate={(payload) => call('POST', '/api/accounts', payload)}
+    />
+  ) : null;
+
+  if (showNetWorthOverview) {
+    return (
+      <div className="acctset acctset-networth-page">
+        <header className="acctset-nw-header">
+          <h1>Accounts</h1>
+          <div className="acctset-nw-actions">
+            <button type="button" className="acctset-tool-btn">Filters</button>
+            <button type="button" className="acctset-tool-btn" onClick={() => router.refresh()}>Refresh all</button>
+            <button className="acctset-add primary" onClick={() => setModal({ mode: 'add' })}>
+              <Plus /> Add account
+            </button>
+          </div>
+        </header>
+
+        {error && (
+          <div className="acctset-error" role="alert">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} aria-label="Dismiss">×</button>
+          </div>
+        )}
+
+        <NetWorthOverview accounts={visible} series={netWorthSeries ?? []} />
+        <div className="acctset-nw-body">
+          <NetWorthCategoryList accounts={visible} series={netWorthSeries ?? []} />
+          <NetWorthSummaryPanel accounts={visible} />
+        </div>
+        {modalNode}
+      </div>
+    );
+  }
+
   return (
     <div className={`acctset${compactCards ? ' compact-cards' : ''}`}>
-      {showNetWorthOverview && <NetWorthOverview accounts={accounts} series={netWorthSeries ?? []} />}
       <header className="acctset-head">
         <div className="acctset-viewtoggle" role="tablist" aria-label="View">
           <button type="button" role="tab" aria-selected={view === 'grid'} className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')} aria-label="Grid view" title="Grid">
@@ -381,7 +435,7 @@ export function AccountsSettingsClient({
             <div className="cc-modal-backdrop" onClick={() => setExpandedId(null)}>
               <div className="cc-detail-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="cc-detail-modal-header">
-                  <InstLogo institution={a.institution} />
+                  <InstLogo institution={a.institution} domainHint={a.institutionDomain} />
                   <div className="cc-detail-modal-title">
                     <h2>{a.name}</h2>
                     <p>{a.institution || '—'}{a.last4 ? ` ····${a.last4}` : ''} · {accountTypeLabel(a.type)}</p>
@@ -403,23 +457,7 @@ export function AccountsSettingsClient({
         );
       })()}
 
-      {modal?.mode === 'merge' ? (
-        <MergeModal
-          acct={modal.acct}
-          accounts={accounts}
-          busy={busy}
-          error={error}
-          onClose={() => { setModal(null); setError(null); }}
-          onMerge={(targetId) => call('POST', `/api/accounts/${modal.acct.id}/merge`, { targetId })}
-        />
-      ) : modal?.mode === 'add' ? (
-        <AddModal
-          busy={busy}
-          error={error}
-          onClose={() => { setModal(null); setError(null); }}
-          onCreate={(payload) => call('POST', '/api/accounts', payload)}
-        />
-      ) : null}
+      {modalNode}
     </div>
   );
 }
@@ -437,38 +475,171 @@ function NetWorthOverview({ accounts, series }: { accounts: AcctRow[]; series: N
   const last = series[series.length - 1]?.value ?? netWorth;
   const change = last - first;
   const changePct = first !== 0 ? (change / Math.abs(first)) * 100 : null;
-  const composition = summarizeComposition(active);
 
   return (
-    <section className="acctset-overview" aria-label="Net worth overview">
-      <div className="acctset-overview-main">
-        <div className="acctset-overview-head">
-          <div>
-            <div className="acctset-kicker">Net worth</div>
-            <div className="acctset-networth numeric">{usd.format(netWorth)}</div>
-            <div className={`acctset-netchange numeric ${change >= 0 ? 'pos' : 'neg'}`}>
-              {change >= 0 ? '+' : '-'}{usd.format(Math.abs(change))}
-              {changePct != null && <span> ({changePct >= 0 ? '+' : '-'}{pct.format(Math.abs(changePct))}%)</span>}
-              <span className="muted"> all time</span>
-            </div>
-          </div>
-          <div className="acctset-balance-pair">
-            <div>
-              <span>Assets</span>
-              <strong className="numeric">{usd.format(assets)}</strong>
-            </div>
-            <div>
-              <span>Liabilities</span>
-              <strong className="numeric">{usd.format(liabilities)}</strong>
-            </div>
+    <section className="acctset-overview acctset-nw-chart-card" aria-label="Net worth overview">
+      <div className="acctset-overview-head">
+        <div>
+          <div className="acctset-kicker">Net worth</div>
+          <div className="acctset-networth numeric">{usd2.format(netWorth)}</div>
+          <div className={`acctset-netchange numeric ${change >= 0 ? 'pos' : 'neg'}`}>
+            <span>{change >= 0 ? '↗' : '↘'} {usd2.format(Math.abs(change))}</span>
+            {changePct != null && <span>({changePct >= 0 ? '+' : '-'}{pct.format(Math.abs(changePct))}%)</span>}
+            <span className="muted">1 month change</span>
           </div>
         </div>
-        <NetWorthTrendChart series={series} fallback={netWorth} />
+        <div className="acctset-nw-chart-controls">
+          <select aria-label="Chart metric" defaultValue="net-worth">
+            <option value="net-worth">Net worth performance</option>
+            <option value="assets">Assets</option>
+            <option value="liabilities">Liabilities</option>
+          </select>
+          <select aria-label="Chart period" defaultValue="1m">
+            <option value="1m">1 month</option>
+            <option value="3m">3 months</option>
+            <option value="1y">1 year</option>
+            <option value="all">All time</option>
+          </select>
+        </div>
       </div>
-      <div className="acctset-overview-side">
-        <CompositionPie segments={composition} />
-      </div>
+      <NetWorthTrendChart series={series} fallback={netWorth} />
     </section>
+  );
+}
+
+type NetWorthCategory = {
+  key: string;
+  label: string;
+  total: number;
+  assetClass: 'asset' | 'liability';
+  color: string;
+};
+
+const NET_WORTH_CATEGORIES: Omit<NetWorthCategory, 'total'>[] = [
+  { key: 'credit_cards', label: 'Credit Cards', assetClass: 'liability', color: '#d75b57' },
+  { key: 'cash', label: 'Cash', assetClass: 'asset', color: '#53a56f' },
+  { key: 'loans', label: 'Loans', assetClass: 'liability', color: '#f0c85a' },
+  { key: 'investments', label: 'Investments', assetClass: 'asset', color: '#85d8f0' },
+  { key: 'vehicles', label: 'Vehicles', assetClass: 'asset', color: '#ef7044' },
+  { key: 'real_estate', label: 'Real Estate', assetClass: 'asset', color: '#6e84f5' },
+];
+
+function netWorthCategoryKey(row: AcctRow): string {
+  const def = ACCOUNT_TYPES.find((t) => t.slug === row.type);
+  if (row.type === 'credit_card') return 'credit_cards';
+  if (def?.assetClass === 'liability') return 'loans';
+  if (def?.group === 'banking') return 'cash';
+  if (def?.group === 'investments' || def?.group === 'retirement') return 'investments';
+  if (row.type === 'vehicle') return 'vehicles';
+  if (row.type === 'real_estate') return 'real_estate';
+  return 'cash';
+}
+
+function getNetWorthCategories(accounts: AcctRow[]): NetWorthCategory[] {
+  const totals = new Map<string, number>();
+  for (const account of accounts) {
+    const key = netWorthCategoryKey(account);
+    totals.set(key, (totals.get(key) ?? 0) + Math.abs(account.balance));
+  }
+  return NET_WORTH_CATEGORIES.map((category) => ({
+    ...category,
+    total: totals.get(category.key) ?? 0,
+  }));
+}
+
+function NetWorthCategoryList({ accounts, series }: { accounts: AcctRow[]; series: NetWorthPoint[] }) {
+  const categories = getNetWorthCategories(accounts);
+  const grossTotal = categories.reduce((sum, category) => sum + category.total, 0);
+  const first = series[0]?.value;
+  const last = series[series.length - 1]?.value;
+  const netChange = first != null && last != null ? last - first : 0;
+  return (
+    <section className="acctset-nw-category-list" aria-label="Account categories">
+      {categories.map((category) => {
+        const estimatedChange = grossTotal > 0 ? Math.abs(netChange) * (category.total / grossTotal) : 0;
+        const changeClass = category.assetClass === 'asset'
+          ? (netChange >= 0 ? 'pos' : 'neg')
+          : (netChange >= 0 ? 'neg' : 'pos');
+        return (
+          <button type="button" key={category.key} className="acctset-nw-category-row">
+            <Caret open={false} small />
+            <span className="acctset-nw-category-name">{category.label}</span>
+            <span className={`acctset-nw-category-change ${changeClass}`}>
+              {estimatedChange > 0 ? (changeClass === 'pos' ? '↗ ' : '↘ ') : ''}{usd2.format(estimatedChange)}
+            </span>
+            <span className="acctset-nw-category-period">1 month change</span>
+            <span className="acctset-nw-category-total numeric">{usd2.format(category.total)}</span>
+          </button>
+        );
+      })}
+    </section>
+  );
+}
+
+function NetWorthSummaryPanel({ accounts }: { accounts: AcctRow[] }) {
+  const categories = getNetWorthCategories(accounts);
+  const assets = categories.filter((category) => category.assetClass === 'asset' && category.total > 0);
+  const liabilities = categories.filter((category) => category.assetClass === 'liability' && category.total > 0);
+  const assetsTotal = assets.reduce((sum, category) => sum + category.total, 0);
+  const liabilitiesTotal = liabilities.reduce((sum, category) => sum + category.total, 0);
+
+  return (
+    <aside className="acctset-nw-summary" aria-label="Net worth summary">
+      <div className="acctset-nw-summary-head">
+        <h2>Summary</h2>
+        <div className="acctset-nw-tabs" aria-label="Summary mode">
+          <button type="button" className="active">Totals</button>
+          <button type="button">Percent</button>
+        </div>
+      </div>
+      <NetWorthSummaryGroup title="Assets" total={assetsTotal} categories={assets} />
+      <NetWorthSummaryGroup title="Liabilities" total={liabilitiesTotal} categories={liabilities} />
+    </aside>
+  );
+}
+
+function NetWorthSummaryGroup({
+  title,
+  total,
+  categories,
+}: {
+  title: string;
+  total: number;
+  categories: NetWorthCategory[];
+}) {
+  return (
+    <div className="acctset-nw-summary-group">
+      <div className="acctset-nw-summary-title">
+        <strong>{title}</strong>
+        <span className="numeric">{usd2.format(total)}</span>
+      </div>
+      {categories.length > 0 ? (
+        <>
+          <div className="acctset-nw-stack" aria-hidden>
+            {categories.map((category) => (
+              <span
+                key={category.key}
+                style={{
+                  background: category.color,
+                  width: `${Math.max((category.total / total) * 100, 2)}%`,
+                }}
+              />
+            ))}
+          </div>
+          <div className="acctset-nw-legend">
+            {categories.map((category) => (
+              <div key={category.key} className="acctset-nw-legend-row">
+                <span className="acctset-nw-dot" style={{ background: category.color }} />
+                <span>{category.label}</span>
+                <strong className="numeric">{usd2.format(category.total)}</strong>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <span className="acctset-empty-bar">No balances yet.</span>
+      )}
+    </div>
   );
 }
 
@@ -610,8 +781,8 @@ function NetWorthTrendChart({ series, fallback }: { series: NetWorthPoint[]; fal
       <svg className="acctset-net-chart" viewBox={`0 0 ${W} ${H}`} aria-hidden>
         <defs>
           <linearGradient id="acctset-net-fill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-positive)" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="var(--color-positive)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--nw-line, #4aa6c8)" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="var(--nw-line, #4aa6c8)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {ticks.map((tick) => (
@@ -624,7 +795,7 @@ function NetWorthTrendChart({ series, fallback }: { series: NetWorthPoint[]; fal
           <line className="acctset-net-zero" x1={padL} x2={W - padR} y1={y(0)} y2={y(0)} />
         )}
         <path d={area} fill="url(#acctset-net-fill)" />
-        <path d={line} fill="none" stroke="var(--color-positive)" strokeWidth="2.4" vectorEffect="non-scaling-stroke" />
+        <path d={line} fill="none" stroke="var(--nw-line, #4aa6c8)" strokeWidth="3.4" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className="acctset-net-x">
         <span>{formatChartDate(startDate)}</span>
@@ -788,26 +959,53 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ── Add modal ────────────────────────────────────────────────────────────────
 
 function AddModal({
-  busy, error, onClose, onCreate,
+  busy, error, accounts, onClose, onCreate,
 }: {
   busy: boolean;
   error: string | null;
+  accounts: AcctRow[];
   onClose: () => void;
   onCreate: (payload: Record<string, unknown>) => void;
 }) {
+  const [mode, setMode] = useState<'chooser' | 'manual'>('chooser');
+  const [search, setSearch] = useState('');
   const [name, setName] = useState('');
-  const [type, setType] = useState<AcctType>('checking');
-  const [institution, setInstitution] = useState('');
+  const [type, setType] = useState<AcctType>('');
+  const [institutionChoice, setInstitutionChoice] = useState('');
+  const [customInstitution, setCustomInstitution] = useState('');
+  const [customDomain, setCustomDomain] = useState('');
   const [last4, setLast4] = useState('');
   const isCard = type === 'credit_card';
   const [creditLimit, setCreditLimit] = useState('');
   const [apr, setApr] = useState('');
+  const selectedInstitution = COMMON_INSTITUTIONS.find((i) => i.name === institutionChoice);
+  const institution = institutionChoice === CUSTOM_INSTITUTION ? customInstitution.trim() : selectedInstitution?.name ?? '';
+  const institutionDomain = institutionChoice === CUSTOM_INSTITUTION ? normalizeDomainInput(customDomain) : selectedInstitution?.domain ?? '';
+  const canSubmit = !!name.trim() && !!type && !!institution && (institutionChoice !== CUSTOM_INSTITUTION || !!institutionDomain);
+  const searchResults = search.trim()
+    ? COMMON_INSTITUTIONS.filter((inst) => inst.name.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 5)
+    : [];
+  const addCounts = getAddAccountCounts(accounts);
+
+  function startManual(nextType = '') {
+    setType(nextType);
+    setMode('manual');
+  }
+
+  function pickInstitution(inst: { name: string; domain: string }) {
+    setInstitutionChoice(inst.name);
+    if (!type) setType('checking');
+    if (!name.trim()) setName(inst.name);
+    setMode('manual');
+  }
 
   function submit() {
+    if (!canSubmit) return;
     onCreate({
       name: name.trim(),
       type,
-      institution: institution.trim() || null,
+      institution,
+      institutionDomain,
       accountNumber: last4.trim() || null,
       creditLimit: isCard && creditLimit ? Number(creditLimit) : null,
       apr: isCard && apr ? Number(apr) : null,
@@ -817,24 +1015,112 @@ function AddModal({
   return (
     <div className="cc-modal-root">
       <div className="cc-modal-backdrop" onClick={onClose}>
-        <div className="cc-modal" onClick={(e) => e.stopPropagation()}>
-          <h2>Add account</h2>
+        <div className={`cc-modal acctset-add-modal${mode === 'chooser' ? ' chooser' : ''}`} onClick={(e) => e.stopPropagation()}>
+          <div className="acctset-add-modal-head">
+            <h2>Add an account</h2>
+            <button type="button" className="acctset-add-modal-close" onClick={onClose} aria-label="Close">×</button>
+          </div>
+          {mode === 'chooser' ? (
+            <>
+              <label className="acctset-inst-search">
+                <span aria-hidden>⌕</span>
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search 13,000 institutions..."
+                />
+              </label>
+              {searchResults.length > 0 && (
+                <div className="acctset-inst-results">
+                  {searchResults.map((inst) => (
+                    <button type="button" key={inst.name} onClick={() => pickInstitution(inst)}>
+                      <InstLogo institution={inst.name} domainHint={inst.domain} />
+                      <span>{inst.name}</span>
+                      <ArrowRight />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="acctset-add-options">
+                <AddOption
+                  title="Banks & credit cards"
+                  subtitle={`${addCounts.banking} added`}
+                  logos={[
+                    { institution: 'Chase', domain: 'chase.com' },
+                    { institution: 'Capital One', domain: 'capitalone.com' },
+                    { institution: 'Wells Fargo', domain: 'wellsfargo.com' },
+                  ]}
+                  onClick={() => startManual('checking')}
+                />
+                <AddOption
+                  title="Investments & loans"
+                  subtitle={`${addCounts.investing} added`}
+                  logos={[
+                    { institution: 'Fidelity', domain: 'fidelity.com' },
+                    { institution: 'Charles Schwab', domain: 'schwab.com' },
+                    { institution: 'Vanguard', domain: 'vanguard.com' },
+                  ]}
+                  onClick={() => startManual('brokerage')}
+                />
+                <AddOption
+                  title="Real estate, crypto, and more"
+                  subtitle={`${addCounts.more} added`}
+                  logos={[
+                    { institution: 'Coinbase', domain: 'coinbase.com' },
+                    { institution: 'Zillow', domain: 'zillow.com' },
+                  ]}
+                  onClick={() => startManual('real_estate')}
+                />
+                <AddOption
+                  title="Company equity"
+                  subtitle={`${addCounts.equity} added`}
+                  badge="New"
+                  icon={<ClockIcon />}
+                  onClick={() => startManual('espp')}
+                />
+                <AddOption
+                  title="Import transaction & balance history"
+                  subtitle="Import from CSV"
+                  icon={<UploadIcon />}
+                  onClick={() => { window.location.href = '/upload'; }}
+                />
+              </div>
+              <button type="button" className="acctset-manual-btn" onClick={() => startManual()}>
+                Add manual account
+              </button>
+            </>
+          ) : (
+            <>
           <label>Name<input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Naboo Royal Checking" /></label>
           <div className="row-2">
             <label>Type
               <select value={type} onChange={(e) => setType(e.target.value as AcctType)}>
+                <option value="">Select account type…</option>
                 {ACCOUNT_TYPE_GROUPS.map((grp) => (
-              <optgroup key={grp.key} label={grp.label}>
-                {ACCOUNT_TYPES.filter((t) => t.group === grp.key).map((t) => (
-                  <option key={t.slug} value={t.slug}>{t.label}</option>
+                  <optgroup key={grp.key} label={grp.label}>
+                    {ACCOUNT_TYPES.filter((t) => t.group === grp.key).map((t) => (
+                      <option key={t.slug} value={t.slug}>{t.label}</option>
+                    ))}
+                  </optgroup>
                 ))}
-              </optgroup>
-            ))}
               </select>
             </label>
             <label>Last 4<input value={last4} onChange={(e) => setLast4(e.target.value)} maxLength={4} placeholder="1138" /></label>
           </div>
-          <label>Institution<input value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="e.g. First Galactic Bank" /></label>
+          <label>Institution
+            <select value={institutionChoice} onChange={(e) => setInstitutionChoice(e.target.value)}>
+              <option value="">Select institution…</option>
+              {COMMON_INSTITUTIONS.map((inst) => <option key={inst.name} value={inst.name}>{inst.name}</option>)}
+              <option value={CUSTOM_INSTITUTION}>Type your own…</option>
+            </select>
+          </label>
+          {institutionChoice === CUSTOM_INSTITUTION && (
+            <div className="row-2">
+              <label>Institution name<input value={customInstitution} onChange={(e) => setCustomInstitution(e.target.value)} placeholder="e.g. Galactic Credit Union" /></label>
+              <label>Logo URL / domain<input value={customDomain} onChange={(e) => setCustomDomain(e.target.value)} placeholder="galacticcu.com" /></label>
+            </div>
+          )}
           {isCard && (
             <div className="row-2">
               <label>Credit limit<input value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} inputMode="decimal" placeholder="12000" /></label>
@@ -843,19 +1129,98 @@ function AddModal({
           )}
           {error && <div className="error-banner">{error}</div>}
           <div className="actions">
-            <button className="pg-btn" onClick={onClose} disabled={busy}>Cancel</button>
-            <button className="pg-btn primary" onClick={submit} disabled={!name.trim() || busy}>{busy ? 'Adding…' : 'Add account'}</button>
+            <button className="pg-btn" onClick={() => setMode('chooser')} disabled={busy}>Back</button>
+            <button className="pg-btn primary" onClick={submit} disabled={!canSubmit || busy}>{busy ? 'Adding…' : 'Add account'}</button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+function getAddAccountCounts(accounts: AcctRow[]) {
+  return accounts.reduce(
+    (acc, account) => {
+      const def = ACCOUNT_TYPES.find((t) => t.slug === account.type);
+      if (account.type === 'espp') acc.equity += 1;
+      else if (account.type === 'credit_card' || def?.group === 'banking') acc.banking += 1;
+      else if (def?.group === 'investments' || def?.group === 'retirement' || def?.assetClass === 'liability') acc.investing += 1;
+      else acc.more += 1;
+      return acc;
+    },
+    { banking: 0, investing: 0, more: 0, equity: 0 },
+  );
+}
+
+function AddOption({
+  title,
+  subtitle,
+  logos,
+  badge,
+  icon,
+  onClick,
+}: {
+  title: string;
+  subtitle: string;
+  logos?: { institution: string; domain: string }[];
+  badge?: string;
+  icon?: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className="acctset-add-option" onClick={onClick}>
+      <span className="acctset-add-option-copy">
+        <span>
+          {title}
+          {badge && <b>{badge}</b>}
+        </span>
+        <small>{subtitle}</small>
+      </span>
+      {logos && (
+        <span className="acctset-add-option-logos">
+          {logos.map((logo) => (
+            <InstLogo key={logo.domain} institution={logo.institution} domainHint={logo.domain} />
+          ))}
+        </span>
+      )}
+      {icon && <span className="acctset-add-option-icon">{icon}</span>}
+      <ArrowRight />
+    </button>
+  );
+}
+
+function ArrowRight() {
+  return (
+    <svg className="acctset-add-arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path d="M3.5 9h10M9.5 5l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
+      <path d="M11 14V5m0 0L7.5 8.5M11 5l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 13.5v2.8c0 .9.7 1.7 1.7 1.7h8.6c.9 0 1.7-.7 1.7-1.7v-2.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 7.5V12l3.5 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // ── Merge modal ──────────────────────────────────────────────────────────────
 
 function MergeModal({
-  acct, accounts, busy, error, onClose, onMerge,
+  acct, accounts, busy, error, onClose, onMerge, onDeleteUnassigned,
 }: {
   acct: AcctRow;
   accounts: AcctRow[];
@@ -863,16 +1228,17 @@ function MergeModal({
   error: string | null;
   onClose: () => void;
   onMerge: (targetId: string) => void;
+  onDeleteUnassigned: () => void;
 }) {
   const [targetId, setTargetId] = useState('');
   return (
     <div className="cc-modal-root">
       <div className="cc-modal-backdrop" onClick={onClose}>
         <div className="cc-modal" onClick={(e) => e.stopPropagation()}>
-          <h2>Merge {acct.name}</h2>
+          <h2>Delete {acct.name}</h2>
           <p className="acctset-modal-note">
-            Move {acct.count.toLocaleString()} transaction{acct.count === 1 ? '' : 's'} from <b>{acct.name}</b> into
-            another account, then delete <b>{acct.name}</b>. Use this to fix a duplicate.
+            Move {acct.count.toLocaleString()} transaction{acct.count === 1 ? '' : 's'} into another account, or leave
+            them unassigned and delete <b>{acct.name}</b>.
           </p>
           <label>Merge into
             <select autoFocus value={targetId} onChange={(e) => setTargetId(e.target.value)}>
@@ -891,6 +1257,9 @@ function MergeModal({
           {error && <div className="error-banner">{error}</div>}
           <div className="actions">
             <button className="pg-btn" onClick={onClose} disabled={busy}>Cancel</button>
+            <button className="pg-btn danger" onClick={onDeleteUnassigned} disabled={busy}>
+              {busy ? 'Deleting…' : 'Delete and leave unassigned'}
+            </button>
             <button className="pg-btn primary" onClick={() => targetId && onMerge(targetId)} disabled={!targetId || busy}>{busy ? 'Merging…' : 'Merge'}</button>
           </div>
         </div>

@@ -514,6 +514,15 @@ kbd {
   background: var(--text-2);
   border-color: var(--text-2);
 }
+.cc-modal-root .pg-btn.danger {
+  color: var(--color-negative);
+  border-color: color-mix(in srgb, var(--color-negative) 38%, var(--line-strong));
+}
+.cc-modal-root .pg-btn.danger:hover {
+  color: var(--color-negative);
+  background: color-mix(in srgb, var(--color-negative) 10%, transparent);
+  border-color: var(--color-negative);
+}
 .cc-modal-root .pg-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -628,7 +637,7 @@ kbd {
 [data-theme='light'] {
   color-scheme: light;
   /* Override Vault @theme tokens for light mode so Tailwind utilities
-     (used by Sidebar / TopBar / Review) adapt alongside the theme-aware
+     (used by Sidebar / Review) adapt alongside the theme-aware
      tokens used by page-scoped CSS (.accounts-page, .cc-page, etc.). */
   --color-surface-base: #eee3d3;
   --color-surface-1: #f6eddf;

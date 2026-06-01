@@ -31,6 +31,7 @@ export default async function AccountsPage() {
       id: a.id,
       name: a.name,
       institution: a.institution ?? '',
+      institutionDomain: a.institutionDomain ?? '',
       last4: a.accountNumber ?? '',
       type: a.type,
       icon: style.typeIcon[a.type] ?? '📁',

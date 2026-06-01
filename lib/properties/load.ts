@@ -162,7 +162,9 @@ async function loadMortgageMaps(ids: string[]): Promise<{
       },
     ]),
   );
-  const txnBalance = new Map<string, number>(txnRows.map((t) => [t.accountId, Number(t.bal)]));
+  const txnBalance = new Map<string, number>(
+    txnRows.flatMap((t) => (t.accountId ? [[t.accountId, Number(t.bal)] as const] : [])),
+  );
   const snapshot = new Map<string, number>();
   for (const r of snapRows) if (!snapshot.has(r.accountId)) snapshot.set(r.accountId, Number(r.balance)); // first = latest (desc)
   return { terms, txnBalance, snapshot };

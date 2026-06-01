@@ -50,6 +50,17 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
   const shown = (h: string) => !hidden.has(h);
   const toggleVis = (h: string) => { dirty(); setHidden((prev) => { const n = new Set(prev); if (n.has(h)) n.delete(h); else n.add(h); return n; }); };
   const rename = (id: string, label: string) => { dirty(); setLayout((ls) => ls.map((s) => (s.id === id ? { ...s, label } : s))); };
+  const renamePage = (sectionId: string, href: string, label: string) => {
+    dirty();
+    setLayout((ls) => ls.map((s) => {
+      if (s.id !== sectionId) return s;
+      const labels = { ...(s.labels ?? {}) };
+      const fallback = ITEM_BY_HREF.get(href)?.label ?? '';
+      if (!label.trim() || label.trim() === fallback) delete labels[href];
+      else labels[href] = label;
+      return { ...s, labels: Object.keys(labels).length ? labels : undefined };
+    }));
+  };
   const addSection = () => { dirty(); setLayout((ls) => [...ls, { id: `sec-${Date.now()}`, label: 'New section', items: [] }]); };
   const moveSection = (id: string, delta: -1 | 1) => {
     dirty();
@@ -82,10 +93,19 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
   };
   const moveTo = (href: string, toId: string) => {
     dirty();
-    setLayout((ls) => ls.map((s) => ({
-      ...s,
-      items: s.id === toId ? (s.items.includes(href) ? s.items : [...s.items, href]) : s.items.filter((h) => h !== href),
-    })));
+    setLayout((ls) => {
+      const label = ls.find((s) => s.items.includes(href))?.labels?.[href];
+      return ls.map((s) => {
+        const labels = { ...(s.labels ?? {}) };
+        if (s.id !== toId) delete labels[href];
+        else if (label) labels[href] = label;
+        return {
+          ...s,
+          items: s.id === toId ? (s.items.includes(href) ? s.items : [...s.items, href]) : s.items.filter((h) => h !== href),
+          labels: Object.keys(labels).length ? labels : undefined,
+        };
+      });
+    });
   };
   const clearDrag = () => {
     setDragging(null);
@@ -115,12 +135,18 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
     if (href === targetHref) return;
     dirty();
     setLayout((ls) => {
-      const next = ls.map((s) => ({ ...s, items: s.items.filter((h) => h !== href) }));
+      const label = ls.find((s) => s.items.includes(href))?.labels?.[href];
+      const next = ls.map((s) => {
+        const labels = { ...(s.labels ?? {}) };
+        delete labels[href];
+        return { ...s, items: s.items.filter((h) => h !== href), labels: Object.keys(labels).length ? labels : undefined };
+      });
       const target = next.find((s) => s.id === toSectionId);
       if (!target) return ls;
       const targetIndex = targetHref ? target.items.indexOf(targetHref) : -1;
       const insertAt = targetIndex < 0 ? target.items.length : targetIndex + (position === 'after' ? 1 : 0);
       target.items.splice(insertAt, 0, href);
+      if (label) target.labels = { ...(target.labels ?? {}), [href]: label };
       return next;
     });
   };
@@ -287,7 +313,7 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
                     key={href}
                     draggable
                     onDragStart={(e) => {
-                      if ((e.target as HTMLElement).closest('button,.vsel')) {
+                      if ((e.target as HTMLElement).closest('input,button,.vsel')) {
                         e.preventDefault();
                         return;
                       }
@@ -325,7 +351,16 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
                       )}
                     </button>
                     <Icon size={16} className={on ? 'text-text-secondary' : 'text-text-muted'} />
-                    <span className={`text-[13px] flex-1 min-w-0 truncate ${on ? 'text-text-primary' : 'text-text-muted line-through'}`}>{item.label}</span>
+                    <input
+                      value={section.labels?.[href] ?? item.label}
+                      onChange={(e) => renamePage(section.id, href, e.target.value)}
+                      placeholder={item.label}
+                      maxLength={60}
+                      className={`min-w-0 flex-1 bg-transparent text-[13px] focus:outline-none focus:text-text-primary ${
+                        on ? 'text-text-primary' : 'text-text-muted line-through'
+                      }`}
+                      draggable={false}
+                    />
                     <div className="flex items-center gap-0.5 shrink-0">
                       <button
                         type="button"
@@ -334,7 +369,7 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
                         title="Move page up"
                         className="ui-icon-button size-7 rounded-md disabled:opacity-30 disabled:hover:bg-transparent"
                         draggable={false}
-                        aria-label={`Move ${item.label} up`}
+                        aria-label={`Move ${section.labels?.[href] ?? item.label} up`}
                       >
                         <MoveIcon direction="up" />
                       </button>
@@ -345,7 +380,7 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
                         title="Move page down"
                         className="ui-icon-button size-7 rounded-md disabled:opacity-30 disabled:hover:bg-transparent"
                         draggable={false}
-                        aria-label={`Move ${item.label} down`}
+                        aria-label={`Move ${section.labels?.[href] ?? item.label} down`}
                       >
                         <MoveIcon direction="down" />
                       </button>
@@ -355,7 +390,7 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
                       onChange={(v) => moveTo(href, v)}
                       options={sectionOptions}
                       className="vsel-sm shrink-0"
-                      ariaLabel={`Move ${item.label} to section`}
+                      ariaLabel={`Move ${section.labels?.[href] ?? item.label} to section`}
                     />
                   </div>
                 );

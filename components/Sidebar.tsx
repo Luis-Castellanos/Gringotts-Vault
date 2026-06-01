@@ -220,7 +220,7 @@ export function Sidebar({
     return (
       <aside
         className="vault-rail-shell sticky self-start flex w-[82px] flex-col items-center px-3 py-3 print:hidden"
-        style={{ top: 44, height: 'calc(100vh - 44px)' }}
+        style={{ top: 0, height: '100vh' }}
       >
         <div className="vault-icon-rail flex h-full w-[56px] flex-col overflow-hidden rounded-[28px]">
         <div className="flex flex-col items-center gap-2 px-2 pt-3 pb-2.5">
@@ -316,7 +316,7 @@ export function Sidebar({
   return (
     <aside
       className="sticky self-start flex flex-col bg-surface-1 border-r border-border-subtle print:hidden"
-      style={{ width, top: 44, height: 'calc(100vh - 44px)' }}
+      style={{ width, top: 0, height: '100vh' }}
     >
       {/* Top: profile (avatar + name) + collapse */}
       <div className="flex items-center gap-2.5 px-3 pt-3 pb-2.5">

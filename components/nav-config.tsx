@@ -116,7 +116,12 @@ export function normalizeSections(raw: NavSection[] | null | undefined): NavSect
     .map((s, i) => {
       const items = (Array.isArray(s.items) ? s.items : []).filter((h) => ITEM_BY_HREF.has(h) && !placed.has(h));
       items.forEach((h) => placed.add(h));
-      return { id: s.id || `sec-${i}`, label: s.label, items };
+      const labels = Object.fromEntries(
+        Object.entries(s.labels ?? {})
+          .filter(([href, label]) => ITEM_BY_HREF.has(href) && typeof label === 'string' && label.trim())
+          .map(([href, label]) => [href, label.trim().slice(0, 60)]),
+      );
+      return { id: s.id || `sec-${i}`, label: s.label, items, ...(Object.keys(labels).length ? { labels } : {}) };
     });
   if (sections.length === 0) sections = [{ id: 'main', label: 'Menu', items: [] }];
   const missing = ALL_NAV_ITEMS.map((i) => i.href).filter((h) => !placed.has(h));
@@ -134,7 +139,14 @@ export function resolveSections(
     .map((s) => ({
       id: s.id,
       label: s.label,
-      items: s.items.map((h) => ITEM_BY_HREF.get(h)).filter((it): it is NavItem => !!it && !hidden.has(it.href)),
+      items: s.items
+        .map((h) => {
+          const item = ITEM_BY_HREF.get(h);
+          if (!item || hidden.has(item.href)) return null;
+          const customLabel = s.labels?.[h]?.trim();
+          return customLabel ? { ...item, label: customLabel } : item;
+        })
+        .filter((it): it is NavItem => !!it),
     }))
     .filter((s) => s.items.length > 0);
 }

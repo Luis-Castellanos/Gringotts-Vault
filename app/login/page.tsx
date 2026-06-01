@@ -97,7 +97,7 @@ export default function LoginPage() {
   const first = status && !status.hasPasskey;
 
   return (
-    <div className="min-h-[calc(100vh-44px)] flex items-center justify-center px-6">
+    <div className="min-h-screen flex items-center justify-center px-6">
       <div className="w-full max-w-[380px] rounded-2xl border border-border-subtle bg-surface-1 p-8 text-center">
         <div className="mx-auto mb-5 size-12 rounded-xl bg-gradient-to-br from-accent-300 to-accent-500 flex items-center justify-center text-xl font-bold text-white shadow-sm shadow-accent-500/30">↙</div>
         <h1 className="text-[20px] font-semibold mb-1">Vault</h1>
