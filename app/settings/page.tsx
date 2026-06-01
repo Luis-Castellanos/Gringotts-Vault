@@ -11,7 +11,6 @@ import '../accounts/accounts-settings.css';
 import { SettingsClient, type GroupRow, type TypeRow } from './SettingsClient';
 import { SettingsTabs } from './SettingsTabs';
 import { ProfileSettings } from './ProfileSettings';
-import { AppearanceSettings } from './AppearanceSettings';
 import { SidebarSettings } from './SidebarSettings';
 import { ClaudeSettings } from './ClaudeSettings';
 import { MarketDataSettings } from './MarketDataSettings';
@@ -157,7 +156,7 @@ export default async function SettingsPage() {
       <h1 className="text-[20px] font-semibold tracking-[-0.01em] mb-4">Settings</h1>
       <SettingsTabs
         tabs={[
-          { id: 'profile', label: 'Profile', content: <><ProfileSettings initial={profile} /><AppearanceSettings /></> },
+          { id: 'profile', label: 'Profile', content: <ProfileSettings initial={profile} /> },
           { id: 'sidebar', label: 'Sidebar', content: <SidebarSettings initialHidden={profile.navHidden} initialLayout={profile.navLayout} /> },
           { id: 'accounts', label: 'Accounts', content: <div className="acctset-page"><AccountsSettingsClient accounts={acctRowsView} /></div> },
           { id: 'merchants', label: 'Merchants', content: <MerchantSettings initialRows={merchantRows} categories={merchantCategories} /> },
