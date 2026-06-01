@@ -245,6 +245,87 @@ body {
   color: var(--color-chrome-text);
 }
 
+.vault-rail-shell {
+  background: transparent;
+}
+
+.vault-icon-rail {
+  color: rgba(255, 255, 255, 0.9);
+  background:
+    radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.18), transparent 28%),
+    linear-gradient(180deg, var(--rail-start, #6f83ff) 0%, var(--rail-mid, #2f5fe7) 48%, var(--rail-end, #0c2e88) 100%);
+  box-shadow: 0 18px 34px var(--rail-shadow, rgba(20, 58, 160, 0.26)), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.vault-rail-logo {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--rail-mid, #2f5fe7);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.vault-rail-button {
+  color: rgba(255, 255, 255, 0.78);
+  border: 1px solid transparent;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.vault-rail-button:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.vault-rail-button.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 24px rgba(255, 255, 255, 0.34);
+}
+
+.vault-rail-button.active::after {
+  content: '';
+  position: absolute;
+  inset: 7px auto 7px -9px;
+  width: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+[data-rail='blue'],
+:root {
+  --rail-start: #7087ff;
+  --rail-mid: #2f5fe7;
+  --rail-end: #0c2e88;
+  --rail-shadow: rgba(23, 72, 185, 0.28);
+}
+
+[data-rail='indigo'] {
+  --rail-start: #8b7cff;
+  --rail-mid: #4f46e5;
+  --rail-end: #25116f;
+  --rail-shadow: rgba(67, 56, 202, 0.28);
+}
+
+[data-rail='slate'] {
+  --rail-start: #64748b;
+  --rail-mid: #334155;
+  --rail-end: #111827;
+  --rail-shadow: rgba(15, 23, 42, 0.26);
+}
+
+[data-rail='emerald'] {
+  --rail-start: #34d399;
+  --rail-mid: #047857;
+  --rail-end: #064e3b;
+  --rail-shadow: rgba(4, 120, 87, 0.26);
+}
+
+[data-rail='burgundy'] {
+  --rail-start: #d46375;
+  --rail-mid: #8f1d2c;
+  --rail-end: #4c0f1a;
+  --rail-shadow: rgba(143, 29, 44, 0.26);
+}
+
 .dashboard-hero {
   border: 1px solid var(--color-accent-border);
   border-radius: 24px;
@@ -549,17 +630,17 @@ kbd {
   /* Override Vault @theme tokens for light mode so Tailwind utilities
      (used by Sidebar / TopBar / Review) adapt alongside the theme-aware
      tokens used by page-scoped CSS (.accounts-page, .cc-page, etc.). */
-  --color-surface-base: #f3eadc;
-  --color-surface-1: #fbf4e8;
-  --color-surface-2: #efe4d2;
-  --color-surface-3: #e3d3bb;
-  --color-border-subtle: rgba(42, 32, 22, 0.1);
-  --color-border-strong: rgba(42, 32, 22, 0.18);
+  --color-surface-base: #eee3d3;
+  --color-surface-1: #f6eddf;
+  --color-surface-2: #eadcc8;
+  --color-surface-3: #decaaf;
+  --color-border-subtle: rgba(54, 40, 24, 0.12);
+  --color-border-strong: rgba(54, 40, 24, 0.22);
   --color-text-primary: #1d1711;
   --color-text-secondary: #423629;
   --color-text-tertiary: #746655;
-  --color-text-muted: #978875;
-  --color-text-faint: #b7a996;
+  --color-text-muted: #8d7c67;
+  --color-text-faint: #aa997f;
 
   /* Chase-inspired blue for light mode. It is action color only; positive
      financial movement remains green so status meaning stays consistent. */
@@ -576,15 +657,15 @@ kbd {
   --color-positive-bright: #1f8f4e;
   --color-negative: #ba3038;
 
-  --bg: #f3eadc;
-  --surface: #fbf4e8;
-  --surface-hover: #efe4d2;
-  --surface-elev: #eadbc6;
+  --bg: #eee3d3;
+  --surface: #f6eddf;
+  --surface-hover: #eadcc8;
+  --surface-elev: #e3d0b6;
   --text-1: #1d1711;
   --text-2: #423629;
   --text-3: #746655;
-  --line: rgba(42, 32, 22, 0.1);
-  --line-strong: rgba(42, 32, 22, 0.18);
+  --line: rgba(54, 40, 24, 0.12);
+  --line-strong: rgba(54, 40, 24, 0.22);
   --green: #147a3d;
   --green-tint: #d7ead9;
   --green-text: #147a3d;
@@ -600,16 +681,16 @@ kbd {
   --amber: #a46212;
   --amber-tint: #f5e4bf;
   --amber-text: #7e4b0f;
-  --shadow-panel: 0 8px 24px rgba(57, 42, 23, 0.08);
-  --shadow-card: 0 1px 4px rgba(57, 42, 23, 0.06), 0 0 0 0.5px var(--line);
+  --shadow-panel: 0 8px 24px rgba(57, 42, 23, 0.1);
+  --shadow-card: 0 1px 4px rgba(57, 42, 23, 0.08), 0 0 0 0.5px var(--line);
 }
 
 [data-theme='light'] .dashboard-hero {
   background:
     radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--color-accent-500) 12%, transparent), transparent 34%),
-    radial-gradient(circle at 18% 82%, rgba(255, 255, 255, 0.38), transparent 38%),
-    linear-gradient(135deg, #fbf4e8 0%, #f2e6d4 58%, #eadbc6 100%);
-  box-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255, 255, 255, 0.58);
+    radial-gradient(circle at 18% 82%, rgba(246, 237, 223, 0.42), transparent 38%),
+    linear-gradient(135deg, #f6eddf 0%, #eadcc8 58%, #e3d0b6 100%);
+  box-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255, 250, 242, 0.48);
 }
 
 /* ── Color schemes — override the accent family, layered on light/dark ──

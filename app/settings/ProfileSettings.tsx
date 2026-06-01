@@ -70,7 +70,6 @@ export function ProfileSettings({ initial }: { initial: ProfileData }) {
   return (
     <section className="rounded-xl border border-border-subtle bg-surface-1 p-5 mb-8">
       <h2 className="text-[15px] font-semibold mb-1">Profile</h2>
-      <p className="text-[12.5px] text-text-tertiary mb-5">Your name and avatar — shown in the sidebar.</p>
 
       <div className="flex flex-col sm:flex-row gap-6">
         {/* Live preview */}
@@ -86,7 +85,7 @@ export function ProfileSettings({ initial }: { initial: ProfileData }) {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
+              placeholder="Luke Skywalker"
               maxLength={80}
               className="rounded-lg border border-border-subtle bg-surface-base px-3 py-2 text-[13px] focus:outline-none focus:border-border-strong"
             />

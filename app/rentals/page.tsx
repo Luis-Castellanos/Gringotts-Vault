@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/PageShell';
 import { loadMortgageAccountOptions, loadPortfolio } from '@/lib/properties/load';
 import { RealEstateClient } from './RealEstateClient';
 
@@ -8,8 +9,8 @@ export default async function RealEstatePage() {
   const [portfolio, mortgageOptions] = await Promise.all([loadPortfolio(), loadMortgageAccountOptions()]);
 
   return (
-    <main className="w-full max-w-[1500px] px-10 pt-6 pb-20">
+    <PageShell variant="dashboard">
       <RealEstateClient portfolio={portfolio} mortgageOptions={mortgageOptions} />
-    </main>
+    </PageShell>
   );
 }

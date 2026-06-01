@@ -1,8 +1,9 @@
+import { PageShell } from '@/components/PageShell';
 import { Skeleton } from '@/components/Skeleton';
 
 export default function Loading() {
   return (
-    <main className="w-full max-w-[1100px] px-10 pt-6 pb-20">
+    <PageShell variant="form">
       <div className="flex items-start justify-between mb-6">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-6 w-24" />
@@ -16,6 +17,6 @@ export default function Loading() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
       </div>
-    </main>
+    </PageShell>
   );
 }

@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/PageShell';
 import { loadAllocationOverview, loadDebts, loadGoalAccountOptions, loadGoals } from '@/lib/goals/load';
 import { GoalsClient } from './GoalsClient';
 
@@ -12,8 +13,8 @@ export default async function GoalsPage() {
     loadAllocationOverview(),
   ]);
   return (
-    <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
+    <PageShell variant="form">
       <GoalsClient goals={goals} accountOptions={accountOptions} debts={debts} allocation={allocation} />
-    </main>
+    </PageShell>
   );
 }

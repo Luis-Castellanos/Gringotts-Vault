@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/PageShell';
 import { taxFacts } from '@/lib/tax-engine';
 import { FiguresClient } from './FiguresClient';
 
@@ -7,8 +8,8 @@ export default async function TaxFiguresPage({ searchParams }: { searchParams: P
   const { year } = await searchParams;
   const data = taxFacts(year ? Number(year) : new Date().getFullYear());
   return (
-    <main className="w-full max-w-[1100px] px-10 pt-6 pb-20">
+    <PageShell variant="form">
       <FiguresClient data={data} />
-    </main>
+    </PageShell>
   );
 }

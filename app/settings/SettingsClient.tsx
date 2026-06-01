@@ -120,9 +120,6 @@ export function SettingsClient({ groups: initialGroups, rows: initialRows }: { g
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-[15px] font-semibold">Account types</h2>
-          <p className="text-[12.5px] text-text-tertiary mt-0.5">
-            Your taxonomy across Accounts, Net Worth, and uploads. Drag to reorder, recolor groups, pick icons; the asset/liability toggle moves a type between the two sections.
-          </p>
         </div>
         {archivedCount > 0 && (
           <button
@@ -147,7 +144,7 @@ export function SettingsClient({ groups: initialGroups, rows: initialRows }: { g
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addType()}
-            placeholder="e.g. Money Market, HSA…"
+            placeholder="e.g. Jedi trust, HSA..."
             maxLength={40}
             className="rounded-lg border border-border-subtle bg-surface-base px-3 py-2 text-[13px] focus:outline-none focus:border-border-strong"
           />

@@ -36,9 +36,6 @@ export function ClaudeSettings({ hasKey, keySource, model }: { hasKey: boolean; 
           {hasKey ? `Configured${keySource === 'env' ? ' (env)' : ''}` : 'Not set'}
         </span>
       </div>
-      <p className="text-[12.5px] text-text-tertiary mb-4">
-        Powers the “Categorize with Claude” button in Review. The key is stored in your database (this deployment only); you can also set <code className="text-text-secondary">ANTHROPIC_API_KEY</code> in the environment.
-      </p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1.5 flex-1 min-w-[240px]">
           <span className="text-[10.5px] font-medium uppercase tracking-[0.06em] text-text-muted">Anthropic API key</span>

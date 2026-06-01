@@ -203,7 +203,6 @@ export function GoalsClient({ goals, accountOptions, debts, allocation }: { goal
     <>
       <PageHeader
         title="Goals"
-        subtitle="Save up for what's next and track your path to debt-free."
         actions={
           <button type="button" onClick={() => setAdding(true)} className="rounded-lg bg-accent-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-500/90">
             + New goal
@@ -219,9 +218,6 @@ export function GoalsClient({ goals, accountOptions, debts, allocation }: { goal
             </svg>
           </div>
           <h2 className="text-[16px] font-semibold mb-1">No goals yet</h2>
-          <p className="text-[13px] text-text-tertiary max-w-md mx-auto mb-5">
-            Create a savings goal (emergency fund, down payment) or a debt-payoff goal — assign accounts and Vault tracks the progress automatically.
-          </p>
           <button type="button" onClick={() => setAdding(true)} className="rounded-lg bg-accent-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-500/90">
             + Create your first goal
           </button>

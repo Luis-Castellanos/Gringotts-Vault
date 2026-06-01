@@ -28,6 +28,8 @@ export type StmtAudit = {
   start: string | null;
   end: string | null;
   n: number;
+  inflowCount: number;
+  outflowCount: number;
   begin: number | null;
   finish: number | null;
   derivedEnd: number | null;
@@ -42,6 +44,7 @@ export type StmtAudit = {
   gapDaysBefore: number | null; // uncovered days vs previous statement (>0 = gap)
   overlapBefore: boolean;
   sourceFile: string | null;
+  documentId: string | null;
 };
 
 export type AccountAudit = {
@@ -80,6 +83,7 @@ export async function loadStatementAudit(): Promise<StatementAudit> {
         credits: imports.statedCredits,
         debits: imports.statedDebits,
         file: imports.sourceFile,
+        documentId: imports.documentId,
       })
       .from(imports)
       .leftJoin(accounts, eq(accounts.id, imports.accountId))
@@ -88,6 +92,8 @@ export async function loadStatementAudit(): Promise<StatementAudit> {
       .select({
         importId: transactions.importId,
         n: sql<number>`count(*)::int`,
+        inflowCount: sql<number>`count(*) filter (where ${transactions.amount} > 0)::int`,
+        outflowCount: sql<number>`count(*) filter (where ${transactions.amount} < 0)::int`,
         net: sql<string>`coalesce(sum(${transactions.amount}),0)::text`,
         inflow: sql<string>`coalesce(sum(${transactions.amount}) filter (where ${transactions.amount} > 0),0)::text`,
         outflow: sql<string>`coalesce(sum(${transactions.amount}) filter (where ${transactions.amount} < 0),0)::text`,
@@ -118,6 +124,8 @@ export async function loadStatementAudit(): Promise<StatementAudit> {
       summary.totalStatements += 1;
       const d = byImport.get(s.id);
       const n = d?.n ?? 0;
+      const inflowCount = d?.inflowCount ?? 0;
+      const outflowCount = d?.outflowCount ?? 0;
       const net = num(d?.net ?? null) ?? 0;
       const inflow = num(d?.inflow ?? null) ?? 0;
       const outflow = Math.abs(num(d?.outflow ?? null) ?? 0);
@@ -160,6 +168,8 @@ export async function loadStatementAudit(): Promise<StatementAudit> {
         start: s.start,
         end: s.end,
         n,
+        inflowCount,
+        outflowCount,
         begin,
         finish,
         derivedEnd,
@@ -174,6 +184,7 @@ export async function loadStatementAudit(): Promise<StatementAudit> {
         gapDaysBefore,
         overlapBefore,
         sourceFile: s.file,
+        documentId: s.documentId,
       });
     }
 
@@ -223,9 +234,19 @@ export type ChainAudit = {
   finish: number | null;
   derivedEnd: number | null;
   endDelta: number | null;
+  statedCredits: number | null;
+  parsedInflow: number;
+  inflowCount: number;
+  creditsDelta: number | null;
+  statedDebits: number | null;
+  parsedOutflow: number;
+  outflowCount: number;
+  debitsDelta: number | null;
   hasPrintedBalances: boolean;
   reconcilesAtEnd: boolean;
   firstBreakIndex: number | null;
+  sourceFile: string | null;
+  documentId: string | null;
   rows: ChainRow[];
 };
 
@@ -239,6 +260,10 @@ export async function loadStatementChain(importId: string): Promise<ChainAudit |
       end: imports.periodEnd,
       begin: imports.beginningBalance,
       finish: imports.endingBalance,
+      credits: imports.statedCredits,
+      debits: imports.statedDebits,
+      file: imports.sourceFile,
+      documentId: imports.documentId,
     })
     .from(imports)
     .leftJoin(accounts, eq(accounts.id, imports.accountId))
@@ -261,6 +286,8 @@ export async function loadStatementChain(importId: string): Promise<ChainAudit |
 
   const begin = num(imp.begin);
   const finish = num(imp.finish);
+  const statedCredits = num(imp.credits);
+  const statedDebits = num(imp.debits);
   const hasPrintedBalances = rows.some((r) => r.balance != null);
 
   // Anchor the expected-balance chain. Prefer the stated beginning balance;
@@ -296,8 +323,14 @@ export async function loadStatementChain(importId: string): Promise<ChainAudit |
   const lastPrinted = [...out].reverse().find((r) => r.printedBalance != null);
   const reconcilesAtEnd = lastPrinted ? lastPrinted.delta == null || Math.abs(lastPrinted.delta) <= TOL : true;
   const net = out.reduce((s, r) => s + r.amount, 0);
+  const parsedInflow = Math.round(out.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0) * 100) / 100;
+  const parsedOutflow = Math.round(Math.abs(out.filter((r) => r.amount < 0).reduce((s, r) => s + r.amount, 0)) * 100) / 100;
+  const inflowCount = out.filter((r) => r.amount > 0).length;
+  const outflowCount = out.filter((r) => r.amount < 0).length;
   const derivedEnd = begin != null ? Math.round((begin + net) * 100) / 100 : null;
   const endDelta = derivedEnd != null && finish != null ? Math.round((derivedEnd - finish) * 100) / 100 : null;
+  const creditsDelta = statedCredits != null ? Math.round((parsedInflow - statedCredits) * 100) / 100 : null;
+  const debitsDelta = statedDebits != null ? Math.round((parsedOutflow - statedDebits) * 100) / 100 : null;
 
   return {
     importId,
@@ -307,9 +340,19 @@ export async function loadStatementChain(importId: string): Promise<ChainAudit |
     finish,
     derivedEnd,
     endDelta,
+    statedCredits,
+    parsedInflow,
+    inflowCount,
+    creditsDelta,
+    statedDebits,
+    parsedOutflow,
+    outflowCount,
+    debitsDelta,
     hasPrintedBalances,
     reconcilesAtEnd,
     firstBreakIndex: firstBreakIndex < 0 ? null : firstBreakIndex,
+    sourceFile: imp.file,
+    documentId: imp.documentId,
     rows: out,
   };
 }

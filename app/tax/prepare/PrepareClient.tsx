@@ -81,7 +81,6 @@ export function PrepareClient({ initialWorkspace, year, supportedYears }: { init
     <>
       <PageHeader
         title="Tax"
-        subtitle={`Prepare · ${year} · ${FILING_SHORT[ws.filingStatus]}`}
         actions={
           <>
             {saveLabel && <span className="text-[11.5px] text-text-muted">{saveLabel}</span>}
@@ -130,16 +129,16 @@ function ProfileSection({ ws, update, filingOptions }: { ws: TaxWorkspace; updat
   const joint = ws.filingStatus === 'mfj' || ws.filingStatus === 'qw';
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <Panel title="Filing" subtitle="Status and who's on the return">
+      <Panel title="Filing">
         <FieldRow label="Filing status">
           <Select value={ws.filingStatus} onChange={(v) => update((d) => { d.filingStatus = v; })} options={filingOptions} />
         </FieldRow>
-        <FieldRow label="Taxpayer name"><TextInput value={ws.profile.taxpayerName} onChange={(v) => update((d) => { d.profile.taxpayerName = v; })} placeholder="Optional" /></FieldRow>
-        {joint && <FieldRow label="Spouse name"><TextInput value={ws.profile.spouseName} onChange={(v) => update((d) => { d.profile.spouseName = v; })} placeholder="Optional" /></FieldRow>}
-        <FieldRow label="State" note="informational — no state calc yet"><TextInput value={ws.profile.state} onChange={(v) => update((d) => { d.profile.state = v; })} placeholder="e.g. TX" /></FieldRow>
+        <FieldRow label="Taxpayer name"><TextInput value={ws.profile.taxpayerName} onChange={(v) => update((d) => { d.profile.taxpayerName = v; })} placeholder="Luke Skywalker" /></FieldRow>
+        {joint && <FieldRow label="Spouse name"><TextInput value={ws.profile.spouseName} onChange={(v) => update((d) => { d.profile.spouseName = v; })} placeholder="Mara Jade" /></FieldRow>}
+        <FieldRow label="State" note="informational — no state calc yet"><TextInput value={ws.profile.state} onChange={(v) => update((d) => { d.profile.state = v; })} placeholder="e.g. CA" /></FieldRow>
       </Panel>
 
-      <Panel title="Dependents" subtitle="Drives the Child Tax Credit + ODC">
+      <Panel title="Dependents">
         <FieldRow label="Qualifying children" note="under age 17"><IntInput value={ws.profile.dependentsUnder17} onChange={(n) => update((d) => { d.profile.dependentsUnder17 = n; })} /></FieldRow>
         <FieldRow label="Other dependents" note="$500 credit each"><IntInput value={ws.profile.otherDependents} onChange={(n) => update((d) => { d.profile.otherDependents = n; })} /></FieldRow>
       </Panel>

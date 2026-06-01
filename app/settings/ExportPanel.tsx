@@ -37,7 +37,6 @@ export function ExportPanel() {
   return (
     <section className="rounded-xl border border-border-subtle bg-surface-1 p-5 mt-6">
       <h2 className="text-[15px] font-semibold mb-1">Export to Excel</h2>
-      <p className="text-[12.5px] text-text-tertiary mb-4">Download your transactions as an .xlsx — pick a date range, columns, and whether to include transfers.</p>
 
       <div className="flex flex-wrap items-end gap-3 mb-4">
         <label className="flex flex-col gap-1.5">

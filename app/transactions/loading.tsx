@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/PageShell';
 import { Skeleton } from '@/components/Skeleton';
 import './transactions.css';
 
@@ -5,7 +6,7 @@ import './transactions.css';
 // (avatar + merchant/sub-line + amount), so nothing shifts when data lands.
 export default function Loading() {
   return (
-    <main className="transactions-page w-full max-w-[1600px] px-6 pt-6 pb-20">
+    <PageShell variant="dense" className="transactions-page">
       <div className="flex items-center gap-3 mb-6">
         <Skeleton className="h-9 w-72 rounded-lg" />
         <Skeleton className="h-9 w-28 rounded-lg" />
@@ -31,6 +32,6 @@ export default function Loading() {
           </div>
         </div>
       ))}
-    </main>
+    </PageShell>
   );
 }

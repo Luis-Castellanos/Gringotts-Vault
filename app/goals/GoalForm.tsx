@@ -122,14 +122,14 @@ export function GoalForm({
 
           <label className={lbl}>
             Name
-            <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder={type === 'save_up' ? 'e.g. Emergency fund' : 'e.g. Debt-free'} autoFocus maxLength={120} />
+            <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder={type === 'save_up' ? 'e.g. New hyperdrive' : 'e.g. Pay off Death Star loan'} autoFocus maxLength={120} />
           </label>
 
           {type === 'save_up' && (
             <div className="grid grid-cols-2 gap-3">
               <label className={lbl}>
                 Target
-                <input className={field} value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} inputMode="decimal" placeholder="25000" />
+                <input className={field} value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} inputMode="decimal" placeholder="12000" />
               </label>
               <label className={lbl}>
                 Target date
@@ -137,18 +137,18 @@ export function GoalForm({
               </label>
               <label className={lbl}>
                 Monthly contribution
-                <input className={field} value={monthly} onChange={(e) => setMonthly(e.target.value)} inputMode="decimal" placeholder="500" />
+                <input className={field} value={monthly} onChange={(e) => setMonthly(e.target.value)} inputMode="decimal" placeholder="1138" />
               </label>
               <label className={lbl}>
                 Growth rate %/yr <span className="font-normal text-text-muted">(optional)</span>
-                <input className={field} value={growth} onChange={(e) => setGrowth(e.target.value)} inputMode="decimal" placeholder="5" />
+                <input className={field} value={growth} onChange={(e) => setGrowth(e.target.value)} inputMode="decimal" placeholder="7" />
               </label>
             </div>
           )}
           {type === 'pay_down' && (
             <label className={lbl}>
               Extra monthly payment <span className="font-normal text-text-muted">(optional)</span>
-              <input className={field} value={monthly} onChange={(e) => setMonthly(e.target.value)} inputMode="decimal" placeholder="200" />
+              <input className={field} value={monthly} onChange={(e) => setMonthly(e.target.value)} inputMode="decimal" placeholder="327" />
               <span className="text-[11px] text-text-muted font-normal">Payoff projection uses each account&rsquo;s APR + monthly payment (set on Accounts).</span>
             </label>
           )}

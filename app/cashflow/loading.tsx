@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/PageShell';
 import { Skeleton } from '@/components/Skeleton';
 import './cashflow.css';
 
@@ -5,7 +6,7 @@ import './cashflow.css';
 // summary tiles, then the two-column Income / Expenses breakdown.
 export default function Loading() {
   return (
-    <main className="cashflow-page w-full max-w-[1400px] px-10 pt-9 pb-20">
+    <PageShell variant="dashboard" className="cashflow-page">
       <div className="flex items-center justify-between mb-6">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-9 w-56 rounded-lg" />
@@ -29,6 +30,6 @@ export default function Loading() {
           </div>
         ))}
       </div>
-    </main>
+    </PageShell>
   );
 }

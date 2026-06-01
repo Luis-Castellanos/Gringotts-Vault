@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { notFound } from 'next/navigation';
 
+import { PageShell } from '@/components/PageShell';
 import { db } from '@/lib/db/client';
 import { categories } from '@/lib/db/schema';
 import { TransactionsClient, type CatLite } from '@/app/transactions/TransactionsClient';
@@ -86,7 +87,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   rows.push({ label: 'Total transactions', value: total.toLocaleString() });
 
   return (
-    <main className="account-detail-page w-full max-w-[1500px] px-6 pt-6 pb-20">
+    <PageShell variant="form" className="account-detail-page">
       <AccountDetailHeader account={account} series={series} />
 
       <div className="ad-body">
@@ -129,6 +130,6 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           </div>
         </aside>
       </div>
-    </main>
+    </PageShell>
   );
 }

@@ -83,7 +83,6 @@ function ComparePanel({ report, prev }: { report: AnnualReport; prev: AnnualRepo
   );
   return (
     <>
-      <p className="text-[13px] text-text-tertiary mb-4"><span className="font-medium text-text-secondary">{cy}</span> vs <span className="font-medium text-text-secondary">{py}</span> — where things moved.</p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
         {metric('Income', report.income, prev.income, 'pos')}
         {metric('Spending', report.spending, prev.spending, 'neg')}
@@ -217,7 +216,6 @@ function MoneyFlow({ report }: { report: AnnualReport }) {
   return (
     <section className="rounded-xl bg-surface-1 border border-border-subtle p-5 mb-5">
       <h2 className="text-[14px] font-semibold mb-1">Money flow</h2>
-      <p className="text-[12px] text-text-tertiary mb-3">Income → where it goes.</p>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: H }} role="img" aria-label="Income to spending flow">
         {bands.map((b) => (
           <path
@@ -502,7 +500,6 @@ function IncomeStatementPanel({ report }: { report: AnnualReport }) {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="text-[14px] font-semibold">Net income</h2>
-            <p className="mt-1 text-[12.5px] text-text-tertiary">Revenue minus expenses for {report.label}.</p>
           </div>
           <span className={`text-[22px] font-semibold tabular-nums ${report.net >= 0 ? 'text-positive' : 'text-negative'}`}>{money0(report.net)}</span>
         </div>
@@ -552,8 +549,7 @@ function BalanceSheetPanel({ balanceSheet }: { balanceSheet: BalanceSheet }) {
       <section className="mt-5 rounded-xl border border-border-subtle bg-surface-1 px-5 py-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-[14px] font-semibold">Owner equity</h2>
-            <p className="mt-1 text-[12.5px] text-text-tertiary">Assets minus liabilities.</p>
+            <h2 className="text-[14px] font-semibold">Net worth</h2>
           </div>
           <span className={`text-[22px] font-semibold tabular-nums ${balanceSheet.equity >= 0 ? 'text-positive' : 'text-negative'}`}>{money0(balanceSheet.equity)}</span>
         </div>
@@ -653,7 +649,6 @@ function ReportOptionsPanel({
 
       <section className="mt-7 rounded-xl border border-border-subtle p-5">
         <h3 className="text-[16px] font-semibold">Visible sections</h3>
-        <p className="mt-2 text-[14px] leading-6 text-text-tertiary">Choose which blocks appear in the current report view.</p>
         <div className="mt-5 space-y-3">
           {([
             ['insights', 'Auto insights'],
@@ -674,7 +669,6 @@ function ReportOptionsPanel({
 
       <section className="mt-7 rounded-xl border border-border-subtle p-5">
         <h3 className="text-[16px] font-semibold">Top merchants</h3>
-        <p className="mt-2 text-[14px] leading-6 text-text-tertiary">Limit merchant rows while keeping export data complete.</p>
         <div className="mt-5 flex items-center gap-4">
           <input className="flex-1 accent-[var(--color-accent-500)]" type="range" min={4} max={20} value={merchantLimit} onChange={(event) => setMerchantLimit(Number(event.target.value))} />
           <span className="w-16 rounded-xl border border-border-subtle px-3 py-2 text-center text-[16px] font-semibold tabular-nums">{merchantLimit}</span>

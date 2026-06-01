@@ -1,6 +1,7 @@
 import { asc, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
+import { PageShell } from '@/components/PageShell';
 import { db } from '@/lib/db/client';
 import { accountTypeGroups, accountTypes, accounts, categories, transactions, vendorRules } from '@/lib/db/schema';
 import { ANTHROPIC_KEY, MARKET_DATA_KEY, getAnthropicKey, getAnthropicModel, getSetting } from '@/lib/settings';
@@ -15,7 +16,7 @@ import { AppearanceSettings } from './AppearanceSettings';
 import { SidebarSettings } from './SidebarSettings';
 import { ClaudeSettings } from './ClaudeSettings';
 import { MarketDataSettings } from './MarketDataSettings';
-import { MaintenancePanel } from './MaintenancePanel';
+import { DangerZonePanel, MaintenancePanel } from './MaintenancePanel';
 import { ExportPanel } from './ExportPanel';
 import { MerchantSettings, type MerchantCategoryOption, type MerchantRow } from './MerchantSettings';
 import { CategoriesClient, type CatNode } from '../categories/CategoriesClient';
@@ -153,7 +154,7 @@ export default async function SettingsPage() {
   }));
 
   return (
-    <main className="w-full max-w-[1180px] px-10 pt-6 pb-20">
+    <PageShell variant="form">
       <h1 className="text-[20px] font-semibold tracking-[-0.01em] mb-4">Settings</h1>
       <SettingsTabs
         tabs={[
@@ -180,11 +181,12 @@ export default async function SettingsPage() {
               <>
                 <MaintenancePanel />
                 <ExportPanel />
+                <DangerZonePanel />
               </>
             ),
           },
         ]}
       />
-    </main>
+    </PageShell>
   );
 }

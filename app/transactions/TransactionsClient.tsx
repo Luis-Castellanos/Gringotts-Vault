@@ -479,7 +479,7 @@ function TxnDetail({
         <label className="span-3">
           Notes
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
-            placeholder="Anything to remember about this transaction…" maxLength={1000} />
+            placeholder="Anything to remember about this transaction... e.g. Tosche Station power converters" maxLength={1000} />
         </label>
       </div>
 

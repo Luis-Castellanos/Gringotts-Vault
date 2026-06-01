@@ -222,7 +222,6 @@ export function RealEstateClient({
     <>
       <PageHeader
         title="Real Estate"
-        subtitle="Your properties, their mortgages, and the equity you've built."
         className="mb-7"
         actions={
           <button
@@ -253,9 +252,6 @@ export function RealEstateClient({
             </svg>
           </div>
           <h2 className="text-[16px] font-semibold mb-1">No properties yet</h2>
-          <p className="text-[13px] text-text-tertiary max-w-md mx-auto mb-5">
-            Add a property to track its value, link its mortgage, and see the amortization schedule.
-          </p>
           <button
             type="button"
             onClick={() => setAdding(true)}

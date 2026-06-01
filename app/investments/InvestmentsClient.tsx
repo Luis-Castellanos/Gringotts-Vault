@@ -269,7 +269,7 @@ function groupGainBuckets(rows: HoldingView[], groupBy: GroupBy): GainBucket[] {
 
 function GainLossChart({ buckets, mode }: { buckets: GainBucket[]; mode: ChartMode }) {
   if (buckets.length === 0) {
-    return <div className="flex h-[420px] items-center justify-center text-[13px] text-text-muted">Upload investment statements with holdings to chart gains and losses.</div>;
+    return <div className="flex h-[420px] items-center justify-center text-[13px] text-text-muted">No holdings yet.</div>;
   }
   const W = 1100;
   const H = 420;
@@ -591,7 +591,7 @@ function AdvancedInvestments({
         </div>
 
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-[rgba(0,112,121,0.4)] px-5 py-4 text-[15px] text-[var(--color-cat-cyan)]">
-          <span>ⓘ Get a complete picture of your gains &amp; losses by filling in missing cost basis or tax lots in the holdings table below. <span className="font-semibold underline">Learn more</span></span>
+          <span>ⓘ Missing cost basis or tax lots.</span>
           <button type="button" className="font-semibold">Add cost basis</button>
         </div>
 
@@ -667,7 +667,7 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
   if (accounts.length === 0) {
     return (
       <>
-        <PageHeader title="Investments" subtitle="Brokerage, retirement, and other holdings." className="mb-8" />
+        <PageHeader title="Investments" className="mb-8" />
         <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-20 text-center">
           <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-surface-2 text-text-muted">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -675,9 +675,6 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
             </svg>
           </div>
           <h2 className="text-[16px] font-semibold mb-1">No investment accounts yet</h2>
-          <p className="text-[13px] text-text-tertiary max-w-md mx-auto mb-5">
-            Add a brokerage, retirement, or crypto account and Vault tracks its value over time, allocation, and growth here.
-          </p>
           <Link href="/accounts" className="rounded-lg bg-accent-500 px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-500/90">
             Go to Accounts
           </Link>
@@ -825,11 +822,6 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
               </div>
             ))}
           </div>
-          <p className="text-[11.5px] text-text-muted mt-5 leading-relaxed">
-            {holdings.rows.length > 0
-              ? 'Allocation by account. See Holdings above for per-position market value, cost basis, and asset-class allocation.'
-              : 'Allocation is by account today. Per-holding market value, cost basis, and asset-class allocation appear here once the brokerage-statement parser populates holdings.'}
-          </p>
         </section>
       </div>
         </>

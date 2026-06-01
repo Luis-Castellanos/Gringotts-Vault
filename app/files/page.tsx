@@ -1,5 +1,6 @@
 import { asc, desc, eq, inArray } from 'drizzle-orm';
 
+import { PageShell } from '@/components/PageShell';
 import { db } from '@/lib/db/client';
 import { accountTypes, accounts, documents } from '@/lib/db/schema';
 import { FilesClient, type FileRow } from './FilesClient';
@@ -81,8 +82,8 @@ export default async function FilesPage() {
   });
 
   return (
-    <main className="w-full max-w-[1400px] px-10 pt-6 pb-20">
+    <PageShell variant="dense">
       <FilesClient rows={rows} typeOptions={typeOptions} accountOptions={accountOptions} />
-    </main>
+    </PageShell>
   );
 }

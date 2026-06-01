@@ -83,7 +83,7 @@ export function LeaseForm({ propertyId, lease, onClose }: { propertyId: string; 
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
             <label className={lbl}>Unit <span className="font-normal text-text-muted">(optional)</span>
-              <input className={field} value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Unit A" />
+              <input className={field} value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Unit TK-421" />
             </label>
             <label className={lbl}>Status
               <select className={field} value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -92,17 +92,17 @@ export function LeaseForm({ propertyId, lease, onClose }: { propertyId: string; 
             </label>
           </div>
           <label className={lbl}>Tenant
-            <input className={field} value={tenantName} onChange={(e) => setTenantName(e.target.value)} placeholder="Jane Doe" maxLength={160} />
+            <input className={field} value={tenantName} onChange={(e) => setTenantName(e.target.value)} placeholder="Leia Organa" maxLength={160} />
           </label>
           <label className={lbl}>Contact <span className="font-normal text-text-muted">(email / phone)</span>
-            <input className={field} value={tenantContact} onChange={(e) => setTenantContact(e.target.value)} placeholder="jane@example.com" maxLength={200} />
+            <input className={field} value={tenantContact} onChange={(e) => setTenantContact(e.target.value)} placeholder="leia@alderaan.example" maxLength={200} />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className={lbl}>Monthly rent
-              <input className={field} value={rent} onChange={(e) => setRent(e.target.value)} inputMode="decimal" placeholder="2000" />
+              <input className={field} value={rent} onChange={(e) => setRent(e.target.value)} inputMode="decimal" placeholder="1977" />
             </label>
             <label className={lbl}>Deposit
-              <input className={field} value={deposit} onChange={(e) => setDeposit(e.target.value)} inputMode="decimal" placeholder="2000" />
+              <input className={field} value={deposit} onChange={(e) => setDeposit(e.target.value)} inputMode="decimal" placeholder="1138" />
             </label>
           </div>
           <div className="grid grid-cols-2 gap-3">

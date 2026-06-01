@@ -47,8 +47,20 @@ const STATUS_STYLE: Record<FileResult['status'], string> = {
   failed: 'bg-negative/15 text-negative',
 };
 
-function isPdf(f: File): boolean {
-  return f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+function isSupportedImport(f: File): boolean {
+  const name = f.name.toLowerCase();
+  return (
+    f.type === 'application/pdf' ||
+    f.type === 'text/csv' ||
+    f.type === 'text/tab-separated-values' ||
+    f.type === 'application/vnd.ms-excel' ||
+    f.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    name.endsWith('.pdf') ||
+    name.endsWith('.csv') ||
+    name.endsWith('.tsv') ||
+    name.endsWith('.xls') ||
+    name.endsWith('.xlsx')
+  );
 }
 
 export function UploadClient() {
@@ -62,15 +74,15 @@ export function UploadClient() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = useCallback((list: FileList | File[]) => {
-    const pdfs = Array.from(list).filter(isPdf);
-    if (pdfs.length === 0) return;
+    const files = Array.from(list).filter(isSupportedImport);
+    if (files.length === 0) return;
     setResults(null);
     setPreview(null);
     setError(null);
     setStaged((prev) => {
       const seen = new Set(prev.map((f) => `${f.name}:${f.size}`));
       const next = [...prev];
-      for (const f of pdfs) {
+      for (const f of files) {
         const key = `${f.name}:${f.size}`;
         if (!seen.has(key)) {
           seen.add(key);
@@ -131,11 +143,6 @@ export function UploadClient() {
   return (
     <>
       <h1 className="text-[22px] font-semibold tracking-[-0.01em] mb-1">Upload statements</h1>
-      <p className="text-[13px] text-text-tertiary mb-6">
-        Drop in bank, credit-card, or other statement PDFs. Vault detects the account and type,
-        extracts the transactions into your database, and keeps the original file. New transactions
-        land in <Link href="/review" className="text-accent-500 hover:underline">Review</Link> to be categorized.
-      </p>
 
       {/* Dropzone */}
       <div
@@ -156,15 +163,12 @@ export function UploadClient() {
           <IconUpload size={22} />
         </div>
         <div className="text-[15px] font-medium mb-1">
-          Drop PDFs here or <span className="text-accent-500">browse</span>
-        </div>
-        <div className="text-[12.5px] text-text-tertiary">
-          Bank · credit card · more types coming. You can drop several at once.
+          Drop PDFs, CSVs, or Excel files here or <span className="text-accent-500">browse</span>
         </div>
         <input
           ref={inputRef}
           type="file"
-          accept="application/pdf,.pdf"
+          accept="application/pdf,text/csv,text/tab-separated-values,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.pdf,.csv,.tsv,.xls,.xlsx"
           multiple
           className="hidden"
           onChange={(e) => {

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
+import { PageShell } from '@/components/PageShell';
 import { db } from '@/lib/db/client';
 import { accounts, categories, transactions } from '@/lib/db/schema';
 import { loadSplitContributions } from '@/lib/transactions/split';
@@ -108,9 +109,9 @@ export default async function CashflowPage() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <main className="cashflow-page w-full max-w-[1400px] px-10 pt-9 pb-20">
+    <PageShell variant="dashboard" className="cashflow-page">
       <CashflowClient cats={cats} merchants={merchants} accounts={accountsList} />
-    </main>
+    </PageShell>
   );
 }
 

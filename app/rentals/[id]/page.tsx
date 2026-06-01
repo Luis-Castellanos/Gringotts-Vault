@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 
+import { PageShell } from '@/components/PageShell';
 import { loadMortgageAccountOptions, loadProperty } from '@/lib/properties/load';
 import { loadPropertyFinancials } from '@/lib/properties/financials';
 import { loadLeases } from '@/lib/properties/leases';
@@ -41,7 +42,7 @@ export default async function PropertyPage({
   ]);
 
   return (
-    <main className="w-full max-w-[1100px] px-10 pt-6 pb-20">
+    <PageShell variant="form">
       <PropertyDetailClient
         property={data.property}
         schedule={data.schedule}
@@ -53,6 +54,6 @@ export default async function PropertyPage({
         capex={capex}
         mortgageOptions={mortgageOptions}
       />
-    </main>
+    </PageShell>
   );
 }

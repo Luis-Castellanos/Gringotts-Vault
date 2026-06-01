@@ -94,7 +94,6 @@ function TopCategories({ cats }: { cats: TopCategory[] }) {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-[14px] font-semibold">Top spending</h2>
-          <p className="mt-0.5 text-[12px] text-text-tertiary">Largest categories this month</p>
         </div>
         <Link href="/cashflow" className="panel-link">Cashflow →</Link>
       </div>
@@ -130,7 +129,6 @@ function AccountsSnapshot({ groups }: { groups: AccountGroup[] }) {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-[14px] font-semibold">Account mix</h2>
-          <p className="mt-0.5 text-[12px] text-text-tertiary">Balances grouped by purpose</p>
         </div>
         <Link href="/accounts" className="panel-link">Accounts →</Link>
       </div>
@@ -163,7 +161,6 @@ function CashflowOverview({ income, spending, net, monthLabel }: { income: numbe
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[14px] font-semibold">Cash flow overview</h2>
-          <p className="mt-0.5 text-[12px] text-text-tertiary">Income vs. spending · {monthLabel}</p>
         </div>
         <Link href="/cashflow" className="panel-link">Open →</Link>
       </div>
@@ -193,7 +190,6 @@ function RecentTransactions({ transactions, reviewCount }: { transactions?: Rece
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-[14px] font-semibold">Recent transactions</h2>
-          <p className="mt-0.5 text-[12px] text-text-tertiary">Fast scan before the full ledger</p>
         </div>
         <Link href="/transactions" className="panel-link">All transactions →</Link>
       </div>
@@ -216,14 +212,12 @@ function RecentTransactions({ transactions, reviewCount }: { transactions?: Rece
               <span className="font-medium text-text-primary">Open transaction ledger</span>
               <span className="text-text-tertiary">⌘T</span>
             </div>
-            <p className="mt-1 text-[12px] text-text-tertiary">Search, split, categorize, and export recent activity.</p>
           </Link>
           <Link href="/review" className="rounded-xl border border-border-subtle bg-surface-2/50 px-3 py-3 text-[13px] transition hover:border-accent-border hover:bg-surface-2">
             <div className="flex items-center justify-between gap-3">
               <span className="font-medium text-text-primary">Review queue</span>
               <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-positive">{reviewCount} pending</span>
             </div>
-            <p className="mt-1 text-[12px] text-text-tertiary">Resolve uncategorized items without leaving the dashboard.</p>
           </Link>
         </div>
       )}
@@ -240,7 +234,6 @@ export function DashboardClient({ data }: { data: DashboardClientData }) {
     <>
       <PageHeader
         title="Dashboard"
-        subtitle="Personal finance command center"
         actions={(
           <>
             {reviewCount > 0 && (

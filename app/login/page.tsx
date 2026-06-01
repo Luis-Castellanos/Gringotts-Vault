@@ -109,7 +109,7 @@ export default function LoginPage() {
               value={nameValue}
               onChange={(e) => setNameValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && saveName()}
-              placeholder="Your name"
+              placeholder="Leia Organa"
               maxLength={80}
               className="w-full rounded-lg border border-border-subtle bg-surface-base px-3 py-2.5 text-[14px] text-center mb-3 focus:outline-none focus:border-border-strong"
             />

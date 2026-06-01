@@ -195,9 +195,6 @@ export function SidebarSettings({ initialLayout, initialHidden }: { initialLayou
         <h2 className="text-[15px] font-semibold">Sidebar sections</h2>
         <span className="text-[11px] text-text-tertiary">{hiddenCount > 0 ? `${hiddenCount} hidden` : 'All shown'}</span>
       </div>
-      <p className="text-[12.5px] text-text-tertiary mb-4">
-        Organize the sidebar into your own sections. Drag section cards or page rows to reorder them, move a page to another section, rename a heading, or hide it.
-      </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
         {layout.map((section, sectionIndex) => (

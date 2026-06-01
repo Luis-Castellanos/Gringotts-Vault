@@ -59,12 +59,6 @@ export function MarketDataSettings({ hasKey, keySource }: { hasKey: boolean; key
           {hasKey ? `Configured${keySource === 'env' ? ' (env)' : ''}` : 'Not set'}
         </span>
       </div>
-      <p className="text-[12.5px] text-text-tertiary mb-4">
-        Live quotes and index benchmarks for the Investments page, via{' '}
-        <a href="https://twelvedata.com" target="_blank" rel="noreferrer" className="text-accent-500 hover:underline">Twelve Data</a>{' '}
-        (free tier works). The key is stored in your database (this deployment only); you can also set{' '}
-        <code className="text-text-secondary">MARKET_DATA_KEY</code> in the environment. Without a key, Investments falls back to statement-reported values.
-      </p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1.5 flex-1 min-w-[240px]">
           <span className="text-[10.5px] font-medium uppercase tracking-[0.06em] text-text-muted">Twelve Data API key</span>

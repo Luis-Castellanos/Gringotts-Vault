@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/PageShell';
 import { SUPPORTED_YEARS } from '@/lib/tax-engine';
 import { loadWorkspace, resolveTaxYear } from '@/lib/tax/workspace-store';
 import { PrepareClient } from './PrepareClient';
@@ -10,8 +11,8 @@ export default async function TaxPreparePage({ searchParams }: { searchParams: P
   const y = resolveTaxYear(year ? Number(year) : new Date().getFullYear());
   const ws = await loadWorkspace(y);
   return (
-    <main className="w-full max-w-[1100px] px-10 pt-6 pb-20">
+    <PageShell variant="form">
       <PrepareClient key={y} initialWorkspace={ws} year={y} supportedYears={SUPPORTED_YEARS} />
-    </main>
+    </PageShell>
   );
 }

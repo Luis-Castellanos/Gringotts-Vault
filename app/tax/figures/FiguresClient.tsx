@@ -50,7 +50,6 @@ export function FiguresClient({ data }: { data: TaxFactsYear }) {
     <>
       <PageHeader
         title="Tax"
-        subtitle={`Key federal figures · ${data.year} — verify against the linked IRS source`}
         actions={<><TaxTabs />{yearSelect}</>}
       />
 

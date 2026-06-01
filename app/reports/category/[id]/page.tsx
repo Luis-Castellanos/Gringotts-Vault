@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 
+import { PageShell } from '@/components/PageShell';
 import { loadCategoryDetail, loadReportYears } from '@/lib/reports/load';
 import { CategoryDetailClient } from './CategoryDetailClient';
 
@@ -27,8 +28,8 @@ export default async function CategoryDeepDivePage({
   if (!detail) notFound();
 
   return (
-    <main className="w-full max-w-[1000px] px-10 pt-6 pb-20">
+    <PageShell variant="form">
       <CategoryDetailClient detail={detail} from={from} to={to} />
-    </main>
+    </PageShell>
   );
 }

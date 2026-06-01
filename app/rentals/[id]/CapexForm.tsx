@@ -69,17 +69,17 @@ export function CapexForm({ propertyId, item, onClose }: { propertyId: string; i
         {error && <div className="mb-4 rounded-lg bg-negative/10 border border-negative/30 px-3 py-2 text-[13px] text-negative">{error}</div>}
         <div className="flex flex-col gap-4">
           <label className={lbl}>Description
-            <input className={field} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. New roof" autoFocus maxLength={200} />
+            <input className={field} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. New moisture vaporator" autoFocus maxLength={200} />
           </label>
           <div className="grid grid-cols-3 gap-3">
             <label className={lbl}>Cost
-              <input className={field} value={cost} onChange={(e) => setCost(e.target.value)} inputMode="decimal" placeholder="12000" />
+              <input className={field} value={cost} onChange={(e) => setCost(e.target.value)} inputMode="decimal" placeholder="11380" />
             </label>
             <label className={lbl}>Placed in service
               <input className={field} type="date" value={placedInService} onChange={(e) => setPlacedInService(e.target.value)} />
             </label>
             <label className={lbl}>Life (yrs)
-              <input className={field} value={life} onChange={(e) => setLife(e.target.value)} inputMode="numeric" placeholder="27" />
+              <input className={field} value={life} onChange={(e) => setLife(e.target.value)} inputMode="numeric" placeholder="23" />
             </label>
           </div>
           <p className="text-[11px] text-text-muted">Depreciates straight-line over its useful life (e.g. roof ~27, appliances ~5) into Schedule E line 18.</p>

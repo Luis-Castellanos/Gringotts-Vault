@@ -1,5 +1,5 @@
 /**
- * Dry-run an upload: parse the PDFs and report what *would* happen — detected
+ * Dry-run an upload: parse the files and report what *would* happen — detected
  * account/type/period, new vs duplicate transaction counts, statement
  * reconciliation, and whether the file itself is a re-upload — without writing
  * anything to the ledger or storing the file. Mirrors the parse phase of
@@ -15,6 +15,7 @@ import { documents } from '@/lib/db/schema';
 import { fail, handler, ok } from '@/lib/api/respond';
 import { runExtractor } from '@/lib/parser/extract';
 import { parserAvailable, PARSER_UNAVAILABLE_MESSAGE } from '@/lib/parser/availability';
+import { isPdfFile, isSpreadsheetFile, isSupportedImportFile, parseSpreadsheet } from '@/lib/parser/spreadsheet';
 import { previewIngest } from '@/lib/ingest';
 
 export const runtime = 'nodejs';
@@ -49,8 +50,12 @@ async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: 
 }
 
 async function previewFile(file: File): Promise<PreviewResult> {
-  const fileName = file.name || 'statement.pdf';
+  const fileName = file.name || 'import';
   try {
+    if (!isSupportedImportFile(fileName, file.type)) {
+      return { fileName, status: 'failed', error: 'Unsupported file type. Upload PDF, CSV, XLS, or XLSX files.' };
+    }
+
     const buf = Buffer.from(await file.arrayBuffer());
     const hash = createHash('sha256').update(buf).digest('hex');
     const [existing] = await db
@@ -60,7 +65,9 @@ async function previewFile(file: File): Promise<PreviewResult> {
       .limit(1);
     if (existing?.status === 'parsed') return { fileName, status: 'duplicate-file' };
 
-    const res = await runExtractor(buf, fileName);
+    const res = isSpreadsheetFile(fileName, file.type)
+      ? parseSpreadsheet(buf, fileName)
+      : await runExtractor(buf, fileName);
     if (!res.ok) return { fileName, status: 'failed', error: res.error };
     if (res.type === 'paystub' && res.paystub) {
       return { fileName, status: 'paystub', account: res.account, statementPeriod: res.statementPeriod };
@@ -113,13 +120,12 @@ async function previewFile(file: File): Promise<PreviewResult> {
 }
 
 export const POST = handler(async (req: NextRequest) => {
-  if (!parserAvailable()) {
-    return fail('parser_unavailable', PARSER_UNAVAILABLE_MESSAGE, 503);
-  }
-
   const form = await req.formData();
   const files = form.getAll('files').filter((f): f is File => f instanceof File);
   if (files.length === 0) return fail('no_files', 'No files uploaded.', 400);
+  if (files.some((file) => isPdfFile(file.name || '', file.type)) && !parserAvailable()) {
+    return fail('parser_unavailable', PARSER_UNAVAILABLE_MESSAGE, 503);
+  }
 
   const results = await mapWithConcurrency(files, PARSE_CONCURRENCY, previewFile);
   const summary = {

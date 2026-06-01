@@ -1,6 +1,7 @@
 import { asc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
+import { PageShell } from '@/components/PageShell';
 import { db } from '@/lib/db/client';
 import { accounts, categories, transactions } from '@/lib/db/schema';
 import { TransactionsClient, type AcctLite, type CatLite } from './TransactionsClient';
@@ -55,7 +56,7 @@ export default async function TransactionsPage() {
   const usedAccountIds = acctUsage.map((a) => a.acctId).filter((id): id is string => id != null);
 
   return (
-    <main className="transactions-page w-full max-w-[1600px] px-6 pt-6 pb-20">
+    <PageShell variant="dense" className="transactions-page">
       <TransactionsClient
         txns={txns}
         total={total}
@@ -66,6 +67,6 @@ export default async function TransactionsPage() {
         hasUncategorized={hasUncategorized}
         usedAccountIds={usedAccountIds}
       />
-    </main>
+    </PageShell>
   );
 }

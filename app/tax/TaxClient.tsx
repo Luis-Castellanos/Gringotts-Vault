@@ -45,7 +45,7 @@ export function TaxClient({ years, summary }: { years: number[]; summary: TaxSum
   if (!s.hasData) {
     return (
       <>
-        <PageHeader title="Tax" subtitle="Year-end summary from your paystubs and transactions." actions={<>{tabs}{yearSelect}</>} />
+        <PageHeader title="Tax" actions={<>{tabs}{yearSelect}</>} />
         <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-16 text-center text-[13px] text-text-tertiary">
           No paystubs or income recorded for {s.year}. Upload paystubs (and categorize interest/dividends) and the summary appears here.
         </div>
@@ -58,7 +58,6 @@ export function TaxClient({ years, summary }: { years: number[]; summary: TaxSum
     <>
       <PageHeader
         title="Tax"
-        subtitle={`Year-end summary · ${FILING_LABEL[s.filingStatus]}${s.filingStatusSource === 'default' ? ' (assumed)' : ''}`}
         actions={<>{tabs}{yearSelect}</>}
       />
 

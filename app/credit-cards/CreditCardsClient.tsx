@@ -686,7 +686,7 @@ function BenefitsEditor({ card, onUpdated }: { card: CreditCardData; onUpdated: 
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
-          placeholder="Add a benefit (e.g. $300 travel credit)"
+          placeholder="Add a benefit (e.g. hyperspace lounge access)"
           maxLength={120}
         />
         <button type="button" onClick={add} disabled={!draft.trim()}>Add</button>
@@ -754,12 +754,12 @@ function SignupBonusEditor({ card, onUpdated }: { card: CreditCardData; onUpdate
   return (
     <div className="cc-sb-form" onClick={(e) => e.stopPropagation()}>
       <div className="row">
-        <label>Bonus amount<input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="60000" /></label>
-        <label>Unit<input type="text" value={type} onChange={(e) => setType(e.target.value)} placeholder="points" /></label>
+        <label>Bonus amount<input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="113800" /></label>
+        <label>Unit<input type="text" value={type} onChange={(e) => setType(e.target.value)} placeholder="credits" /></label>
         <label>Value (¢/unit)<input type="number" step="0.1" value={valuation} onChange={(e) => setValuation(e.target.value)} placeholder="1.5" /></label>
       </div>
       <div className="row">
-        <label>Required spend ($)<input type="number" value={spendReq} onChange={(e) => setSpendReq(e.target.value)} placeholder="4000" /></label>
+        <label>Required spend ($)<input type="number" value={spendReq} onChange={(e) => setSpendReq(e.target.value)} placeholder="3270" /></label>
         <label>Spend by<input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} /></label>
       </div>
       {error && <div className="err">{error}</div>}
@@ -834,7 +834,7 @@ function InlineDetails({
             display={card.name}
             initialValue={card.name}
             inputType="text"
-            placeholder="e.g. Chase Sapphire Reserve"
+            placeholder="e.g. Rebel Alliance Reserve"
             onSave={async (raw) => {
               const trimmed = raw.trim();
               if (!trimmed) return { ok: false, error: 'Name cannot be empty.' };
@@ -849,7 +849,7 @@ function InlineDetails({
             isPlaceholder={!card.institution}
             initialValue={card.institution}
             inputType="text"
-            placeholder="e.g. Chase"
+            placeholder="e.g. Galactic Credit Union"
             onSave={async (raw) => {
               const r = await patchAccount(card.id, { institution: raw.trim() || null });
               if (r.ok) onUpdated();
@@ -862,7 +862,7 @@ function InlineDetails({
             isPlaceholder={!card.last4}
             initialValue={card.last4}
             inputType="text"
-            placeholder="1234"
+            placeholder="1138"
             onSave={async (raw) => {
               const r = await patchAccount(card.id, { accountNumber: raw.trim() || null });
               if (r.ok) onUpdated();
@@ -1180,7 +1180,7 @@ function AddCardModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Chase Sapphire Reserve"
+              placeholder="e.g. Rebel Alliance Reserve"
               maxLength={120}
               autoFocus
               required
@@ -1192,7 +1192,7 @@ function AddCardModal({
               type="text"
               value={institution}
               onChange={(e) => setInstitution(e.target.value)}
-              placeholder="e.g. Chase"
+              placeholder="e.g. Galactic Credit Union"
               maxLength={120}
             />
           </label>
@@ -1203,7 +1203,7 @@ function AddCardModal({
                 type="text"
                 value={last4}
                 onChange={(e) => setLast4(e.target.value)}
-                placeholder="1234"
+                placeholder="1138"
                 inputMode="numeric"
                 maxLength={8}
               />
@@ -1225,7 +1225,7 @@ function AddCardModal({
                 type="text"
                 value={creditLimit}
                 onChange={(e) => setCreditLimit(e.target.value)}
-                placeholder="5000"
+                placeholder="12000"
                 inputMode="decimal"
               />
             </label>
@@ -1235,7 +1235,7 @@ function AddCardModal({
                 type="text"
                 value={apr}
                 onChange={(e) => setApr(e.target.value)}
-                placeholder="19.99"
+                placeholder="21.87"
                 inputMode="decimal"
               />
             </label>

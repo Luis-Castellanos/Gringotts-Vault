@@ -1,5 +1,6 @@
 import { asc, sql } from 'drizzle-orm';
 
+import { PageShell } from '@/components/PageShell';
 import { db } from '@/lib/db/client';
 import { categories, transactions } from '@/lib/db/schema';
 import { CategoriesClient, type CatNode } from './CategoriesClient';
@@ -39,8 +40,8 @@ export default async function CategoriesPage() {
   }));
 
   return (
-    <main className="categories-page w-full max-w-[1600px] px-12 pt-8 pb-24">
+    <PageShell variant="form" className="categories-page">
       <CategoriesClient nodes={nodes} />
-    </main>
+    </PageShell>
   );
 }

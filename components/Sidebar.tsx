@@ -41,11 +41,17 @@ const DropMarker = ({ position }: { position: 'before' | 'after' }) => (
   />
 );
 
-export function Sidebar({ reviewCount }: { reviewCount?: number }) {
+export function Sidebar({
+  reviewCount,
+  initialProfile,
+}: {
+  reviewCount?: number;
+  initialProfile?: ProfileData | null;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState<boolean>(true);
   const [width, setWidth] = useState<number>(SIDEBAR_DEFAULT_WIDTH);
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(initialProfile ?? null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const draggingRef = useRef(false);
@@ -70,12 +76,14 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
   // live via the event Settings dispatches on save (no reload needed).
   useEffect(() => {
     let alive = true;
-    fetch('/api/profile')
-      .then((r) => r.json())
-      .then((j) => {
-        if (alive && j?.data) setProfile(j.data as ProfileData);
-      })
-      .catch(() => {});
+    if (!initialProfile) {
+      fetch('/api/profile')
+        .then((r) => r.json())
+        .then((j) => {
+          if (alive && j?.data) setProfile(j.data as ProfileData);
+        })
+        .catch(() => {});
+    }
     function onProfile(e: Event) {
       const detail = (e as CustomEvent<ProfileData>).detail;
       if (detail) setProfile(detail);
@@ -85,7 +93,7 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
       alive = false;
       window.removeEventListener(PROFILE_EVENT, onProfile);
     };
-  }, []);
+  }, [initialProfile]);
 
   function onResizePointerDown(e: React.PointerEvent) {
     e.preventDefault();
@@ -211,23 +219,24 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
   if (!open) {
     return (
       <aside
-        className="sticky self-start flex w-[68px] flex-col overflow-hidden bg-surface-1 border-r border-border-subtle print:hidden"
+        className="vault-rail-shell sticky self-start flex w-[82px] flex-col items-center px-3 py-3 print:hidden"
         style={{ top: 44, height: 'calc(100vh - 44px)' }}
       >
+        <div className="vault-icon-rail flex h-full w-[56px] flex-col overflow-hidden rounded-[28px]">
         <div className="flex flex-col items-center gap-2 px-2 pt-3 pb-2.5">
-          <Link href="/settings" title="Profile & settings" aria-label="Profile & settings">
+          <Link href="/settings" title="Profile & settings" aria-label="Profile & settings" className="vault-rail-logo flex size-10 items-center justify-center rounded-2xl">
             <Avatar
               name={profile?.name ?? ''}
               kind={profile?.avatarKind ?? 'gradient'}
               gradient={profile?.avatarGradient ?? 'monarch'}
               image={profile?.avatarImage ?? null}
-              size={34}
-              className="ring-1 ring-border-subtle"
+              size={32}
+              className="ring-0"
             />
           </Link>
           <Link
             href="/"
-            className={`ui-icon-button size-9 shrink-0 rounded-md ${pathname === '/' ? 'bg-accent-soft text-accent-500' : ''}`}
+            className={`vault-rail-button relative flex size-10 shrink-0 items-center justify-center rounded-2xl ${pathname === '/' ? 'active' : ''}`}
             aria-label="Dashboard"
             title="Dashboard"
           >
@@ -236,7 +245,7 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
           <button
             type="button"
             onClick={expandSidebar}
-            className="ui-icon-button size-9 shrink-0 rounded-md"
+            className="vault-rail-button flex size-10 shrink-0 items-center justify-center rounded-2xl"
             aria-label="Show sidebar"
             title="Show sidebar"
           >
@@ -248,7 +257,7 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
           {sections.map((section) => (
             <div
               key={section.id}
-              className="flex flex-col items-center gap-1 border-t border-border-subtle/70 pt-2 first:border-t-0 first:pt-0"
+              className="flex flex-col items-center gap-1 border-t border-white/12 pt-2 first:border-t-0 first:pt-0"
             >
               {section.items.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -259,18 +268,11 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
                     href={item.href}
                     title={item.label}
                     aria-label={item.label}
-                    className={`relative flex size-10 items-center justify-center rounded-xl transition-colors ${
-                      active
-                        ? 'bg-accent-soft text-accent-500'
-                        : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
-                    }`}
+                    className={`vault-rail-button relative flex size-10 items-center justify-center rounded-2xl ${active ? 'active' : ''}`}
                   >
-                    {active && (
-                      <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent-500" />
-                    )}
                     <Icon size={20} strokeWidth={active ? 2 : 1.8} />
                     {item.showBadge && reviewCount !== undefined && reviewCount > 0 && (
-                      <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-accent-500 px-1 text-center text-[9.5px] font-semibold leading-4 tabular-nums text-[var(--color-accent-contrast)]">
+                      <span className="absolute right-0 top-0 min-w-4 rounded-full bg-white px-1 text-center text-[9.5px] font-semibold leading-4 tabular-nums text-[var(--rail-mid)]">
                         {reviewCount > 9 ? '9+' : reviewCount}
                       </span>
                     )}
@@ -281,16 +283,16 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
           ))}
         </nav>
 
-        <div className="flex flex-col items-center gap-2 border-t border-border-subtle px-2 py-3">
+        <div className="flex flex-col items-center gap-2 border-t border-white/12 px-2 py-3">
           <Link
             href="/settings"
             aria-label="Settings"
             title="Settings"
-            className="ui-icon-button size-10"
+            className="vault-rail-button flex size-10 items-center justify-center rounded-2xl"
           >
             <IconSettings size={18} />
           </Link>
-          <ThemeToggle className="ui-icon-button size-10" />
+          <ThemeToggle className="vault-rail-button flex size-10 items-center justify-center rounded-2xl" />
           <button
             type="button"
             onClick={async () => {
@@ -299,12 +301,13 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
             }}
             aria-label="Sign out"
             title="Sign out"
-            className="ui-icon-button size-10"
+            className="vault-rail-button flex size-10 items-center justify-center rounded-2xl"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M7 15.5H4a1.5 1.5 0 0 1-1.5-1.5V4A1.5 1.5 0 0 1 4 2.5h3M12 12.5 15.5 9 12 5.5M15.5 9h-9" />
             </svg>
           </button>
+        </div>
         </div>
       </aside>
     );

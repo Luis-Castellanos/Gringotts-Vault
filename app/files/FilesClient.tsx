@@ -520,13 +520,11 @@ export function FilesClient({
           Upload statements
         </Link>
       </div>
-      <p className="text-[13px] text-text-tertiary mb-5">
-        {rows.length === 0
-          ? 'Every statement you upload is parsed and stored here.'
-          : filtersActive
-            ? `${visible.length} of ${rows.length} ${rows.length === 1 ? 'document' : 'documents'} match.`
-            : `${rows.length} ${rows.length === 1 ? 'document' : 'documents'} · the original PDF of each is stored and downloadable.`}
-      </p>
+      {rows.length > 0 && filtersActive && (
+        <p className="text-[13px] text-text-tertiary mb-5">
+          {visible.length} of {rows.length} {rows.length === 1 ? 'document' : 'documents'} match.
+        </p>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg border border-negative/30 bg-negative/10 px-4 py-3 text-[13px] text-negative">{error}</div>
@@ -538,9 +536,6 @@ export function FilesClient({
             <IconUpload size={20} />
           </div>
           <div className="text-[15px] font-medium mb-1">No statements yet</div>
-          <div className="text-[13px] text-text-tertiary mb-5">
-            Upload bank, card, or other statement PDFs and Vault will sort out the rest.
-          </div>
           <Link
             href="/upload"
             className="inline-flex items-center gap-2 rounded-lg bg-accent-500 hover:brightness-110 text-white text-[13px] font-medium px-3.5 py-2 transition-colors"

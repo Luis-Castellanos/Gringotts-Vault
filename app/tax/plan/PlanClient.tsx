@@ -112,7 +112,7 @@ export function PlanClient({ initialWorkspace, year, supportedYears }: { initial
 
   return (
     <>
-      <PageHeader title="Tax" subtitle="Plan · drag a lever to see the cascade" actions={<><TaxTabs />{yearSelect}</>} />
+      <PageHeader title="Tax" actions={<><TaxTabs />{yearSelect}</>} />
 
       {base.totalIncome === 0 && (
         <div className="rounded-xl border border-dashed border-border-subtle bg-surface-1 px-6 py-4 text-[12.5px] text-text-tertiary mb-5">

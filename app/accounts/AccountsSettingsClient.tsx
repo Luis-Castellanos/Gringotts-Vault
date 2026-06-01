@@ -108,11 +108,13 @@ export function AccountsSettingsClient({
   netWorthSeries,
   compactCards = false,
   initialView = 'list',
+  showNetWorthOverview = false,
 }: {
   accounts: AcctRow[];
   netWorthSeries?: NetWorthPoint[];
   compactCards?: boolean;
   initialView?: 'grid' | 'list';
+  showNetWorthOverview?: boolean;
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<Modal>(null);
@@ -290,7 +292,7 @@ export function AccountsSettingsClient({
 
   return (
     <div className={`acctset${compactCards ? ' compact-cards' : ''}`}>
-      <NetWorthOverview accounts={accounts} series={netWorthSeries ?? []} />
+      {showNetWorthOverview && <NetWorthOverview accounts={accounts} series={netWorthSeries ?? []} />}
       <header className="acctset-head">
         <div className="acctset-viewtoggle" role="tablist" aria-label="View">
           <button type="button" role="tab" aria-selected={view === 'grid'} className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')} aria-label="Grid view" title="Grid">
@@ -745,7 +747,7 @@ function AccountDetail({
         {isLoan && <Field label="Monthly payment"><input value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} inputMode="decimal" placeholder="—" /></Field>}
         {isLoan && <Field label="Original principal"><input value={originalPrincipal} onChange={(e) => setOriginalPrincipal(e.target.value)} inputMode="decimal" placeholder="—" /></Field>}
         {isLoan && <Field label="Maturity date"><input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} /></Field>}
-        {isInvest && <Field label="Subtype"><input value={accountSubtype} onChange={(e) => setAccountSubtype(e.target.value)} placeholder="Roth / 401(k) / HSA…" /></Field>}
+        {isInvest && <Field label="Subtype"><input value={accountSubtype} onChange={(e) => setAccountSubtype(e.target.value)} placeholder="Jedi trust / 401(k) / HSA..." /></Field>}
       </div>
 
       {err && <div className="acctset-detail-err">{err}</div>}
@@ -817,7 +819,7 @@ function AddModal({
       <div className="cc-modal-backdrop" onClick={onClose}>
         <div className="cc-modal" onClick={(e) => e.stopPropagation()}>
           <h2>Add account</h2>
-          <label>Name<input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chase Checking" /></label>
+          <label>Name<input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Naboo Royal Checking" /></label>
           <div className="row-2">
             <label>Type
               <select value={type} onChange={(e) => setType(e.target.value as AcctType)}>
@@ -830,12 +832,12 @@ function AddModal({
             ))}
               </select>
             </label>
-            <label>Last 4<input value={last4} onChange={(e) => setLast4(e.target.value)} maxLength={4} placeholder="1234" /></label>
+            <label>Last 4<input value={last4} onChange={(e) => setLast4(e.target.value)} maxLength={4} placeholder="1138" /></label>
           </div>
-          <label>Institution<input value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="e.g. Chase" /></label>
+          <label>Institution<input value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="e.g. First Galactic Bank" /></label>
           {isCard && (
             <div className="row-2">
-              <label>Credit limit<input value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} inputMode="decimal" placeholder="10000" /></label>
+              <label>Credit limit<input value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} inputMode="decimal" placeholder="12000" /></label>
               <label>APR %<input value={apr} onChange={(e) => setApr(e.target.value)} inputMode="decimal" placeholder="24.99" /></label>
             </div>
           )}

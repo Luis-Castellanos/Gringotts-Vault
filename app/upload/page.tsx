@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/PageShell';
 import { UploadClient } from './UploadClient';
 import { parserAvailable, PARSER_UNAVAILABLE_MESSAGE } from '@/lib/parser/availability';
 
@@ -6,7 +7,7 @@ export const metadata = { title: 'Upload · Vault' };
 export default function UploadPage() {
   const enabled = parserAvailable();
   return (
-    <main className="w-full max-w-[900px] px-10 pt-6 pb-20">
+    <PageShell variant="form">
       {enabled ? (
         <UploadClient />
       ) : (
@@ -18,6 +19,6 @@ export default function UploadPage() {
           </div>
         </>
       )}
-    </main>
+    </PageShell>
   );
 }

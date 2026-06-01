@@ -1,8 +1,9 @@
+import { PageShell } from '@/components/PageShell';
 import { Skeleton } from '@/components/Skeleton';
 
 export default function Loading() {
   return (
-    <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
+    <PageShell variant="dashboard">
       <div className="flex items-start justify-between mb-6">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-6 w-32" />
@@ -20,6 +21,6 @@ export default function Loading() {
         <Skeleton className="h-72 rounded-xl" />
         <Skeleton className="h-72 rounded-xl" />
       </div>
-    </main>
+    </PageShell>
   );
 }

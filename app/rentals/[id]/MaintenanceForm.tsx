@@ -82,7 +82,7 @@ export function MaintenanceForm({ propertyId, item, onClose }: { propertyId: str
 
         <div className="flex flex-col gap-4">
           <label className={lbl}>Title
-            <input className={field} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Replace water heater" autoFocus maxLength={200} />
+            <input className={field} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Replace hyperdrive" autoFocus maxLength={200} />
           </label>
           <div className="grid grid-cols-3 gap-3">
             <label className={lbl}>Status
@@ -91,14 +91,14 @@ export function MaintenanceForm({ propertyId, item, onClose }: { propertyId: str
               </select>
             </label>
             <label className={lbl}>Category
-              <input className={field} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Repair" maxLength={60} />
+              <input className={field} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Droid repair" maxLength={60} />
             </label>
             <label className={lbl}>Cost
-              <input className={field} value={cost} onChange={(e) => setCost(e.target.value)} inputMode="decimal" placeholder="500" />
+              <input className={field} value={cost} onChange={(e) => setCost(e.target.value)} inputMode="decimal" placeholder="327" />
             </label>
           </div>
           <label className={lbl}>Vendor <span className="font-normal text-text-muted">(optional)</span>
-            <input className={field} value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="ACME Plumbing" maxLength={160} />
+            <input className={field} value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Tosche Station" maxLength={160} />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className={lbl}>Opened

@@ -1,16 +1,17 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, sql } from 'drizzle-orm';
 
+import { PageShell } from '@/components/PageShell';
 import { db } from '@/lib/db/client';
 import { accounts, transactions } from '@/lib/db/schema';
 import { loadTaxonomyStyle } from '@/lib/taxonomy-style';
-import { AccountsSettingsClient, type AcctRow, type NetWorthPoint } from './AccountsSettingsClient';
+import { AccountsSettingsClient, type AcctRow } from './AccountsSettingsClient';
 import './accounts-settings.css';
 
 export const metadata = { title: 'Accounts · Vault' };
 export const dynamic = 'force-dynamic';
 
 export default async function AccountsPage() {
-  const [acctRows, style, stats, dailyRows] = await Promise.all([
+  const [acctRows, style, stats] = await Promise.all([
     db.select().from(accounts).orderBy(asc(accounts.name)),
     loadTaxonomyStyle(),
     db
@@ -21,16 +22,6 @@ export default async function AccountsPage() {
       })
       .from(transactions)
       .groupBy(transactions.accountId),
-    db
-      .select({
-        date: transactions.date,
-        net: sql<string>`SUM(${transactions.amount})::text`,
-      })
-      .from(transactions)
-      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-      .where(eq(accounts.isActive, true))
-      .groupBy(transactions.date)
-      .orderBy(asc(transactions.date)),
   ]);
   const statById = new Map(stats.map((s) => [s.accountId, s]));
 
@@ -59,15 +50,9 @@ export default async function AccountsPage() {
     };
   });
 
-  let running = 0;
-  const netWorthSeries: NetWorthPoint[] = dailyRows.map((r) => {
-    running += Number(r.net);
-    return { date: r.date, value: Math.round(running * 100) / 100 };
-  });
-
   return (
-    <main className="acctset-page w-full max-w-[1600px] px-12 pt-8 pb-24">
-      <AccountsSettingsClient accounts={rows} netWorthSeries={netWorthSeries} />
-    </main>
+    <PageShell variant="dashboard" className="acctset-page">
+      <AccountsSettingsClient accounts={rows} />
+    </PageShell>
   );
 }

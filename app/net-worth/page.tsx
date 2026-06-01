@@ -1,5 +1,6 @@
 import { asc, eq, isNotNull, sql } from 'drizzle-orm';
 
+import { PageShell } from '@/components/PageShell';
 import { db } from '@/lib/db/client';
 import { accounts, transactions } from '@/lib/db/schema';
 import { loadTaxonomyStyle } from '@/lib/taxonomy-style';
@@ -109,8 +110,8 @@ export default async function NetWorthPage() {
   }
 
   return (
-    <main className="acctset-page w-full max-w-[1600px] px-12 pt-8 pb-24">
-      <AccountsSettingsClient accounts={rows} netWorthSeries={netWorthSeries} compactCards initialView="grid" />
-    </main>
+    <PageShell variant="dashboard" className="acctset-page">
+      <AccountsSettingsClient accounts={rows} netWorthSeries={netWorthSeries} compactCards initialView="grid" showNetWorthOverview />
+    </PageShell>
   );
 }

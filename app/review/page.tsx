@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/PageShell';
 import { ReviewQueueClient } from './ReviewQueueClient';
 
 export const metadata = {
@@ -6,8 +7,8 @@ export const metadata = {
 
 export default function ReviewPage() {
   return (
-    <main className="w-full max-w-[1500px] px-6 pt-6 pb-16 flex flex-col">
+    <PageShell variant="dense" className="flex flex-col">
       <ReviewQueueClient />
-    </main>
+    </PageShell>
   );
 }

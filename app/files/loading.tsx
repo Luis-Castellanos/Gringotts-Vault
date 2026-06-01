@@ -1,9 +1,10 @@
+import { PageShell } from '@/components/PageShell';
 import { GenericPageSkeleton } from '@/components/Skeleton';
 
 export default function Loading() {
   return (
-    <main className="w-full max-w-[1400px] px-10 pt-6 pb-20">
+    <PageShell variant="dense">
       <GenericPageSkeleton tiles={0} />
-    </main>
+    </PageShell>
   );
 }

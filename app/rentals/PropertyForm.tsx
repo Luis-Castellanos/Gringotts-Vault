@@ -148,7 +148,7 @@ export function PropertyForm({
         <div className="flex flex-col gap-4">
           <label className={lbl}>
             Name / label
-            <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 1321 Potomac Ave" autoFocus maxLength={160} />
+            <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Lars Homestead" autoFocus maxLength={160} />
           </label>
 
           <div className={lbl}>
@@ -170,21 +170,21 @@ export function PropertyForm({
 
           <label className={lbl}>
             Street
-            <input className={field} value={street} onChange={(e) => setStreet(e.target.value)} placeholder="1321 Potomac Ave" maxLength={200} />
+            <input className={field} value={street} onChange={(e) => setStreet(e.target.value)} placeholder="1 Moisture Farm Rd" maxLength={200} />
           </label>
 
           <div className="grid grid-cols-[1fr_90px_110px] gap-3">
             <label className={lbl}>
               City
-              <input className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Bakersfield" />
+              <input className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Mos Espa" />
             </label>
             <label className={lbl}>
               State
-              <input className={field} value={stateVal} onChange={(e) => setStateVal(e.target.value)} placeholder="CA" maxLength={20} />
+              <input className={field} value={stateVal} onChange={(e) => setStateVal(e.target.value)} placeholder="TA" maxLength={20} />
             </label>
             <label className={lbl}>
               ZIP
-              <input className={field} value={zip} onChange={(e) => setZip(e.target.value)} placeholder="93307" maxLength={20} />
+              <input className={field} value={zip} onChange={(e) => setZip(e.target.value)} placeholder="1138" maxLength={20} />
             </label>
           </div>
 
@@ -199,15 +199,15 @@ export function PropertyForm({
             </label>
             <label className={lbl}>
               Beds
-              <input className={field} value={beds} onChange={(e) => setBeds(e.target.value)} inputMode="numeric" placeholder="3" />
+              <input className={field} value={beds} onChange={(e) => setBeds(e.target.value)} inputMode="numeric" placeholder="2" />
             </label>
             <label className={lbl}>
               Baths
-              <input className={field} value={baths} onChange={(e) => setBaths(e.target.value)} inputMode="decimal" placeholder="2.5" />
+              <input className={field} value={baths} onChange={(e) => setBaths(e.target.value)} inputMode="decimal" placeholder="1" />
             </label>
             <label className={lbl}>
               Sq ft
-              <input className={field} value={sqft} onChange={(e) => setSqft(e.target.value)} inputMode="numeric" placeholder="1800" />
+              <input className={field} value={sqft} onChange={(e) => setSqft(e.target.value)} inputMode="numeric" placeholder="1977" />
             </label>
           </div>
 
@@ -218,15 +218,15 @@ export function PropertyForm({
             </label>
             <label className={lbl}>
               Purchase price
-              <input className={field} value={acquisitionPrice} onChange={(e) => setAcquisitionPrice(e.target.value)} inputMode="decimal" placeholder="450000" />
+              <input className={field} value={acquisitionPrice} onChange={(e) => setAcquisitionPrice(e.target.value)} inputMode="decimal" placeholder="327000" />
             </label>
             <label className={lbl}>
               Market value
-              <input className={field} value={marketValue} onChange={(e) => setMarketValue(e.target.value)} inputMode="decimal" placeholder="520000" />
+              <input className={field} value={marketValue} onChange={(e) => setMarketValue(e.target.value)} inputMode="decimal" placeholder="501000" />
             </label>
             <label className={lbl}>
               Land value %
-              <input className={field} value={landValuePct} onChange={(e) => setLandValuePct(e.target.value)} inputMode="decimal" placeholder="20" />
+              <input className={field} value={landValuePct} onChange={(e) => setLandValuePct(e.target.value)} inputMode="decimal" placeholder="23" />
               <span className="mt-1 text-[11px] text-text-muted">Non-depreciable land share of the purchase price (default 20%).</span>
             </label>
           </div>
@@ -234,11 +234,11 @@ export function PropertyForm({
           <div className="grid grid-cols-2 gap-3">
             <label className={lbl}>
               Property tax / yr
-              <input className={field} value={propertyTaxAnnual} onChange={(e) => setPropertyTaxAnnual(e.target.value)} inputMode="decimal" placeholder="6000" />
+              <input className={field} value={propertyTaxAnnual} onChange={(e) => setPropertyTaxAnnual(e.target.value)} inputMode="decimal" placeholder="1138" />
             </label>
             <label className={lbl}>
               Insurance / yr
-              <input className={field} value={insuranceAnnual} onChange={(e) => setInsuranceAnnual(e.target.value)} inputMode="decimal" placeholder="1800" />
+              <input className={field} value={insuranceAnnual} onChange={(e) => setInsuranceAnnual(e.target.value)} inputMode="decimal" placeholder="2187" />
             </label>
           </div>
 
@@ -273,7 +273,7 @@ export function PropertyForm({
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
               </label>
             </div>
-            <input className={field} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="…or paste an image URL" maxLength={2000} />
+            <input className={field} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/tatooine-homestead.jpg" maxLength={2000} />
           </div>
         </div>
 

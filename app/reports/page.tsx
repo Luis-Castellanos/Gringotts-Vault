@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/PageShell';
 import { loadBalanceSheet, loadReport, loadReportYears, loadTopMerchants } from '@/lib/reports/load';
 import { resolvePeriod, priorWindow } from '@/lib/reports/period';
 import { loadRecurring } from '@/lib/reports/recurring';
@@ -17,13 +18,12 @@ export default async function ReportsPage({
 
   if (years.length === 0) {
     return (
-      <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
+      <PageShell variant="dashboard">
         <h1 className="text-[20px] font-semibold tracking-[-0.01em] mb-1">Reports</h1>
-        <p className="text-[13px] text-text-tertiary mb-8">Income, spending, and where it went.</p>
         <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-16 text-center text-[13px] text-text-tertiary">
-          No transactions yet. Import statements on the Upload page and your summary appears here.
+          No transactions yet.
         </div>
-      </main>
+      </PageShell>
     );
   }
 
@@ -46,7 +46,7 @@ export default async function ReportsPage({
   const prevOrNull = prevReport.income + prevReport.spending > 0 ? prevReport : null;
 
   return (
-    <main className="w-full max-w-[1600px] px-6 pt-6 pb-20 sm:px-10">
+    <PageShell variant="dashboard">
       <ReportsClient
         years={years}
         period={period}
@@ -57,6 +57,6 @@ export default async function ReportsPage({
         topMerchants={topMerchants}
         balanceSheet={balanceSheet}
       />
-    </main>
+    </PageShell>
   );
 }

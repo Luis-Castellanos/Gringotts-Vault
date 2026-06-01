@@ -125,9 +125,6 @@ export function MerchantSettings({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-[17px] font-semibold tracking-[-0.01em]">Merchants</h2>
-            <p className="mt-1 max-w-[820px] text-[13px] leading-6 text-text-tertiary">
-              Edit the clean vendor name shown across transactions and choose the default category used for future imports from that merchant.
-            </p>
           </div>
           <div className="text-[12px] font-medium text-text-tertiary tabular-nums">
             {rows.length.toLocaleString()} merchants

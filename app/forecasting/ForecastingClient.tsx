@@ -130,10 +130,6 @@ function ContributionAccountCard({
           onChange={(event) => onChange(parseMoneyInput(event.target.value))}
           aria-label={`${account.name} yearly paycheck contribution`}
         />
-        <span className="max-w-[680px] text-[21px] leading-8 text-text-tertiary">
-          Your total annual contribution to this account from payroll deductions and/or employer matching in today&apos;s dollars. This amount will grow with inflation automatically.{' '}
-          <span className="font-semibold text-accent-400">Learn more</span>
-        </span>
       </label>
     </section>
   );
@@ -419,10 +415,6 @@ function ForecastWizard({
           <div className="mx-auto max-w-[780px]">
             <div className="text-center">
               <h2 className="text-[clamp(34px,5vw,48px)] font-semibold leading-tight tracking-[-0.035em]">Review your household&apos;s forecast</h2>
-              <p className="mx-auto mt-6 max-w-[640px] text-[21px] leading-9 text-text-tertiary">
-                Your household already has a forecast set up. Review the settings below and make any adjustments.{' '}
-                <span className="font-semibold text-accent-400">Learn more</span>
-              </p>
             </div>
 
             <section className="mt-12 flex items-center justify-between rounded-2xl border border-border-subtle bg-surface-1 px-8 py-7">
@@ -441,22 +433,9 @@ function ForecastWizard({
                     <span className="pt-1 text-[24px]" aria-hidden>{row.icon}</span>
                     <div>
                       <p className="text-[25px] leading-8 text-text-primary">{row.title}</p>
-                      <p className="mt-2 text-[19px] leading-7 text-text-tertiary">
-                        {row.body.includes('add accounts') ? (
-                          <>
-                            {row.body.replace('add accounts.', '')}
-                            <span className="font-semibold text-accent-400">add accounts</span>.
-                          </>
-                        ) : row.body}
-                      </p>
                     </div>
                   </div>
                 ))}
-              </div>
-              <div className="mt-8 rounded-2xl bg-[rgba(0,112,121,0.45)] px-7 py-5 text-[21px] leading-8 text-[var(--color-cat-cyan)]">
-                Your forecast uses rounded numbers to avoid false precision.
-                <br />
-                <span className="font-semibold">Learn more</span>
               </div>
               <button
                 type="button"
@@ -472,13 +451,11 @@ function ForecastWizard({
         {step === 1 && (
           <div className="mx-auto max-w-[720px]">
             <h2 className="text-[40px] font-semibold tracking-[-0.03em]">Who is in your household?</h2>
-            <p className="mt-3 text-[18px] leading-7 text-text-tertiary">Set the age we should use for retirement timing and long-range milestones.</p>
             <div className="mt-8 rounded-2xl border border-border-subtle bg-surface-1 p-7">
               <div className="flex items-center gap-4">
                 <span className="flex size-11 items-center justify-center rounded-full bg-[var(--color-cat-cyan)] text-white">L</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[20px] font-semibold">Luis</p>
-                  <p className="text-[13px] text-text-tertiary">Primary household member</p>
                 </div>
                 <div className="w-32">
                   <WizardInput label="Age" value={age} onChange={setAge} min={18} max={100} />
@@ -492,10 +469,6 @@ function ForecastWizard({
           <div className="mx-auto max-w-[820px]">
             <div className="text-center">
               <h2 className="text-[clamp(34px,5vw,46px)] font-semibold leading-tight tracking-[-0.03em]">Add take-home income</h2>
-              <p className="mx-auto mt-6 max-w-[760px] text-[22px] leading-9 text-text-tertiary">
-                Your forecast will project how your income, expenses, and savings change over time. If your income is variable, a rough estimate is fine.{' '}
-                <span className="font-semibold text-accent-400">Learn more</span>
-              </p>
             </div>
 
             <div className="mt-11 rounded-2xl bg-[rgba(0,112,121,0.48)] px-7 py-5 text-[22px] leading-8 text-[var(--color-cat-cyan)]">
@@ -525,9 +498,6 @@ function ForecastWizard({
                   onChange={(event) => setIncome(parseMoneyInput(event.target.value))}
                   aria-label="Yearly take-home income"
                 />
-                <span className="max-w-[690px] text-[21px] leading-8 text-text-tertiary">
-                  In today&apos;s dollars, the amount you earn after taxes and deductions like insurance and retirement contributions.
-                </span>
               </label>
             </section>
 
@@ -557,7 +527,6 @@ function ForecastWizard({
         {step === 3 && (
           <div className="mx-auto max-w-[720px]">
             <h2 className="text-[40px] font-semibold tracking-[-0.03em]">What do you spend each year?</h2>
-            <p className="mt-3 text-[18px] leading-7 text-text-tertiary">This drives the FI number and the default monthly contribution in the forecast.</p>
             <div className="mt-8 grid gap-5 rounded-2xl border border-border-subtle bg-surface-1 p-7">
               <WizardInput label="Living expenses" value={expenses} onChange={setExpenses} prefix="$" step={1000} />
               <div className="rounded-2xl bg-surface-2 px-5 py-4">
@@ -572,10 +541,6 @@ function ForecastWizard({
           <div className="mx-auto max-w-[840px]">
             <div className="text-center">
               <h2 className="text-[clamp(34px,5vw,46px)] font-semibold leading-tight tracking-[-0.03em]">Choose accounts to include</h2>
-              <p className="mx-auto mt-6 max-w-[760px] text-[22px] leading-9 text-text-tertiary">
-                These balances seed your assets and liabilities today, then grow or draw down during retirement and career breaks.{' '}
-                <span className="font-semibold text-accent-400">Learn more</span>
-              </p>
             </div>
 
             {inputs.accounts.length > 0 ? (
@@ -624,10 +589,6 @@ function ForecastWizard({
           <div className="mx-auto max-w-[780px]">
             <div className="text-center">
               <h2 className="text-[clamp(34px,5vw,46px)] font-semibold leading-tight tracking-[-0.03em]">Set up account contributions</h2>
-              <p className="mx-auto mt-6 max-w-[640px] text-[22px] leading-9 text-text-tertiary">
-                If you make contributions to these accounts via payroll deductions, enter the yearly totals in today&apos;s dollars here.{' '}
-                <span className="font-semibold text-accent-400">Learn more</span>
-              </p>
             </div>
 
             {contributionAccounts.length > 0 ? (
@@ -656,9 +617,6 @@ function ForecastWizard({
           <div className="mx-auto max-w-[840px]">
             <div className="text-center">
               <h2 className="text-[clamp(38px,5vw,50px)] font-semibold leading-tight tracking-[-0.035em]">Choose a retirement age</h2>
-              <p className="mx-auto mt-8 max-w-[760px] text-[22px] leading-9 text-text-tertiary">
-                It&apos;s okay if you don&apos;t know exactly when you plan to retire, your best guess is fine for now, and it&apos;s easy to adjust later.
-              </p>
             </div>
 
             <section className="mt-12 rounded-2xl border border-border-subtle bg-surface-1 px-8 py-9">
@@ -701,9 +659,7 @@ function ForecastWizard({
               <WizardInput label="Monthly contribution" value={monthly} onChange={setMonthly} prefix="$" step={100} />
               <WizardInput label="Return" value={returnPct} onChange={setReturnPct} suffix="%" max={25} step={0.25} />
               <WizardInput label="Inflation" value={inflationPct} onChange={setInflationPct} suffix="%" max={15} step={0.25} />
-              <p className="text-[13px] leading-6 text-text-tertiary sm:col-span-3">
-                Retirement begins in {retirementYear}. These advanced assumptions remain editable after setup.
-              </p>
+              <p className="text-[13px] leading-6 text-text-tertiary sm:col-span-3">Retirement begins in {retirementYear}.</p>
             </div>
           </div>
         )}
@@ -712,20 +668,12 @@ function ForecastWizard({
           <div className="mx-auto max-w-[1120px]">
             <div className="text-center">
               <h2 className="text-[clamp(38px,5vw,48px)] font-semibold leading-tight tracking-[-0.035em]">You&apos;re good to go</h2>
-              <p className="mx-auto mt-6 max-w-[660px] text-[22px] leading-9 text-text-tertiary">
-                Go ahead and explore your baseline forecast.
-                <br />
-                Add events, play with the timing, and lock in your plan.
-              </p>
             </div>
 
             <div className="mt-12 space-y-7">
               <section className="grid gap-7 rounded-2xl border border-border-subtle bg-surface-1 p-8 md:grid-cols-[1fr_1.05fr] md:items-center">
                 <div>
                   <h3 className="text-[25px] font-semibold">Add some life events</h3>
-                  <p className="mt-8 max-w-[520px] text-[22px] leading-9 text-text-tertiary">
-                    Understand how big decisions affect your long-term picture. Weigh the trade-offs and choose what fits the future you want.
-                  </p>
                 </div>
                 <div className="mx-auto w-full max-w-[520px] rounded-[28px] bg-[rgba(116,45,5,0.62)] px-9 py-7">
                   <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
@@ -761,18 +709,12 @@ function ForecastWizard({
                 </div>
                 <div>
                   <h3 className="text-[25px] font-semibold">Play with the chart</h3>
-                  <p className="mt-8 max-w-[520px] text-[22px] leading-9 text-text-tertiary">
-                    The fastest way to build understanding is through play. You can drag life events around to see how timing affects your plan.
-                  </p>
                 </div>
               </section>
 
               <section className="grid gap-7 rounded-2xl border border-border-subtle bg-surface-1 p-8 md:grid-cols-[1fr_1.05fr] md:items-center">
                 <div>
                   <h3 className="text-[25px] font-semibold">Edit assumptions</h3>
-                  <p className="mt-8 max-w-[520px] text-[22px] leading-9 text-text-tertiary">
-                    Our defaults for growth and interest rates should work for most people, but you can edit the settings for any account.
-                  </p>
                 </div>
                 <div className="mx-auto w-full max-w-[520px] rounded-[28px] bg-[rgba(0,112,121,0.35)] px-10 py-7">
                   <div className="rounded-2xl border border-border-subtle bg-surface-1 px-8 py-6">
@@ -959,7 +901,6 @@ function AssumptionsPanel({
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h3 className="text-[16px] font-semibold">Use actual expenses as baseline</h3>
-            <p className="mt-4 text-[15px] leading-6 text-text-tertiary">Vault will use the last 12 months of expenses to determine your starting cash flow. <span className="font-semibold text-accent-400">Learn more</span></p>
           </div>
           <span className="mt-10 h-5 w-10 rounded-full bg-accent-500"><span className="ml-5 mt-1 block size-3 rounded-full bg-surface-0" /></span>
         </div>
@@ -976,7 +917,6 @@ function AssumptionsPanel({
       </section>
       <section className="mt-7 rounded-xl border border-border-subtle p-5">
         <h3 className="text-[16px] font-semibold">Yearly inflation rate</h3>
-        <p className="mt-4 text-[15px] leading-6 text-text-tertiary">Most financial plans use 2-3%. The long-term U.S. average is around 3%. <span className="font-semibold text-accent-400">Learn more</span></p>
         <div className="mt-6 flex items-center gap-4">
           <input className="flex-1 accent-[var(--color-accent-500)]" type="range" min={0} max={8} value={inflationPct} readOnly />
           <span className="w-20 rounded-xl border border-border-subtle px-4 py-3 text-center text-[18px] font-semibold">{inflationPct}%</span>
@@ -1064,7 +1004,6 @@ function BaselineForecastWorkspace({
           {!inputs.hasData && (
             <section className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-10 text-center">
               <h2 className="text-[16px] font-semibold mb-1">Not enough imported data yet</h2>
-              <p className="mx-auto max-w-md text-[13px] leading-6 text-text-tertiary">The forecast is using defaults until Vault has enough account history.</p>
             </section>
           )}
         </div>

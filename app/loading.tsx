@@ -1,10 +1,11 @@
+import { PageShell } from '@/components/PageShell';
 import { Skeleton } from '@/components/Skeleton';
 
 // Root fallback — primarily the Dashboard skeleton. Data routes have their own
 // loading.tsx; static placeholder pages render instantly and never show this.
 export default function Loading() {
   return (
-    <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
+    <PageShell variant="dashboard">
       <div className="flex flex-col gap-2 mb-6">
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-4 w-56 opacity-60" />
@@ -19,6 +20,6 @@ export default function Loading() {
         <Skeleton className="h-72 rounded-xl" />
         <Skeleton className="h-72 rounded-xl" />
       </div>
-    </main>
+    </PageShell>
   );
 }

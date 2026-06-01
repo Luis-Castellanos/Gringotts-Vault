@@ -50,7 +50,7 @@ export function WorkPapersSection({ ws, update, result }: { ws: TaxWorkspace; up
             value={ws.notes}
             onChange={(e) => update((d) => { d.notes = e.target.value; })}
             rows={6}
-            placeholder="e.g. $4,200 capital-loss carryover to next year; verify K-1 box 1 against final statement; estimated Q4 payment due Jan 15."
+            placeholder="e.g. $4,200 Bespin loss carryover; verify K-1 box 1 against the final statement; estimated Q4 payment due Jan 15."
             className="w-full rounded-lg bg-surface-2 border border-border-subtle px-3 py-2 text-[12.5px] text-text-primary leading-relaxed focus:outline-none focus:border-accent-500 resize-y"
           />
         </div>

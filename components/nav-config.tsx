@@ -81,7 +81,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: '/upload', label: 'Upload', Icon: IconUpload },
       { href: '/files', label: 'Files', Icon: IconFiles },
-      { href: '/audit', label: 'Statement Audit', Icon: IconAudit },
+      { href: '/audit', label: 'Audit', Icon: IconAudit },
     ],
   },
 ];

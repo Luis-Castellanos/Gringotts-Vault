@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { and, eq, gte, sql } from 'drizzle-orm';
 
+import { PageShell } from '@/components/PageShell';
 import { db } from '@/lib/db/client';
 import { accounts, categories, transactions } from '@/lib/db/schema';
 import { CreditCardsClient, type CreditCardData } from './CreditCardsClient';
@@ -154,8 +155,8 @@ export default async function CreditCardsPage() {
   });
 
   return (
-    <main className="cc-page w-full max-w-[1600px] px-6 pt-6 pb-20">
+    <PageShell variant="dashboard" className="cc-page">
       <CreditCardsClient cards={cards} />
-    </main>
+    </PageShell>
   );
 }
