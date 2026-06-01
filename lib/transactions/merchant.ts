@@ -88,3 +88,45 @@ export function cleanMerchant(raw: string): string {
   }
   return s;
 }
+
+const DISPLAY_RULES: [RegExp, string][] = [
+  [/\bapple\b|itunes|app ?store/, 'Apple'],
+  [/mcdonald/, 'McDonalds'],
+  [/starbucks/, 'Starbucks'],
+  [/dairy queen|\bdq\b/, 'Dairy Queen'],
+  [/domino'?s/, 'Dominos'],
+  [/xtiles?\.?app/, 'Xtiles.App'],
+  [/aramark/, 'Aramark'],
+  [/amazon|amzn/, 'Amazon'],
+  [/\bzelle\b/, 'Zelle'],
+  [/paypal/, 'PayPal'],
+  [/doordash/, 'DoorDash'],
+  [/uber ?eats|ubereats/, 'Uber Eats'],
+  [/\buber\b/, 'Uber'],
+  [/\blyft\b/, 'Lyft'],
+  [/chipotle/, 'Chipotle'],
+  [/taco ?bell/, 'Taco Bell'],
+  [/in.?n.?out/, 'In-N-Out'],
+  [/panda ?express/, 'Panda Express'],
+  [/chick.?fil.?a/, 'Chick-fil-A'],
+  [/burger ?king/, 'Burger King'],
+  [/wendy'?s/, 'Wendys'],
+  [/subway/, 'Subway'],
+  [/target/, 'Target'],
+  [/wal-?mart/, 'Walmart'],
+  [/costco/, 'Costco'],
+  [/cvs/, 'CVS'],
+  [/walgreens/, 'Walgreens'],
+  [/home ?depot/, 'Home Depot'],
+  [/lowe'?s\b/, 'Lowes'],
+  [/best ?buy/, 'Best Buy'],
+];
+
+export function displayMerchantName(raw: string): string {
+  const cleaned = cleanMerchant(raw);
+  const haystack = `${raw} ${cleaned}`.toLowerCase();
+  for (const [pattern, label] of DISPLAY_RULES) {
+    if (pattern.test(haystack)) return label;
+  }
+  return cleaned;
+}

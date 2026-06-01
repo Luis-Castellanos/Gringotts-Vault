@@ -21,6 +21,7 @@ import {
 
 import { db } from '@/lib/db/client';
 import { accounts, categories, transactions } from '@/lib/db/schema';
+import { displayMerchantName } from '@/lib/transactions/merchant';
 import type { TxnRow } from '@/app/transactions/TransactionsClient';
 
 export type TxnSort = 'date-desc' | 'date-asc' | 'amount-high' | 'amount-low' | 'merchant';
@@ -72,7 +73,13 @@ function buildConditions(f?: TxnFilters): (SQL | undefined)[] {
     }
   }
 
-  if (f.merchants?.length) c.push(inArray(transactions.merchant, f.merchants));
+  if (f.merchants?.length) {
+    const merchantLikes = f.merchants.flatMap((merchant) => {
+      const like = `%${merchant}%`;
+      return [ilike(transactions.merchant, like), ilike(transactions.rawDescription, like)];
+    });
+    c.push(or(...merchantLikes));
+  }
   if (f.amountMin != null && !Number.isNaN(f.amountMin)) {
     c.push(sql`abs(${transactions.amount}) >= ${f.amountMin}`);
   }
@@ -145,7 +152,7 @@ export async function loadTransactions(
     id: r.id,
     date: r.date,
     amount: Number(r.amount),
-    merchant: r.merchant ?? r.rawDescription,
+    merchant: displayMerchantName(r.merchant ?? r.rawDescription),
     rawDescription: r.rawDescription,
     isTransfer: r.isTransfer,
     isSplit: r.isSplit,
@@ -179,5 +186,6 @@ export async function loadMerchants(): Promise<string[]> {
     .selectDistinct({ merchant: transactions.merchant })
     .from(transactions)
     .orderBy(asc(transactions.merchant));
-  return rows.map((r) => r.merchant).filter((m): m is string => !!m);
+  return [...new Set(rows.map((r) => r.merchant).filter((m): m is string => !!m).map(displayMerchantName))]
+    .sort((a, b) => a.localeCompare(b));
 }

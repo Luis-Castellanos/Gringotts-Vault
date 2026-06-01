@@ -183,7 +183,7 @@
   /* Transaction row */
   .tx-row {
     display: grid;
-    grid-template-columns: minmax(160px, 1.8fr) minmax(140px, 170px) minmax(130px, 180px) minmax(0, 1fr) 104px 18px;
+    grid-template-columns: minmax(150px, 1.55fr) minmax(130px, 165px) minmax(130px, 175px) minmax(0, 1fr) 104px 18px;
     align-items: center;
     gap: 10px;
     padding: 8px 12px;
@@ -526,7 +526,7 @@
   .tx-merchant {
     display: flex;
     align-items: center;
-    gap: 13px;
+    gap: 9px;
     min-width: 0;
   }
   .tx-merchant-text {
@@ -658,6 +658,9 @@
 
   /* Subcategory cell sits next to category in both table and list views. */
   .tx-subcategory {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
   }
   .tx-subcategory-name {
@@ -1521,10 +1524,10 @@
     border-collapse: collapse;
     font-size: 13.5px;
   }
-  .tx-table .th-date { width: 150px; }
-  .tx-table .th-merchant { width: 38%; }
+  .tx-table .th-date { width: 118px; }
+  .tx-table .th-merchant { width: 35%; }
   .tx-table .th-cat { width: 15%; }
-  .tx-table .th-subcat { width: 13%; }
+  .tx-table .th-subcat { width: 15%; }
   .tx-table .th-acct { width: 17%; }
   .tx-table .th-amt { width: 118px; }
   .tx-table thead th {
@@ -1556,7 +1559,7 @@
   .tx-trow.selected { background: var(--green-tint); }
   .tx-trow.open { background: var(--surface-hover); }
   .tx-table td {
-    padding: 9px 12px;
+    padding: 9px 10px;
     vertical-align: middle;
   }
   .tx-table td.td-merchant,
@@ -1571,6 +1574,7 @@
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
     width: 1%;
+    padding-right: 4px;
   }
   .tx-table td.td-amt {
     font-weight: 600;

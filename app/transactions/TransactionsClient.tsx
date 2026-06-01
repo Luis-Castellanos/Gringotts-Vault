@@ -7,6 +7,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { VendorLogo } from '@/components/VendorLogo';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { iconBg, iconFor } from '@/lib/categories/icons';
+import { displayMerchantName } from '@/lib/transactions/merchant';
 import { SplitModal } from './SplitModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -1127,9 +1128,14 @@ function TxnTable({
                   </div>
                 </td>
                 <td className="td-subcat">
-                  <span className={'tx-subcategory-name' + (catParts.subcategory === '—' ? ' empty' : '')}>
-                    {catParts.subcategory}
-                  </span>
+                  <div className="tx-subcategory">
+                    {catParts.subcategory !== '—' && (
+                      <CategoryIcon name={catParts.subcategory} color={t.categoryColor} size={22} />
+                    )}
+                    <span className={'tx-subcategory-name' + (catParts.subcategory === '—' ? ' empty' : '')}>
+                      {catParts.subcategory}
+                    </span>
+                  </div>
                 </td>
                 {!scoped && (
                   <td className="td-acct">
@@ -1380,7 +1386,7 @@ export function TransactionsClient({
           const cat = patch.categoryId ? categories.find((c) => c.id === patch.categoryId) ?? null : null;
           return {
             ...r,
-            merchant: patch.merchant || r.merchant,
+            merchant: patch.merchant ? displayMerchantName(patch.merchant) : r.merchant,
             notes: patch.notes,
             isTransfer: patch.isTransfer,
             needsReview: patch.needsReview,
@@ -1817,6 +1823,9 @@ export function TransactionsClient({
                       </div>
 
                       <div className="tx-subcategory">
+                        {catParts.subcategory !== '—' && (
+                          <CategoryIcon name={catParts.subcategory} color={t.categoryColor} size={22} />
+                        )}
                         <span className={'tx-subcategory-name' + (catParts.subcategory === '—' ? ' empty' : '')}>
                           {catParts.subcategory}
                         </span>
