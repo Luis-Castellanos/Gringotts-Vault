@@ -435,99 +435,207 @@ function NetWorthOverview({ accounts, series }: { accounts: AcctRow[]; series: N
   const last = series[series.length - 1]?.value ?? netWorth;
   const change = last - first;
   const changePct = first !== 0 ? (change / Math.abs(first)) * 100 : null;
-  const segmentRows = [
-    ...summarizeTypes(active.filter((a) => a.assetClass === 'asset'), assets),
-    ...summarizeTypes(active.filter((a) => a.assetClass === 'liability'), liabilities),
-  ].slice(0, 6);
+  const composition = summarizeComposition(active);
 
   return (
     <section className="acctset-overview" aria-label="Net worth overview">
       <div className="acctset-overview-main">
-        <div>
-          <div className="acctset-kicker">Net worth</div>
-          <div className="acctset-networth numeric">{usd.format(netWorth)}</div>
-          <div className={`acctset-netchange numeric ${change >= 0 ? 'pos' : 'neg'}`}>
-            {change >= 0 ? '+' : '-'}{usd.format(Math.abs(change))}
-            {changePct != null && <span> ({changePct >= 0 ? '+' : '-'}{pct.format(Math.abs(changePct))}%)</span>}
-            <span className="muted"> all time</span>
+        <div className="acctset-overview-head">
+          <div>
+            <div className="acctset-kicker">Net worth</div>
+            <div className="acctset-networth numeric">{usd.format(netWorth)}</div>
+            <div className={`acctset-netchange numeric ${change >= 0 ? 'pos' : 'neg'}`}>
+              {change >= 0 ? '+' : '-'}{usd.format(Math.abs(change))}
+              {changePct != null && <span> ({changePct >= 0 ? '+' : '-'}{pct.format(Math.abs(changePct))}%)</span>}
+              <span className="muted"> all time</span>
+            </div>
+          </div>
+          <div className="acctset-balance-pair">
+            <div>
+              <span>Assets</span>
+              <strong className="numeric">{usd.format(assets)}</strong>
+            </div>
+            <div>
+              <span>Liabilities</span>
+              <strong className="numeric">{usd.format(liabilities)}</strong>
+            </div>
           </div>
         </div>
-        <NetWorthMiniChart series={series} fallback={netWorth} />
+        <NetWorthTrendChart series={series} fallback={netWorth} />
       </div>
       <div className="acctset-overview-side">
-        <div className="acctset-balance-pair">
-          <div>
-            <span>Assets</span>
-            <strong className="numeric">{usd.format(assets)}</strong>
-          </div>
-          <div>
-            <span>Liabilities</span>
-            <strong className="numeric">{usd.format(liabilities)}</strong>
-          </div>
-        </div>
-        <div className="acctset-composition-bars">
-          {segmentRows.length === 0 ? (
-            <span className="acctset-empty-bar">No active account balances yet.</span>
-          ) : (
-            segmentRows.map((s) => (
-              <div key={s.key} className="acctset-composition-row">
-                <div className="acctset-composition-label">
-                  <span>{s.label}</span>
-                  <span className="numeric">{fmtShort(s.total)}</span>
-                </div>
-                <div className="acctset-composition-track">
-                  <span style={{ width: `${s.share}%` }} />
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <CompositionPie segments={composition} />
       </div>
     </section>
   );
 }
 
-function summarizeTypes(rows: AcctRow[], total: number) {
-  if (total <= 0) return [];
-  const grouped = new Map<string, number>();
+type CompositionSegment = {
+  key: Group;
+  label: string;
+  total: number;
+  count: number;
+  share: number;
+  color: string;
+};
+
+const COMPOSITION_COLORS: Record<Group, string> = {
+  Cash: '#4f86d9',
+  Investments: '#55b08b',
+  Liabilities: '#d16d62',
+  Other: '#a78bfa',
+};
+
+function summarizeComposition(rows: AcctRow[]): CompositionSegment[] {
+  const grouped = new Map<Group, { total: number; count: number }>();
   for (const row of rows) {
-    grouped.set(row.type, (grouped.get(row.type) ?? 0) + Math.abs(row.balance));
+    const key = kindFor(row.type);
+    const item = grouped.get(key) ?? { total: 0, count: 0 };
+    item.total += Math.abs(row.balance);
+    item.count += 1;
+    grouped.set(key, item);
   }
-  return [...grouped.entries()]
-    .map(([type, value]) => ({
-      key: type,
-      label: accountTypeLabel(type),
-      total: value,
-      share: Math.max(2, Math.min(100, (value / total) * 100)),
-    }))
-    .sort((a, b) => b.total - a.total);
+  const total = [...grouped.values()].reduce((sum, item) => sum + item.total, 0);
+  if (total <= 0) return [];
+  const out: CompositionSegment[] = [];
+  for (const key of GROUPS) {
+    const item = grouped.get(key);
+    if (!item || item.total <= 0) continue;
+    out.push({
+      key,
+      label: key,
+      total: item.total,
+      count: item.count,
+      share: (item.total / total) * 100,
+      color: COMPOSITION_COLORS[key],
+    });
+  }
+  return out;
 }
 
-function NetWorthMiniChart({ series, fallback }: { series: NetWorthPoint[]; fallback: number }) {
+function CompositionPie({ segments }: { segments: CompositionSegment[] }) {
+  const radius = 44;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  return (
+    <div className="acctset-composition-card">
+      <div className="acctset-composition-head">
+        <div>
+          <div className="acctset-kicker">Composition</div>
+          <h2>What makes up net worth</h2>
+        </div>
+      </div>
+      {segments.length === 0 ? (
+        <span className="acctset-empty-bar">No active account balances yet.</span>
+      ) : (
+        <>
+          <div className="acctset-pie-wrap">
+            <svg className="acctset-pie" viewBox="0 0 120 120" aria-hidden>
+              <circle className="acctset-pie-bg" cx="60" cy="60" r={radius} />
+              {segments.map((segment) => {
+                const dash = (segment.share / 100) * circumference;
+                const currentOffset = offset;
+                offset += dash;
+                return (
+                  <circle
+                    key={segment.key}
+                    className="acctset-pie-slice"
+                    cx="60"
+                    cy="60"
+                    r={radius}
+                    stroke={segment.color}
+                    strokeDasharray={`${dash} ${circumference - dash}`}
+                    strokeDashoffset={-currentOffset}
+                  />
+                );
+              })}
+            </svg>
+            <div className="acctset-pie-center">
+              <span>Total</span>
+              <strong>{segments.length}</strong>
+            </div>
+          </div>
+          <div className="acctset-composition-grid">
+            {segments.map((segment) => (
+              <div key={segment.key} className="acctset-composition-tile">
+                <span className="acctset-composition-dot" style={{ background: segment.color }} />
+                <div>
+                  <strong>{segment.label}</strong>
+                  <span>{segment.count} {segment.count === 1 ? 'account' : 'accounts'}</span>
+                </div>
+                <div className="numeric">
+                  <strong>{fmtShort(segment.total)}</strong>
+                  <span>{pct.format(segment.share)}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function NetWorthTrendChart({ series, fallback }: { series: NetWorthPoint[]; fallback: number }) {
   const points = series.length >= 2 ? series : [{ date: 'start', value: fallback }, { date: 'now', value: fallback }];
-  const W = 720;
-  const H = 170;
+  const W = 900;
+  const H = 260;
+  const padL = 74;
+  const padR = 26;
+  const padT = 18;
+  const padB = 34;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
   const values = points.map((p) => p.value);
-  const min = Math.min(...values, 0);
-  const max = Math.max(...values, 1);
+  const minRaw = Math.min(...values);
+  const maxRaw = Math.max(...values);
+  const pad = Math.max((maxRaw - minRaw) * 0.12, Math.max(Math.abs(fallback) * 0.06, 100));
+  const min = Math.min(0, minRaw - pad);
+  const max = Math.max(0, maxRaw + pad);
   const span = max - min || 1;
-  const x = (i: number) => (i / (points.length - 1)) * W;
-  const y = (v: number) => H - 12 - ((v - min) / span) * (H - 24);
+  const x = (i: number) => padL + (i / (points.length - 1)) * innerW;
+  const y = (v: number) => padT + (1 - (v - min) / span) * innerH;
   const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
-  const area = `${line} L${W},${H} L0,${H} Z`;
+  const baseline = y(Math.max(0, min));
+  const area = `${line} L${x(points.length - 1).toFixed(1)},${baseline.toFixed(1)} L${x(0).toFixed(1)},${baseline.toFixed(1)} Z`;
+  const ticks = [max, min + span / 2, min];
+  const startDate = points[0]?.date ?? '';
+  const midDate = points[Math.floor(points.length / 2)]?.date ?? '';
+  const endDate = points[points.length - 1]?.date ?? '';
 
   return (
-    <svg className="acctset-net-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
-      <defs>
-        <linearGradient id="acctset-net-fill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="var(--color-positive)" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="var(--color-positive)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill="url(#acctset-net-fill)" />
-      <path d={line} fill="none" stroke="var(--color-positive)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div className="acctset-net-chart-wrap">
+      <svg className="acctset-net-chart" viewBox={`0 0 ${W} ${H}`} aria-hidden>
+        <defs>
+          <linearGradient id="acctset-net-fill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-positive)" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="var(--color-positive)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {ticks.map((tick) => (
+          <g key={tick}>
+            <line className="acctset-net-grid" x1={padL} x2={W - padR} y1={y(tick)} y2={y(tick)} />
+            <text className="acctset-net-y" x={padL - 12} y={y(tick) + 4} textAnchor="end">{fmtShort(tick)}</text>
+          </g>
+        ))}
+        {min < 0 && max > 0 && (
+          <line className="acctset-net-zero" x1={padL} x2={W - padR} y1={y(0)} y2={y(0)} />
+        )}
+        <path d={area} fill="url(#acctset-net-fill)" />
+        <path d={line} fill="none" stroke="var(--color-positive)" strokeWidth="2.4" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="acctset-net-x">
+        <span>{formatChartDate(startDate)}</span>
+        <span>{formatChartDate(midDate)}</span>
+        <span>{formatChartDate(endDate)}</span>
+      </div>
+    </div>
   );
+}
+
+function formatChartDate(date: string) {
+  if (!date || date === 'start' || date === 'now') return '';
+  return new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
 // ── Expanded per-account detail (stats + inline edit + actions) ──────────────

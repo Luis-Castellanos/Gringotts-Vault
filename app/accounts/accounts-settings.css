@@ -6,7 +6,7 @@
 
 .acctset-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(0, 1.65fr) minmax(340px, 0.75fr);
   gap: 16px;
   align-items: stretch;
   margin-bottom: 4px;
@@ -18,12 +18,17 @@
   box-shadow: var(--shadow-card);
 }
 .acctset-overview-main {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px 18px;
+  min-height: 390px;
+}
+.acctset-overview-head {
   display: grid;
-  grid-template-columns: minmax(230px, 0.55fr) minmax(0, 1fr);
+  grid-template-columns: minmax(230px, 1fr) minmax(260px, 0.72fr);
   gap: 16px;
-  align-items: center;
-  padding: 18px 20px;
-  min-height: 220px;
+  align-items: start;
 }
 .acctset-kicker {
   font-size: 11px;
@@ -57,8 +62,45 @@
 }
 .acctset-net-chart {
   width: 100%;
-  height: 170px;
+  height: auto;
   min-width: 0;
+  display: block;
+  overflow: visible;
+}
+.acctset-net-chart-wrap {
+  position: relative;
+  min-width: 0;
+}
+.acctset-net-grid {
+  stroke: var(--line);
+  stroke-dasharray: 4 6;
+  opacity: 0.9;
+}
+.acctset-net-zero {
+  stroke: var(--line-strong);
+  stroke-width: 1.1;
+}
+.acctset-net-y {
+  fill: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.acctset-net-x {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding-left: 74px;
+  padding-right: 26px;
+  margin-top: -8px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+.acctset-net-x span:nth-child(2) {
+  text-align: center;
+}
+.acctset-net-x span:last-child {
+  text-align: right;
 }
 .acctset-overview-side {
   padding: 18px;
@@ -92,46 +134,118 @@
   line-height: 1.1;
   color: var(--text-1);
 }
-.acctset-composition-bars {
+.acctset-composition-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
+  min-height: 100%;
 }
-.acctset-composition-row {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.acctset-composition-label {
+.acctset-composition-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  font-size: 12.5px;
-  color: var(--text-2);
+  gap: 12px;
 }
-.acctset-composition-label span:first-child {
+.acctset-composition-head h2 {
+  margin: 0;
+  color: var(--text-1);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.acctset-pie-wrap {
+  position: relative;
+  width: min(220px, 72%);
+  aspect-ratio: 1;
+  align-self: center;
+}
+.acctset-pie {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.acctset-pie-bg {
+  fill: none;
+  stroke: var(--surface-elev);
+  stroke-width: 18;
+}
+.acctset-pie-slice {
+  fill: none;
+  stroke-width: 18;
+  stroke-linecap: round;
+}
+.acctset-pie-center {
+  position: absolute;
+  inset: 27%;
+  border-radius: 999px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.acctset-pie-center span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.acctset-pie-center strong {
+  font-size: 24px;
+  line-height: 1;
+  color: var(--text-1);
+}
+.acctset-composition-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.acctset-composition-tile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-elev);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 11px;
   min-width: 0;
+}
+.acctset-composition-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+.acctset-composition-tile div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+.acctset-composition-tile strong {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.acctset-composition-label .numeric {
+.acctset-composition-tile span {
   color: var(--text-3);
-  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
 }
-.acctset-composition-track {
-  height: 7px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--surface-elev);
+.acctset-composition-tile > .numeric {
+  text-align: right;
+  align-items: flex-end;
 }
-.acctset-composition-track span {
-  display: block;
-  height: 100%;
-  min-width: 2px;
-  border-radius: inherit;
-  background: var(--color-accent-500);
+.acctset-composition-tile > .numeric strong {
+  font-size: 13.5px;
+}
+.acctset-composition-tile > .numeric span {
+  font-size: 11px;
 }
 .acctset-empty-bar {
   font-size: 12.5px;
@@ -412,15 +526,26 @@
 }
 
 @media (max-width: 760px) {
+  .acctset-overview {
+    gap: 12px;
+  }
   .acctset-overview-main {
-    grid-template-columns: 1fr;
     min-height: 0;
+    padding: 16px;
+  }
+  .acctset-overview-head {
+    grid-template-columns: 1fr;
   }
   .acctset-networth {
     font-size: 30px;
   }
   .acctset-balance-pair {
     grid-template-columns: 1fr;
+  }
+  .acctset-net-x {
+    padding-left: 58px;
+    padding-right: 14px;
+    font-size: 11px;
   }
 }
 
