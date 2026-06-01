@@ -4,13 +4,30 @@
  * saved/custom reports later. Transfers are excluded (flow_type / isTransfer).
  */
 
-import { and, desc, eq, gte, lt, lte, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lt, lte, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/client';
-import { categories, transactions } from '@/lib/db/schema';
+import { accounts, accountTypes, categories, transactions } from '@/lib/db/schema';
 import { loadSplitContributions } from '@/lib/transactions/split';
 
 export type TopMerchant = { merchant: string; amount: number; count: number };
+export type BalanceSheetAccount = {
+  id: string;
+  name: string;
+  institution: string | null;
+  type: string;
+  typeLabel: string;
+  assetClass: 'asset' | 'liability';
+  balance: number;
+};
+export type BalanceSheet = {
+  asOf: string;
+  assets: number;
+  liabilities: number;
+  equity: number;
+  assetAccounts: BalanceSheetAccount[];
+  liabilityAccounts: BalanceSheetAccount[];
+};
 
 /** Top spending merchants for a date range (outflows, excluding transfers/splits). */
 export async function loadTopMerchants(from: string, to: string, limit = 12): Promise<TopMerchant[]> {
@@ -40,6 +57,53 @@ export async function loadTopMerchants(from: string, to: string, limit = 12): Pr
     .orderBy(desc(sql`SUM(ABS(${transactions.amount}))`))
     .limit(limit);
   return rows.map((r) => ({ merchant: r.merchant ?? '—', amount: Math.round(Number(r.amount) * 100) / 100, count: Number(r.count) }));
+}
+
+/** Balance sheet as of a date, using the same transaction-derived balances as Accounts. */
+export async function loadBalanceSheet(asOf: string): Promise<BalanceSheet> {
+  const rows = await db
+    .select({
+      id: accounts.id,
+      name: accounts.displayName,
+      institution: accounts.institution,
+      type: accounts.type,
+      typeLabel: accountTypes.label,
+      assetClass: accounts.assetClass,
+      balance: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.date} <= ${asOf} THEN ${transactions.amount} ELSE 0 END), 0)::text`,
+    })
+    .from(accounts)
+    .leftJoin(transactions, eq(transactions.accountId, accounts.id))
+    .leftJoin(accountTypes, eq(accounts.type, accountTypes.slug))
+    .where(eq(accounts.isActive, true))
+    .groupBy(accounts.id, accounts.displayName, accounts.institution, accounts.type, accountTypes.label, accounts.assetClass)
+    .orderBy(asc(accounts.assetClass), asc(accounts.displayName));
+
+  const mapped: BalanceSheetAccount[] = rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    institution: row.institution ?? null,
+    type: row.type,
+    typeLabel: row.typeLabel ?? row.type,
+    assetClass: row.assetClass,
+    balance: round2(Number(row.balance)),
+  }));
+  const assetAccounts = mapped
+    .filter((row) => row.assetClass === 'asset')
+    .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+  const liabilityAccounts = mapped
+    .filter((row) => row.assetClass === 'liability')
+    .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+  const assets = round2(assetAccounts.reduce((sum, row) => sum + row.balance, 0));
+  const liabilities = round2(liabilityAccounts.reduce((sum, row) => sum + Math.abs(row.balance), 0));
+
+  return {
+    asOf,
+    assets,
+    liabilities,
+    equity: round2(assets - liabilities),
+    assetAccounts,
+    liabilityAccounts,
+  };
 }
 
 export type ReportCategory = { id: string; name: string; color: string | null; amount: number };

@@ -28,7 +28,7 @@ export default function RootLayout({
         <TopBar />
         <div className="flex min-h-[calc(100vh_-_44px)]">
           <Sidebar />
-          <div className="flex-1 flex justify-center">
+          <div className="min-w-0 flex-1 flex justify-center">
             {children}
           </div>
         </div>

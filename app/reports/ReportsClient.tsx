@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation';
 
 import Link from 'next/link';
 
-import type { AnnualReport, ReportCategory, TopMerchant } from '@/lib/reports/load';
+import type { AnnualReport, BalanceSheet, BalanceSheetAccount, ReportCategory, TopMerchant } from '@/lib/reports/load';
 import { PERIOD_PRESETS, type PeriodId, type ResolvedPeriod } from '@/lib/reports/period';
 import type { RecurringReport, Cadence } from '@/lib/reports/recurring';
 import type { AnomalyReport } from '@/lib/reports/anomalies';
-import { PageHeader } from '@/components/PageHeader';
 import { StatTile } from '@/components/StatTile';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { fmtMoney0 as money0, fmtDate } from '@/lib/format';
@@ -19,7 +18,14 @@ const CADENCE_LABEL: Record<Cadence, string> = {
   weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly',
 };
 
-type Tab = 'summary' | 'compare' | 'recurring' | 'anomalies' | 'custom';
+type Tab = 'summary' | 'income-statement' | 'balance-sheet' | 'compare' | 'recurring' | 'anomalies' | 'custom';
+type ReportDisplayOptions = {
+  insights: boolean;
+  moneyFlow: boolean;
+  monthlyChart: boolean;
+  breakdowns: boolean;
+  topMerchants: boolean;
+};
 
 type CmpRow = { id: string; name: string; color: string | null; cur: number; prev: number };
 function mergeCats(cur: ReportCategory[], prev: ReportCategory[]): CmpRow[] {
@@ -238,7 +244,19 @@ function MoneyFlow({ report }: { report: AnnualReport }) {
   );
 }
 
-function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; prev: AnnualReport | null; topMerchants: TopMerchant[] }) {
+function SummaryPanel({
+  report,
+  prev,
+  topMerchants,
+  options,
+  merchantLimit,
+}: {
+  report: AnnualReport;
+  prev: AnnualReport | null;
+  topMerchants: TopMerchant[];
+  options: ReportDisplayOptions;
+  merchantLimit: number;
+}) {
   const py = prev?.label ?? 'prior period';
   // Auto-insights derived from the loaded report (no extra queries).
   const insights: { label: string; value: string }[] = [];
@@ -281,7 +299,7 @@ function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; pr
         <StatTile label="Savings rate" value={report.savingsRate != null ? `${report.savingsRate}%` : '—'} sub={prev?.savingsRate != null ? `was ${prev.savingsRate}%` : undefined} />
       </div>
       {/* Auto insights */}
-      {insights.length > 0 && (
+      {options.insights && insights.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
           {insights.map((i) => (
             <div key={i.label} className="rounded-xl bg-surface-1 border border-border-subtle px-4 py-3">
@@ -292,22 +310,22 @@ function SummaryPanel({ report, prev, topMerchants }: { report: AnnualReport; pr
         </div>
       )}
 
-      <MoneyFlow report={report} />
+      {options.moneyFlow && <MoneyFlow report={report} />}
 
-      <div className="mb-5">
+      {options.monthlyChart && <div className="mb-5">
         <MonthlyChart report={report} prev={prev} />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+      </div>}
+      {options.breakdowns && <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <Breakdown title="Income by source" cats={report.incomeByCategory} tone="pos" from={report.from} to={report.to} />
         <Breakdown title="Spending by category" cats={report.spendingByCategory} tone="neg" from={report.from} to={report.to} />
-      </div>
+      </div>}
 
       {/* Top merchants */}
-      {topMerchants.length > 0 && (
+      {options.topMerchants && topMerchants.length > 0 && (
         <section className="rounded-xl bg-surface-1 border border-border-subtle p-5">
           <h2 className="text-[14px] font-semibold mb-4">Top merchants</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
-            {topMerchants.map((m) => (
+            {topMerchants.slice(0, merchantLimit).map((m) => (
               <Link
                 key={m.merchant}
                 href={`/transactions?merchant=${encodeURIComponent(m.merchant)}&from=${report.from}&to=${report.to}`}
@@ -427,8 +445,127 @@ function AnomaliesPanel({ data }: { data: AnomalyReport }) {
   );
 }
 
+function StatementSection({
+  title,
+  rows,
+  total,
+  tone,
+}: {
+  title: string;
+  rows: ReportCategory[];
+  total: number;
+  tone: 'pos' | 'neg';
+}) {
+  return (
+    <section className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
+        <h2 className="text-[14px] font-semibold">{title}</h2>
+        <span className={`text-[14px] font-semibold tabular-nums ${tone === 'pos' ? 'text-positive' : 'text-negative'}`}>{money0(total)}</span>
+      </div>
+      <div className="divide-y divide-border-subtle">
+        {rows.length === 0 ? (
+          <div className="px-5 py-4 text-[13px] text-text-tertiary">Nothing recorded.</div>
+        ) : (
+          rows.map((row) => (
+            <Link
+              key={row.id}
+              href={row.id === 'uncat' ? `/transactions?cats=__uncategorized__` : `/reports/category/${row.id}`}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-3 text-[13.5px] hover:bg-surface-2"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <CategoryIcon name={row.name} color={row.color} size={20} />
+                <span className="truncate text-text-secondary">{row.name}</span>
+              </span>
+              <span className="font-medium tabular-nums text-text-primary">{money0(row.amount)}</span>
+            </Link>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function IncomeStatementPanel({ report }: { report: AnnualReport }) {
+  return (
+    <>
+      <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-4">
+        <StatTile label="Revenue" value={money0(report.income)} tone="blue" sub={report.label} />
+        <StatTile label="Expenses" value={money0(report.spending)} tone="neg" sub="Operating outflows" />
+        <StatTile label="Net income" value={money0(report.net)} tone={report.net >= 0 ? 'pos' : 'neg'} />
+        <StatTile label="Margin" value={report.savingsRate != null ? `${report.savingsRate}%` : '—'} sub="Net / revenue" />
+      </div>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <StatementSection title="Revenue" rows={report.incomeByCategory} total={report.income} tone="pos" />
+        <StatementSection title="Expenses" rows={report.spendingByCategory} total={report.spending} tone="neg" />
+      </div>
+      <section className="mt-5 rounded-xl border border-border-subtle bg-surface-1 px-5 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-[14px] font-semibold">Net income</h2>
+            <p className="mt-1 text-[12.5px] text-text-tertiary">Revenue minus expenses for {report.label}.</p>
+          </div>
+          <span className={`text-[22px] font-semibold tabular-nums ${report.net >= 0 ? 'text-positive' : 'text-negative'}`}>{money0(report.net)}</span>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function BalanceAccountTable({ title, rows, total }: { title: string; rows: BalanceSheetAccount[]; total: number }) {
+  return (
+    <section className="rounded-xl border border-border-subtle bg-surface-1 overflow-hidden">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle px-5 py-3">
+        <h2 className="text-[14px] font-semibold">{title}</h2>
+        <span className="text-[14px] font-semibold tabular-nums">{money0(total)}</span>
+      </div>
+      <div className="divide-y divide-border-subtle">
+        {rows.length === 0 ? (
+          <div className="px-5 py-4 text-[13px] text-text-tertiary">No active accounts.</div>
+        ) : (
+          rows.map((row) => (
+            <Link key={row.id} href={`/accounts/${row.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-3 hover:bg-surface-2">
+              <span className="min-w-0">
+                <span className="block truncate text-[13.5px] font-medium text-text-primary">{row.name}</span>
+                <span className="mt-0.5 block truncate text-[12px] text-text-tertiary">{row.institution || row.typeLabel} · {row.typeLabel}</span>
+              </span>
+              <span className="text-[13.5px] font-medium tabular-nums text-text-primary">{money0(Math.abs(row.balance))}</span>
+            </Link>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function BalanceSheetPanel({ balanceSheet }: { balanceSheet: BalanceSheet }) {
+  return (
+    <>
+      <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <StatTile label="Assets" value={money0(balanceSheet.assets)} tone="blue" sub={`As of ${balanceSheet.asOf}`} />
+        <StatTile label="Liabilities" value={money0(balanceSheet.liabilities)} tone="neg" />
+        <StatTile label="Net worth" value={money0(balanceSheet.equity)} tone={balanceSheet.equity >= 0 ? 'pos' : 'neg'} />
+      </div>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <BalanceAccountTable title="Assets" rows={balanceSheet.assetAccounts} total={balanceSheet.assets} />
+        <BalanceAccountTable title="Liabilities" rows={balanceSheet.liabilityAccounts} total={balanceSheet.liabilities} />
+      </div>
+      <section className="mt-5 rounded-xl border border-border-subtle bg-surface-1 px-5 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-[14px] font-semibold">Owner equity</h2>
+            <p className="mt-1 text-[12.5px] text-text-tertiary">Assets minus liabilities.</p>
+          </div>
+          <span className={`text-[22px] font-semibold tabular-nums ${balanceSheet.equity >= 0 ? 'text-positive' : 'text-negative'}`}>{money0(balanceSheet.equity)}</span>
+        </div>
+      </section>
+    </>
+  );
+}
+
 const TABS: { id: Tab; label: string }[] = [
   { id: 'summary', label: 'Summary' },
+  { id: 'income-statement', label: 'Income Statement' },
+  { id: 'balance-sheet', label: 'Balance Sheet' },
   { id: 'compare', label: 'Compare' },
   { id: 'recurring', label: 'Recurring' },
   { id: 'anomalies', label: 'Anomalies' },
@@ -482,6 +619,80 @@ function PeriodControl({ period, years, report }: { period: ResolvedPeriod; year
   );
 }
 
+function ReportOptionsPanel({
+  period,
+  years,
+  report,
+  options,
+  setOptions,
+  merchantLimit,
+  setMerchantLimit,
+  onClose,
+}: {
+  period: ResolvedPeriod;
+  years: number[];
+  report: AnnualReport;
+  options: ReportDisplayOptions;
+  setOptions: React.Dispatch<React.SetStateAction<ReportDisplayOptions>>;
+  merchantLimit: number;
+  setMerchantLimit: React.Dispatch<React.SetStateAction<number>>;
+  onClose: () => void;
+}) {
+  const toggle = (key: keyof ReportDisplayOptions) => setOptions((current) => ({ ...current, [key]: !current[key] }));
+  return (
+    <aside className="rounded-2xl border border-border-subtle bg-surface-1 p-6 xl:sticky xl:top-6 xl:max-h-[calc(100vh-48px)] xl:overflow-y-auto print:hidden">
+      <div className="mb-7 flex items-center justify-between">
+        <h2 className="text-[22px] font-semibold">Report filters</h2>
+        <button type="button" onClick={onClose} className="flex size-10 items-center justify-center rounded-full border border-border-subtle text-[24px] text-text-tertiary hover:text-text-primary">×</button>
+      </div>
+
+      <section className="rounded-xl border border-border-subtle p-4">
+        <div className="mb-3 text-[15px] font-semibold">Report window</div>
+        <PeriodControl period={period} years={years} report={report} />
+      </section>
+
+      <section className="mt-7 rounded-xl border border-border-subtle p-5">
+        <h3 className="text-[16px] font-semibold">Visible sections</h3>
+        <p className="mt-2 text-[14px] leading-6 text-text-tertiary">Choose which blocks appear in the current report view.</p>
+        <div className="mt-5 space-y-3">
+          {([
+            ['insights', 'Auto insights'],
+            ['moneyFlow', 'Money flow'],
+            ['monthlyChart', 'Monthly chart'],
+            ['breakdowns', 'Category breakdowns'],
+            ['topMerchants', 'Top merchants'],
+          ] as const).map(([key, label]) => (
+            <button key={key} type="button" onClick={() => toggle(key)} className="flex w-full items-center justify-between rounded-xl border border-border-subtle px-4 py-3 text-left hover:bg-surface-2">
+              <span className="text-[14px] font-semibold">{label}</span>
+              <span className={`relative h-6 w-11 rounded-full transition ${options[key] ? 'bg-accent-500' : 'bg-surface-3'}`}>
+                <span className={`absolute top-1 size-4 rounded-full bg-surface-0 transition ${options[key] ? 'left-6' : 'left-1'}`} />
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-7 rounded-xl border border-border-subtle p-5">
+        <h3 className="text-[16px] font-semibold">Top merchants</h3>
+        <p className="mt-2 text-[14px] leading-6 text-text-tertiary">Limit merchant rows while keeping export data complete.</p>
+        <div className="mt-5 flex items-center gap-4">
+          <input className="flex-1 accent-[var(--color-accent-500)]" type="range" min={4} max={20} value={merchantLimit} onChange={(event) => setMerchantLimit(Number(event.target.value))} />
+          <span className="w-16 rounded-xl border border-border-subtle px-3 py-2 text-center text-[16px] font-semibold tabular-nums">{merchantLimit}</span>
+        </div>
+      </section>
+
+      <section className="mt-7 rounded-xl border border-border-subtle p-5">
+        <h3 className="text-[16px] font-semibold">Current report</h3>
+        <div className="mt-4 grid gap-3 text-[14px]">
+          <div className="flex justify-between gap-3"><span className="text-text-tertiary">Income</span><span className="font-semibold tabular-nums">{money0(report.income)}</span></div>
+          <div className="flex justify-between gap-3"><span className="text-text-tertiary">Spending</span><span className="font-semibold tabular-nums">{money0(report.spending)}</span></div>
+          <div className="flex justify-between gap-3"><span className="text-text-tertiary">Net</span><span className={`font-semibold tabular-nums ${report.net >= 0 ? 'text-positive' : 'text-negative'}`}>{money0(report.net)}</span></div>
+        </div>
+      </section>
+    </aside>
+  );
+}
+
 export function ReportsClient({
   years,
   period,
@@ -490,6 +701,7 @@ export function ReportsClient({
   recurring,
   anomalies,
   topMerchants,
+  balanceSheet,
 }: {
   years: number[];
   period: ResolvedPeriod;
@@ -498,39 +710,107 @@ export function ReportsClient({
   recurring: RecurringReport;
   anomalies: AnomalyReport;
   topMerchants: TopMerchant[];
+  balanceSheet: BalanceSheet;
 }) {
   const [tab, setTab] = useState<Tab>('summary');
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [merchantLimit, setMerchantLimit] = useState(10);
+  const [options, setOptions] = useState<ReportDisplayOptions>({
+    insights: true,
+    moneyFlow: true,
+    monthlyChart: true,
+    breakdowns: true,
+    topMerchants: true,
+  });
 
   return (
-    <>
-      <PageHeader
-        title="Reports"
-        subtitle={report.label}
-        actions={tab === 'summary' || tab === 'compare' ? <PeriodControl period={period} years={years} report={report} /> : undefined}
-      />
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-3">
+          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Reports</h1>
+          <span className="rounded-full bg-[rgba(194,78,0,0.25)] px-3 py-1 text-[13px] font-semibold text-accent-400">Saved view</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-[14px] font-semibold text-text-tertiary">
+          <span>Saved just now</span>
+          <button type="button" className="rounded-full border border-border-subtle px-4 py-2 text-text-secondary">◎ {report.label}</button>
+          <button type="button" onClick={() => setFiltersOpen((open) => !open)} className="flex size-10 items-center justify-center rounded-full border border-border-subtle text-[22px]">＋</button>
+        </div>
+      </header>
 
-      <div className="flex items-center gap-1 mb-6 border-b border-border-subtle print:hidden">
-        {TABS.filter((t) => t.id !== 'compare' || prevReport).map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`px-3.5 py-2 text-[13px] font-medium -mb-px border-b-2 transition-colors ${
-              tab === t.id ? 'border-accent-500 text-text-primary' : 'border-transparent text-text-tertiary hover:text-text-primary'
-            }`}
-          >
-            {t.label}
-            {t.id === 'recurring' && recurring.activeCount > 0 && <span className="ml-1.5 text-[11px] text-text-muted tabular-nums">{recurring.activeCount}</span>}
-            {t.id === 'anomalies' && anomalies.anomalies.length > 0 && <span className="ml-1.5 text-[11px] rounded bg-negative/15 text-negative px-1.5 py-0.5 tabular-nums">{anomalies.anomalies.length}</span>}
-          </button>
-        ))}
+      <div className={`grid gap-5 ${filtersOpen ? 'xl:grid-cols-[minmax(0,1fr)_430px]' : ''}`}>
+        <div className="space-y-5">
+          <section className="rounded-2xl border border-border-subtle bg-surface-1 p-5">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-text-tertiary">◎</span>
+                <h2 className="text-[22px] font-semibold">Reporting dashboard</h2>
+                <span className="text-text-tertiary">…</span>
+              </div>
+              <div className="flex flex-wrap gap-3 print:hidden">
+                <button type="button" className="rounded-xl border border-border-subtle px-4 py-3 text-[14px] font-semibold">▷ Watch walkthrough</button>
+                <button type="button" onClick={() => setFiltersOpen((open) => !open)} className="rounded-xl border border-border-subtle px-4 py-3 text-[14px] font-semibold">✎ Edit filters</button>
+                <button type="button" onClick={() => setTab('custom')} className="rounded-xl bg-accent-500 px-5 py-3 text-[14px] font-semibold text-[var(--color-accent-contrast)]">＋ New report</button>
+              </div>
+            </div>
+
+            <div className="grid rounded-xl border border-border-subtle md:grid-cols-4">
+              {[
+                ['Income', money0(report.income), 'text-cat-blue'],
+                ['Spending', money0(report.spending), 'text-negative'],
+                ['Net', money0(report.net), report.net >= 0 ? 'text-positive' : 'text-negative'],
+                ['Savings rate', report.savingsRate != null ? `${report.savingsRate}%` : '—', ''],
+              ].map(([label, value, tone], index) => (
+                <div key={label} className="border-b border-border-subtle px-7 py-6 md:border-b-0 md:border-r md:last:border-r-0">
+                  <p className="text-[14px] font-semibold text-text-tertiary">{label} ⓘ</p>
+                  <p className={`mt-4 text-[30px] font-semibold tabular-nums ${tone}`}>{value}</p>
+                  {index === 0 && <p className="mt-1 text-[12px] text-text-muted">{report.from} → {report.to}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
+            <div className="flex gap-3 border-b border-border-subtle p-5 print:hidden">
+              {TABS.filter((t) => t.id !== 'compare' || prevReport).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={`rounded-full px-5 py-2 text-[14px] font-semibold transition-colors ${
+                    tab === t.id ? 'bg-surface-3 text-text-primary' : 'text-text-tertiary hover:text-text-primary'
+                  }`}
+                >
+                  {t.label}
+                  {t.id === 'recurring' && recurring.activeCount > 0 && <span className="ml-1.5 text-[11px] text-text-muted tabular-nums">{recurring.activeCount}</span>}
+                  {t.id === 'anomalies' && anomalies.anomalies.length > 0 && <span className="ml-1.5 text-[11px] rounded bg-negative/15 text-negative px-1.5 py-0.5 tabular-nums">{anomalies.anomalies.length}</span>}
+                </button>
+              ))}
+            </div>
+            <div className="p-5">
+              {tab === 'summary' && <SummaryPanel report={report} prev={prevReport} topMerchants={topMerchants} options={options} merchantLimit={merchantLimit} />}
+              {tab === 'income-statement' && <IncomeStatementPanel report={report} />}
+              {tab === 'balance-sheet' && <BalanceSheetPanel balanceSheet={balanceSheet} />}
+              {tab === 'compare' && prevReport && <ComparePanel report={report} prev={prevReport} />}
+              {tab === 'recurring' && <RecurringPanel data={recurring} />}
+              {tab === 'anomalies' && <AnomaliesPanel data={anomalies} />}
+              {tab === 'custom' && <CustomPanel />}
+            </div>
+          </section>
+        </div>
+
+        {filtersOpen && (
+          <ReportOptionsPanel
+            period={period}
+            years={years}
+            report={report}
+            options={options}
+            setOptions={setOptions}
+            merchantLimit={merchantLimit}
+            setMerchantLimit={setMerchantLimit}
+            onClose={() => setFiltersOpen(false)}
+          />
+        )}
       </div>
-
-      {tab === 'summary' && <SummaryPanel report={report} prev={prevReport} topMerchants={topMerchants} />}
-      {tab === 'compare' && prevReport && <ComparePanel report={report} prev={prevReport} />}
-      {tab === 'recurring' && <RecurringPanel data={recurring} />}
-      {tab === 'anomalies' && <AnomaliesPanel data={anomalies} />}
-      {tab === 'custom' && <CustomPanel />}
-    </>
+    </div>
   );
 }

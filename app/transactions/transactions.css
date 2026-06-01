@@ -6,6 +6,7 @@
   --row-pad: 12px;
   --gap: 12px;
 
+  min-width: 0;
   background: var(--bg);
   color: var(--text-1);
   font-size: 15px;
@@ -124,6 +125,7 @@
     border-radius: 12px;
     box-shadow: var(--shadow-card);
     overflow: hidden;
+    min-width: 0;
   }
 
   /* Date subheader (click to collapse the day) */
@@ -181,7 +183,7 @@
   /* Transaction row */
   .tx-row {
     display: grid;
-    grid-template-columns: minmax(0, 2.4fr) 240px minmax(0, 1.1fr) 104px 18px;
+    grid-template-columns: minmax(160px, 1.8fr) minmax(140px, 170px) minmax(130px, 180px) minmax(0, 1fr) 104px 18px;
     align-items: center;
     gap: 10px;
     padding: 8px 12px;
@@ -527,6 +529,11 @@
     gap: 13px;
     min-width: 0;
   }
+  .tx-merchant-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
   /* Bulk-select checkbox (visual; the row click toggles selection) */
   .tx-check {
     width: 17px;
@@ -602,6 +609,8 @@
     background: var(--green-tint);
   }
   .tx-merchant-name {
+    display: block;
+    min-width: 0;
     font-size: 14px;
     font-weight: 600;
     color: var(--text-1);
@@ -638,12 +647,31 @@
   }
   .tx-category-icon.uncat { background: var(--surface-elev); border: 1px dashed var(--text-3); }
   .tx-category-name {
+    min-width: 0;
     font-size: 13px;
     color: var(--text-1);
     white-space: nowrap;
-    /* Column is a fixed 240px so sub-category names always show in full. */
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .tx-category-name.uncat { color: var(--text-3); font-style: italic; }
+
+  /* Subcategory cell sits next to category in both table and list views. */
+  .tx-subcategory {
+    min-width: 0;
+  }
+  .tx-subcategory-name {
+    display: block;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tx-subcategory-name.empty {
+    color: var(--text-3);
+  }
 
   /* Account cell */
   .tx-account {
@@ -663,7 +691,7 @@
   }
   /* Account-scoped list (per-account page): no account column. */
   .tx-list.scope-account .tx-row {
-    grid-template-columns: minmax(0, 1fr) 240px 104px 18px;
+    grid-template-columns: minmax(160px, 1.8fr) minmax(140px, 170px) minmax(130px, 180px) 104px 18px;
   }
   .tx-account-logo {
     width: 22px;
@@ -1461,6 +1489,7 @@
     border-radius: 8px;
     padding: 2px;
     gap: 2px;
+    min-width: 0;
   }
   .tx-seg button {
     appearance: none;
@@ -1472,6 +1501,9 @@
     cursor: pointer;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-width: 0;
+    white-space: nowrap;
     transition: background 140ms ease, color 140ms ease;
   }
   .tx-seg button:hover { color: var(--text-1); }
@@ -1485,9 +1517,16 @@
   /* ─── Table view ─────────────────────────────────────────────────── */
   .tx-table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 13.5px;
   }
+  .tx-table .th-date { width: 150px; }
+  .tx-table .th-merchant { width: 38%; }
+  .tx-table .th-cat { width: 15%; }
+  .tx-table .th-subcat { width: 13%; }
+  .tx-table .th-acct { width: 17%; }
+  .tx-table .th-amt { width: 118px; }
   .tx-table thead th {
     position: sticky;
     top: 0;
@@ -1520,6 +1559,13 @@
     padding: 9px 12px;
     vertical-align: middle;
   }
+  .tx-table td.td-merchant,
+  .tx-table td.td-cat,
+  .tx-table td.td-subcat,
+  .tx-table td.td-acct {
+    min-width: 0;
+    max-width: 1px;
+  }
   .tx-table td.td-date {
     color: var(--text-3);
     white-space: nowrap;
@@ -1534,6 +1580,9 @@
   }
   .tx-table td.td-amt.pos { color: var(--green-text); }
   .tx-table .tx-merchant-name { font-weight: 500; }
+  .tx-table .td-subcat {
+    color: var(--text-2);
+  }
   .tx-trow.needs-review td.td-date {
     box-shadow: inset 2px 0 0 var(--amber-text);
   }
@@ -1720,15 +1769,15 @@
     right: 0;
     top: calc(100% + 6px);
     z-index: 70;
-    width: 248px;
+    width: min(360px, calc(100vw - 28px));
     background: var(--surface);
     border: 1px solid var(--line-strong);
     border-radius: 12px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
-    padding: 12px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    gap: 13px;
+    gap: 16px;
   }
   .tx-dm-sec { display: flex; flex-direction: column; gap: 6px; }
   .tx-dm-label {
@@ -1739,20 +1788,57 @@
     color: var(--text-3);
   }
   .tx-dm-sec .tx-seg { width: 100%; }
-  .tx-dm-sec .tx-seg button { flex: 1; justify-content: center; }
-  .tx-dm-sec select { width: 100%; }
+  .tx-dm-sec .tx-seg button {
+    flex: 1 1 0;
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .tx-dm-sec select {
+    width: 100%;
+    min-height: 40px;
+    appearance: none;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    color: var(--text-1);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 36px 0 12px;
+  }
   .tx-dm-action {
     appearance: none;
     border: 1px solid var(--line-strong);
     background: var(--surface);
-    border-radius: 8px;
-    padding: 8px 10px;
+    border-radius: 10px;
+    padding: 10px 12px;
     font: inherit;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-1);
     cursor: pointer;
     text-align: center;
   }
   .tx-dm-action:hover { background: var(--surface-hover); }
+  .tx-display-menu .tx-views-empty {
+    padding: 8px 0 2px;
+  }
+  .tx-display-menu .tx-views-save {
+    gap: 10px;
+    padding-top: 12px;
+  }
+  .tx-display-menu .tx-views-save input {
+    min-height: 40px;
+    border-radius: 10px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+  .tx-display-menu .tx-views-save button {
+    min-width: 82px;
+    min-height: 40px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
 }

@@ -17,7 +17,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { Avatar } from './Avatar';
 import { resolveSections } from './nav-config';
 import { PROFILE_EVENT, type NavSection, type ProfileData } from '@/lib/profile/avatars';
-import { IconPanelLeft, IconSettings } from './nav-icons';
+import { IconDashboard, IconPanelLeft, IconSettings } from './nav-icons';
 
 const DragHandle = ({ className = '' }: { className?: string }) => (
   <svg width="11" height="14" viewBox="0 0 11 14" fill="currentColor" aria-hidden className={className}>
@@ -27,12 +27,27 @@ const DragHandle = ({ className = '' }: { className?: string }) => (
   </svg>
 );
 
+type DropTarget =
+  | { kind: 'item'; href: string; sectionId: string; position: 'before' | 'after' }
+  | { kind: 'section'; sectionId: string; position: 'before' | 'after' }
+  | { kind: 'section-end'; sectionId: string };
+
+const DropMarker = ({ position }: { position: 'before' | 'after' }) => (
+  <span
+    className={`pointer-events-none absolute left-3 right-3 z-10 h-[3px] rounded-full bg-[rgba(224,228,230,0.86)] shadow-[0_0_0_1px_rgba(255,255,255,0.28),0_3px_10px_rgba(0,0,0,0.18)] ${
+      position === 'before' ? '-top-1' : '-bottom-1'
+    }`}
+    aria-hidden
+  />
+);
+
 export function Sidebar({ reviewCount }: { reviewCount?: number }) {
   const pathname = usePathname();
   const [open, setOpen] = useState<boolean>(true);
   const [width, setWidth] = useState<number>(SIDEBAR_DEFAULT_WIDTH);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const draggingRef = useRef(false);
   const dragItem = useRef<string | null>(null);
   const dragSection = useRef<string | null>(null);
@@ -99,6 +114,9 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
   function collapseSidebar() {
     writeSidebarState({ open: false });
   }
+  function expandSidebar() {
+    writeSidebarState({ open: true });
+  }
 
   // Persist a new section layout (optimistic + broadcast so all listeners sync).
   function persistLayout(navLayout: NavSection[]) {
@@ -116,32 +134,46 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
   const removeHref = (layout: NavSection[], href: string) => {
     for (const s of layout) { const i = s.items.indexOf(href); if (i >= 0) s.items.splice(i, 1); }
   };
-  function dropOnItem(targetHref: string, sectionId: string) {
-    const href = dragItem.current; dragItem.current = null; setDragging(null);
+  function clearDragState() {
+    dragItem.current = null;
+    dragSection.current = null;
+    setDragging(null);
+    setDropTarget(null);
+  }
+  function dropOnItem(targetHref: string, sectionId: string, position: 'before' | 'after') {
+    const href = dragItem.current;
+    clearDragState();
     if (!href || !profile || href === targetHref) return;
     const layout = cloneLayout();
     removeHref(layout, href);
     const target = layout.find((s) => s.id === sectionId);
     if (!target) return;
     const idx = target.items.indexOf(targetHref);
-    target.items.splice(idx < 0 ? target.items.length : idx, 0, href);
+    const insertAt = idx < 0 ? target.items.length : idx + (position === 'after' ? 1 : 0);
+    target.items.splice(insertAt, 0, href);
     persistLayout(layout);
   }
-  function dropOnSection(sectionId: string) {
+  function dropSectionOnSection(targetSectionId: string, position: 'before' | 'after') {
+    const sid = dragSection.current;
+    clearDragState();
+    if (!profile || !sid || sid === targetSectionId) return;
+    const layout = cloneLayout();
+    const from = layout.findIndex((s) => s.id === sid);
+    const to = layout.findIndex((s) => s.id === targetSectionId);
+    if (from < 0 || to < 0) return;
+    const [moved] = layout.splice(from, 1);
+    const adjustedTo = from < to ? to - 1 : to;
+    layout.splice(adjustedTo + (position === 'after' ? 1 : 0), 0, moved!);
+    persistLayout(layout);
+  }
+  function dropOnSectionEnd(sectionId: string) {
     // Item dropped on a section header / body → append; section dropped → reorder.
     if (dragSection.current) {
-      const sid = dragSection.current; dragSection.current = null; setDragging(null);
-      if (!profile || sid === sectionId) return;
-      const layout = cloneLayout();
-      const from = layout.findIndex((s) => s.id === sid);
-      const to = layout.findIndex((s) => s.id === sectionId);
-      if (from < 0 || to < 0) return;
-      const [moved] = layout.splice(from, 1);
-      layout.splice(to, 0, moved!);
-      persistLayout(layout);
+      dropSectionOnSection(sectionId, 'after');
       return;
     }
-    const href = dragItem.current; dragItem.current = null; setDragging(null);
+    const href = dragItem.current;
+    clearDragState();
     if (!href || !profile) return;
     const layout = cloneLayout();
     removeHref(layout, href);
@@ -150,11 +182,133 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
     target.items.push(href);
     persistLayout(layout);
   }
+  function dragPosition(e: React.DragEvent): 'before' | 'after' {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return e.clientY > r.top + r.height / 2 ? 'after' : 'before';
+  }
+  function onItemDragOver(e: React.DragEvent, href: string, sectionId: string) {
+    if (!dragItem.current || dragItem.current === href) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTarget({ kind: 'item', href, sectionId, position: dragPosition(e) });
+  }
+  function onSectionDragOver(e: React.DragEvent, sectionId: string) {
+    if (!dragSection.current || dragSection.current === sectionId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTarget({ kind: 'section', sectionId, position: dragPosition(e) });
+  }
+  function onSectionBodyDragOver(e: React.DragEvent, sectionId: string) {
+    if (!dragItem.current && !dragSection.current) return;
+    e.preventDefault();
+    setDropTarget({ kind: 'section-end', sectionId });
+  }
 
   if (pathname === '/login') return null;
-  if (!open) return null;
 
   const sections = resolveSections(profile?.navLayout ?? [], profile?.navHidden ?? []);
+
+  if (!open) {
+    return (
+      <aside
+        className="sticky self-start flex w-[68px] flex-col overflow-hidden bg-surface-1 border-r border-border-subtle print:hidden"
+        style={{ top: 44, height: 'calc(100vh - 44px)' }}
+      >
+        <div className="flex flex-col items-center gap-2 px-2 pt-3 pb-2.5">
+          <Link href="/settings" title="Profile & settings" aria-label="Profile & settings">
+            <Avatar
+              name={profile?.name ?? ''}
+              kind={profile?.avatarKind ?? 'gradient'}
+              gradient={profile?.avatarGradient ?? 'monarch'}
+              image={profile?.avatarImage ?? null}
+              size={34}
+              className="ring-1 ring-border-subtle"
+            />
+          </Link>
+          <Link
+            href="/"
+            className={`ui-icon-button size-9 shrink-0 rounded-md ${pathname === '/' ? 'bg-accent-soft text-accent-500' : ''}`}
+            aria-label="Dashboard"
+            title="Dashboard"
+          >
+            <IconDashboard size={17} />
+          </Link>
+          <button
+            type="button"
+            onClick={expandSidebar}
+            className="ui-icon-button size-9 shrink-0 rounded-md"
+            aria-label="Show sidebar"
+            title="Show sidebar"
+          >
+            <IconPanelLeft size={17} className="rotate-180" />
+          </button>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-3 pt-1">
+          {sections.map((section) => (
+            <div
+              key={section.id}
+              className="flex flex-col items-center gap-1 border-t border-border-subtle/70 pt-2 first:border-t-0 first:pt-0"
+            >
+              {section.items.map((item) => {
+                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const Icon = item.Icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={item.label}
+                    aria-label={item.label}
+                    className={`relative flex size-10 items-center justify-center rounded-xl transition-colors ${
+                      active
+                        ? 'bg-accent-soft text-accent-500'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'
+                    }`}
+                  >
+                    {active && (
+                      <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent-500" />
+                    )}
+                    <Icon size={20} strokeWidth={active ? 2 : 1.8} />
+                    {item.showBadge && reviewCount !== undefined && reviewCount > 0 && (
+                      <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-accent-500 px-1 text-center text-[9.5px] font-semibold leading-4 tabular-nums text-[var(--color-accent-contrast)]">
+                        {reviewCount > 9 ? '9+' : reviewCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div className="flex flex-col items-center gap-2 border-t border-border-subtle px-2 py-3">
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            title="Settings"
+            className="ui-icon-button size-10"
+          >
+            <IconSettings size={18} />
+          </Link>
+          <ThemeToggle className="ui-icon-button size-10" />
+          <button
+            type="button"
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+              window.location.href = '/login';
+            }}
+            aria-label="Sign out"
+            title="Sign out"
+            className="ui-icon-button size-10"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M7 15.5H4a1.5 1.5 0 0 1-1.5-1.5V4A1.5 1.5 0 0 1 4 2.5h3M12 12.5 15.5 9 12 5.5M15.5 9h-9" />
+            </svg>
+          </button>
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -177,6 +331,14 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
             <div className="ui-caption truncate">Owner</div>
           </div>
         </Link>
+        <Link
+          href="/"
+          className={`ui-icon-button size-8 shrink-0 rounded-md ${pathname === '/' ? 'bg-accent-soft text-accent-500' : ''}`}
+          aria-label="Dashboard"
+          title="Dashboard"
+        >
+          <IconDashboard size={17} />
+        </Link>
         <button
           type="button"
           onClick={collapseSidebar}
@@ -193,35 +355,84 @@ export function Sidebar({ reviewCount }: { reviewCount?: number }) {
         {sections.map((section) => (
           <div
             key={section.id}
-            className="flex flex-col gap-0.5 group/sec"
-            onDragOver={(e) => { if (dragItem.current || dragSection.current) e.preventDefault(); }}
-            onDrop={() => dropOnSection(section.id)}
+            className={`relative flex flex-col gap-0.5 rounded-xl transition-[background,box-shadow,padding] group/sec ${
+              dropTarget?.kind === 'section-end' && dropTarget.sectionId === section.id
+                ? 'bg-[rgba(224,228,230,0.1)] pb-1 shadow-[inset_0_0_0_1px_rgba(224,228,230,0.2)]'
+                : ''
+            }`}
+            onDragOver={(e) => onSectionBodyDragOver(e, section.id)}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropTarget(null);
+            }}
+            onDrop={(e) => { e.preventDefault(); dropOnSectionEnd(section.id); }}
           >
             <div
               draggable
-              onDragStart={() => { dragSection.current = section.id; setDragging(`sec:${section.id}`); }}
-              onDragEnd={() => { dragSection.current = null; setDragging(null); }}
-              className={`ui-label flex cursor-grab items-center gap-1.5 px-3 pb-1.5 pt-2 active:cursor-grabbing ${dragging === `sec:${section.id}` ? 'opacity-40' : ''}`}
+              onDragStart={(e) => {
+                dragSection.current = section.id;
+                setDragging(`sec:${section.id}`);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', section.id);
+              }}
+              onDragOver={(e) => onSectionDragOver(e, section.id)}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dropTarget?.kind === 'section' && dropTarget.sectionId === section.id) {
+                  dropSectionOnSection(section.id, dropTarget.position);
+                }
+              }}
+              onDragEnd={clearDragState}
+              className={`ui-label relative flex cursor-grab items-center gap-1.5 rounded-lg px-3 pb-1.5 pt-2 transition-[background,opacity,transform,margin] active:cursor-grabbing ${
+                dragging === `sec:${section.id}` ? 'opacity-40' : ''
+              } ${
+                dropTarget?.kind === 'section' && dropTarget.sectionId === section.id
+                  ? `bg-[rgba(224,228,230,0.12)] ${dropTarget.position === 'before' ? 'mt-2' : 'mb-2'}`
+                  : ''
+              }`}
               title="Drag to reorder section"
             >
+              {dropTarget?.kind === 'section' && dropTarget.sectionId === section.id && (
+                <DropMarker position={dropTarget.position} />
+              )}
               <DragHandle className="opacity-0 group-hover/sec:opacity-50 transition-opacity" />
               <span className="truncate">{section.label}</span>
             </div>
             {section.items.map((item) => {
-              const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.Icon;
               return (
                 <div
                   key={item.href}
-                  className="relative group/row"
+                  className={`relative rounded-lg transition-[background,transform,padding,margin] group/row ${
+                    dropTarget?.kind === 'item' && dropTarget.href === item.href
+                      ? `bg-[rgba(224,228,230,0.12)] ${dropTarget.position === 'before' ? 'mt-2' : 'mb-2'}`
+                      : ''
+                  }`}
                   draggable
-                  onDragStart={(e) => { dragItem.current = item.href; setDragging(item.href); e.stopPropagation(); }}
-                  onDragEnd={() => { dragItem.current = null; setDragging(null); }}
-                  onDragOver={(e) => { if (dragItem.current) e.preventDefault(); }}
-                  onDrop={(e) => { e.stopPropagation(); dropOnItem(item.href, section.id); }}
+                  onDragStart={(e) => {
+                    dragItem.current = item.href;
+                    setDragging(item.href);
+                    e.stopPropagation();
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', item.href);
+                  }}
+                  onDragEnd={clearDragState}
+                  onDragOver={(e) => onItemDragOver(e, item.href, section.id)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (dropTarget?.kind === 'item' && dropTarget.href === item.href) {
+                      dropOnItem(item.href, section.id, dropTarget.position);
+                    }
+                  }}
                 >
+                  {dropTarget?.kind === 'item' && dropTarget.href === item.href && (
+                    <DropMarker position={dropTarget.position} />
+                  )}
                   <Link
                     href={item.href}
+                    draggable={false}
                     className={`relative flex items-center justify-between gap-2 rounded-lg py-2.5 pl-3.5 pr-3 text-[14px] font-medium tracking-[0] transition-colors ${
                       active
                         ? 'bg-accent-soft text-accent-500 font-semibold'

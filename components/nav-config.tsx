@@ -9,7 +9,6 @@ import {
   IconAudit,
   IconCashflow,
   IconCreditCard,
-  IconDashboard,
   IconFiles,
   IconForecasting,
   IconGoals,
@@ -26,14 +25,13 @@ import {
 } from './nav-icons';
 
 export type NavHref =
-  | '/'
   | '/accounts'
+  | '/net-worth'
   | '/credit-cards'
   | '/payroll'
   | '/transactions'
   | '/review'
   | '/cashflow'
-  | '/net-worth'
   | '/reports'
   | '/rentals'
   | '/investments'
@@ -67,7 +65,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'Under development',
     items: [
-      { href: '/', label: 'Dashboard', Icon: IconDashboard },
       { href: '/net-worth', label: 'Net Worth', Icon: IconNetWorth },
       { href: '/cashflow', label: 'Cashflow', Icon: IconCashflow },
       { href: '/reports', label: 'Reports', Icon: IconReports },
@@ -100,7 +97,7 @@ export const ITEM_BY_HREF = new Map<string, NavItem>(ALL_NAV_ITEMS.map((i) => [i
 /** Sensible starting sections (replaces the old dev-status grouping). */
 export const DEFAULT_SECTIONS: NavSection[] = [
   { id: 'spending', label: 'Spending', items: ['/review', '/transactions', '/payroll', '/credit-cards'] },
-  { id: 'insights', label: 'Insights', items: ['/', '/net-worth', '/cashflow', '/reports'] },
+  { id: 'insights', label: 'Insights', items: ['/net-worth', '/cashflow', '/reports'] },
   { id: 'planning', label: 'Planning', items: ['/goals', '/forecasting', '/tax', '/rentals', '/investments', '/transfers'] },
   { id: 'data', label: 'Data', items: ['/upload', '/files', '/audit'] },
 ];

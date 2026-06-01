@@ -211,7 +211,16 @@ function HoldingsSection({ holdings, realizedGain }: { holdings: Holdings; reali
 
 const PERIODS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL', 'CUSTOM'] as const;
 type Period = (typeof PERIODS)[number];
+type MainTab = 'overview' | 'holdings' | 'advanced';
+type AdvancedTab = 'gains' | 'funds';
+type GroupBy = 'assetClass' | 'account';
+type ChartMode = 'bar' | 'trend';
 const PERIOD_LABEL: Record<Period, string> = { '1M': '1M', '3M': '3M', '6M': '6M', YTD: 'YTD', '1Y': '1Y', ALL: 'All', CUSTOM: 'Custom' };
+const securityTypeLabel = (k: string): string => {
+  if (k === 'equity') return 'Stock';
+  if (k === 'etf') return 'ETF';
+  return assetClassLabel(k);
+};
 function periodCutoff(p: Period): string | null {
   if (p === 'ALL' || p === 'CUSTOM') return null;
   const d = new Date();
@@ -225,8 +234,418 @@ function slicePeriod(series: ValuePoint[], p: Period, from?: string, to?: string
   return cut ? series.filter((x) => x.date >= cut) : series;
 }
 
+type GainBucket = {
+  key: string;
+  label: string;
+  value: number;
+  cost: number;
+  gain: number;
+  gainPct: number | null;
+  holdings: HoldingView[];
+};
+
+function groupGainBuckets(rows: HoldingView[], groupBy: GroupBy): GainBucket[] {
+  const map = new Map<string, GainBucket>();
+  for (const row of rows) {
+    const key = groupBy === 'assetClass' ? row.assetClass : row.accountName;
+    const label = groupBy === 'assetClass' ? securityTypeLabel(row.assetClass) : row.accountName;
+    const bucket = map.get(key) ?? { key, label, value: 0, cost: 0, gain: 0, gainPct: null, holdings: [] };
+    bucket.value += row.marketValue;
+    bucket.cost += row.costBasis ?? 0;
+    bucket.gain += row.gain ?? 0;
+    bucket.holdings.push(row);
+    map.set(key, bucket);
+  }
+  return [...map.values()]
+    .map((bucket) => ({
+      ...bucket,
+      value: Math.round(bucket.value * 100) / 100,
+      cost: Math.round(bucket.cost * 100) / 100,
+      gain: Math.round(bucket.gain * 100) / 100,
+      gainPct: bucket.cost > 0 ? (bucket.gain / bucket.cost) * 100 : null,
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function GainLossChart({ buckets, mode }: { buckets: GainBucket[]; mode: ChartMode }) {
+  if (buckets.length === 0) {
+    return <div className="flex h-[420px] items-center justify-center text-[13px] text-text-muted">Upload investment statements with holdings to chart gains and losses.</div>;
+  }
+  const W = 1100;
+  const H = 420;
+  const padL = 46;
+  const padR = 24;
+  const padT = 28;
+  const padB = 62;
+  const max = Math.max(...buckets.map((bucket) => Math.max(bucket.value, bucket.cost, Math.abs(bucket.gain))), 1);
+  const y = (value: number) => padT + (H - padT - padB) - (value / max) * (H - padT - padB);
+  const grid = [0, 0.25, 0.5, 0.75, 1].map((pct) => max * pct);
+  const barW = Math.min(92, (W - padL - padR) / Math.max(1, buckets.length) * 0.5);
+  const slot = (W - padL - padR) / Math.max(1, buckets.length);
+
+  if (mode === 'trend') {
+    const points = buckets.map((bucket, index) => {
+      const x = padL + slot * index + slot / 2;
+      return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y(bucket.gain + bucket.cost).toFixed(1)}`;
+    }).join(' ');
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-[420px] w-full" preserveAspectRatio="none" aria-label="Gain loss trend">
+        {grid.map((tick) => (
+          <g key={tick}>
+            <line x1={padL} x2={W - padR} y1={y(tick)} y2={y(tick)} stroke="var(--color-border-subtle)" />
+            <text x={padL - 12} y={y(tick) + 5} textAnchor="end" fill="var(--color-text-tertiary)" fontSize="13">{money0(tick)}</text>
+          </g>
+        ))}
+        <path d={points} fill="none" stroke="var(--color-positive)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        {buckets.map((bucket, index) => {
+          const x = padL + slot * index + slot / 2;
+          return (
+            <g key={bucket.key}>
+              <circle cx={x} cy={y(bucket.value)} r="5" fill={bucket.gain >= 0 ? 'var(--color-positive)' : 'var(--color-negative)'} />
+              <text x={x} y={H - 24} textAnchor="middle" fill="var(--color-text-tertiary)" fontSize="13">{bucket.label}</text>
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-[420px] w-full" preserveAspectRatio="none" aria-label="Gain loss by group">
+      {grid.map((tick) => (
+        <g key={tick}>
+          <line x1={padL} x2={W - padR} y1={y(tick)} y2={y(tick)} stroke="var(--color-border-subtle)" />
+          <text x={padL - 12} y={y(tick) + 5} textAnchor="end" fill="var(--color-text-tertiary)" fontSize="13">{money0(tick)}</text>
+        </g>
+      ))}
+      {buckets.map((bucket, index) => {
+        const x = padL + slot * index + slot / 2 - barW / 2;
+        const costH = H - padB - y(bucket.cost);
+        const gainH = Math.abs(y(bucket.cost) - y(bucket.cost + Math.max(bucket.gain, 0)));
+        return (
+          <g key={bucket.key}>
+            <rect x={x} y={y(bucket.cost)} width={barW} height={costH} fill="var(--color-cat-blue)" opacity="0.82" />
+            {bucket.gain >= 0 ? (
+              <rect x={x} y={y(bucket.cost + bucket.gain)} width={barW} height={gainH} fill="var(--color-positive)" opacity="0.75" />
+            ) : (
+              <rect x={x} y={y(Math.abs(bucket.gain))} width={barW} height={Math.max(2, H - padB - y(Math.abs(bucket.gain)))} fill="var(--color-negative)" opacity="0.75" />
+            )}
+            {bucket.gainPct != null && (
+              <text x={x + barW / 2} y={Math.max(16, y(bucket.value) - 8)} textAnchor="middle" fill={bucket.gain >= 0 ? 'var(--color-positive)' : 'var(--color-negative)'} fontSize="13" fontWeight="700">
+                {bucket.gainPct >= 0 ? '+' : ''}{bucket.gainPct.toFixed(1)}%
+              </text>
+            )}
+            <text x={x + barW / 2} y={H - 24} textAnchor="middle" fill="var(--color-text-tertiary)" fontSize="13">{bucket.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function exportGainLossCsv(rows: HoldingView[]) {
+  const header = ['Security', 'Symbol', 'Account', 'Asset class', 'Quantity', 'Total cost basis', 'Current value', 'Gain/loss $', 'Gain/loss %'];
+  const csvRows = rows.map((row) => [
+    row.name,
+    row.symbol ?? '',
+    row.accountName,
+    securityTypeLabel(row.assetClass),
+    row.quantity ?? '',
+    row.costBasis ?? '',
+    row.marketValue,
+    row.gain ?? '',
+    row.gainPct ?? '',
+  ]);
+  const csv = [header, ...csvRows]
+    .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'investment-gains-losses.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function GainLossPill({ value, percent }: { value: number | null; percent?: boolean }) {
+  if (value == null) return <span className="text-text-tertiary">-</span>;
+  const positive = value >= 0;
+  return (
+    <span className={`inline-flex min-w-[82px] justify-center rounded-full px-3 py-1.5 text-[16px] font-semibold tabular-nums ${positive ? 'bg-positive/20 text-positive' : 'bg-negative/20 text-negative'}`}>
+      {percent ? `${positive ? '↑ ' : '↓ '}${Math.abs(value).toFixed(2)}%` : moneySigned(value)}
+    </span>
+  );
+}
+
+function TaxLotEditorRow({ row }: { row: HoldingView }) {
+  const acquiredDate = row.asOf ?? new Date().toISOString().slice(0, 10);
+  const price = row.price ?? (row.quantity && row.costBasis ? row.costBasis / row.quantity : 0);
+  const lotQuantity = row.quantity ?? 0;
+  const costBasis = row.costBasis ?? 0;
+  return (
+    <div className="bg-[rgba(36,28,18,0.72)]">
+      <div className="grid grid-cols-[1.3fr_0.85fr_0.95fr_0.8fr_1fr_1fr_1fr_1fr_44px] items-center gap-5 px-20 py-4 text-[15px] font-semibold text-text-tertiary">
+        <span>Acquired date</span>
+        <span>Holding period</span>
+        <span>Price per share</span>
+        <span>Lot quantity</span>
+        <span>Cost basis</span>
+        <span>Current value</span>
+        <span>Gain/loss $</span>
+        <span>Gain/loss %</span>
+        <span />
+      </div>
+      <div className="grid grid-cols-[1.3fr_0.85fr_0.95fr_0.8fr_1fr_1fr_1fr_1fr_44px] items-center gap-5 px-20 py-4">
+        <label className="relative">
+          <span className="sr-only">Acquired date</span>
+          <input
+            type="date"
+            defaultValue={acquiredDate}
+            className="h-12 w-full rounded-xl border border-border-subtle bg-surface-1 px-4 text-[18px] text-text-primary outline-none focus:border-[var(--color-cat-cyan)]"
+          />
+        </label>
+        <span className="text-[18px] text-text-tertiary">-</span>
+        <input
+          inputMode="decimal"
+          defaultValue={fmtMoney(price)}
+          className="h-12 rounded-xl border-2 border-[var(--color-cat-cyan)] bg-surface-1 px-4 text-right text-[18px] text-text-primary outline-none"
+          aria-label="Price per share"
+        />
+        <input
+          inputMode="decimal"
+          defaultValue={lotQuantity}
+          className="h-12 rounded-xl border border-border-subtle bg-surface-1 px-4 text-right text-[18px] text-text-primary outline-none focus:border-[var(--color-cat-cyan)]"
+          aria-label="Lot quantity"
+        />
+        <input
+          inputMode="decimal"
+          defaultValue={costBasis ? fmtMoney(costBasis) : '$0.00'}
+          className="h-12 rounded-xl border border-border-subtle bg-surface-1 px-4 text-right text-[18px] text-text-primary outline-none focus:border-[var(--color-cat-cyan)]"
+          aria-label="Cost basis"
+        />
+        <span className="text-right text-[18px] text-text-tertiary">-</span>
+        <span className="text-right text-[18px] text-text-tertiary">-</span>
+        <span className="text-right text-[18px] text-text-tertiary">-</span>
+        <button type="button" className="text-[24px] text-text-tertiary hover:text-negative" aria-label="Delete tax lot">⌫</button>
+      </div>
+      <div className="px-20 pb-8 pt-2">
+        <button type="button" className="text-[17px] font-semibold text-accent-400 hover:text-accent-300">Add tax lot</button>
+      </div>
+      <div className="grid grid-cols-[1.3fr_0.85fr_0.95fr_0.8fr_1fr_1fr_1fr_1fr_44px] items-center gap-5 bg-[rgba(75,55,32,0.28)] px-20 py-5 text-[18px] font-semibold">
+        <span>Total</span>
+        <span className="text-text-tertiary">-</span>
+        <span className="text-right text-text-tertiary">-</span>
+        <span className="text-right tabular-nums">{row.quantity ?? '-'}</span>
+        <span className="text-right text-text-tertiary">-</span>
+        <span className="text-right text-text-tertiary">-</span>
+        <span className="text-right text-text-tertiary">-</span>
+        <span className="text-right text-text-tertiary">-</span>
+        <span />
+      </div>
+    </div>
+  );
+}
+
+function AdvancedHoldingsTable({
+  buckets,
+  groupBy,
+  setGroupBy,
+  totalGain,
+  totalGainPct,
+}: {
+  buckets: GainBucket[];
+  groupBy: GroupBy;
+  setGroupBy: React.Dispatch<React.SetStateAction<GroupBy>>;
+  totalGain: number;
+  totalGainPct: number | null;
+}) {
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) => {
+    setExpandedRows((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-6">
+        <h2 className="text-[24px] font-semibold">Holdings</h2>
+        <select className="rounded-xl border border-border-subtle bg-surface-1 px-4 py-3 text-[14px] font-semibold text-text-secondary" value={groupBy} onChange={(event) => setGroupBy(event.target.value as GroupBy)}>
+          <option value="assetClass">By security type</option>
+          <option value="account">By account</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-[minmax(360px,1.5fr)_140px_190px_170px_150px_150px] border-b border-border-subtle px-6 py-5 text-[15px] font-semibold text-text-secondary">
+        <div>Security</div>
+        <div className="text-right">Quantity</div>
+        <div className="text-right">Total cost basis</div>
+        <div className="text-right">Current value</div>
+        <div className="text-right">Gain/loss $</div>
+        <div className="text-right">Gain/loss %</div>
+      </div>
+      <div>
+        {buckets.map((bucket) => (
+          <div key={bucket.key}>
+            <div className="border-b border-border-subtle bg-[rgba(75,55,32,0.18)] px-6 py-5 text-[17px] font-semibold text-text-tertiary">⌄ {bucket.label}</div>
+            <div className="divide-y divide-border-subtle/75">
+              {bucket.holdings.map((row) => (
+                <div key={row.id}>
+                  <div className="grid grid-cols-[minmax(360px,1.5fr)_140px_190px_170px_150px_150px] items-center px-6 py-7">
+                    <div className="grid grid-cols-[24px_1fr] gap-4">
+                      <button type="button" onClick={() => toggleExpanded(row.id)} className="pt-1 text-left text-[24px] text-text-tertiary hover:text-text-primary" aria-label={`${expandedRows.has(row.id) ? 'Collapse' : 'Expand'} tax lots for ${row.symbol ?? row.name}`}>
+                        {expandedRows.has(row.id) ? '⌄' : '›'}
+                      </button>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[20px] font-semibold text-text-primary">{row.symbol ?? row.name}</span>
+                          <span className="text-[18px] font-semibold text-text-muted">(0)</span>
+                          <span className="flex size-5 items-center justify-center rounded-full bg-[rgba(84,160,76,0.28)] text-[12px]">✺</span>
+                          <span className="text-[17px] text-text-tertiary">{row.accountName}</span>
+                        </div>
+                        <p className="mt-2 max-w-[560px] text-[17px] leading-7 text-text-secondary">{row.name}</p>
+                        <button type="button" onClick={() => toggleExpanded(row.id)} className="mt-7 text-[17px] font-semibold text-accent-400 hover:text-accent-300">Add tax lot</button>
+                      </div>
+                    </div>
+                    <div className="text-right text-[18px] tabular-nums text-text-secondary">{row.quantity ?? '-'}</div>
+                    <div className="text-right">
+                      {row.costBasis != null ? (
+                        <span className="text-[18px] tabular-nums text-text-primary">{money0(row.costBasis)}</span>
+                      ) : (
+                        <button type="button" onClick={() => toggleExpanded(row.id)} className="max-w-[140px] text-center text-[16px] font-semibold leading-6 text-accent-400">Add total cost basis</button>
+                      )}
+                    </div>
+                    <div className="text-right text-[18px] tabular-nums text-text-primary">{money0(row.marketValue)}</div>
+                    <div className="text-right"><GainLossPill value={row.gain} /></div>
+                    <div className="text-right"><GainLossPill value={row.gainPct} percent /></div>
+                  </div>
+                  {expandedRows.has(row.id) && <TaxLotEditorRow row={row} />}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-[minmax(360px,1.5fr)_140px_190px_170px_150px_150px] items-center border-t border-border-subtle bg-surface-1 px-6 py-7">
+        <div className="text-[20px] font-semibold">Total</div>
+        <div />
+        <div />
+        <div />
+        <div className="text-right"><GainLossPill value={totalGain} /></div>
+        <div className="text-right"><GainLossPill value={totalGainPct} percent /></div>
+      </div>
+    </section>
+  );
+}
+
+function AdvancedInvestments({
+  holdings,
+  realizedGain,
+}: {
+  holdings: Holdings;
+  realizedGain: number;
+}) {
+  const [advancedTab, setAdvancedTab] = useState<AdvancedTab>('gains');
+  const [groupBy, setGroupBy] = useState<GroupBy>('assetClass');
+  const [chartMode, setChartMode] = useState<ChartMode>('bar');
+  const buckets = groupGainBuckets(holdings.rows, groupBy);
+  const totalCost = holdings.totalCost;
+  const totalGain = holdings.totalGain;
+  const gainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : null;
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-border-subtle bg-surface-1 p-6">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-[22px] font-semibold">Unrealized gains &amp; losses</h2>
+              <span className="text-text-tertiary">ⓘ</span>
+              <span className="rounded-full bg-[rgba(194,78,0,0.25)] px-3 py-1 text-[12px] font-semibold text-accent-400">⌘ Plus</span>
+            </div>
+            <div className="mt-5 flex gap-3">
+              {([
+                ['gains', 'Gains & Losses'],
+                ['funds', 'Funds'],
+              ] as const).map(([id, label]) => (
+                <button key={id} type="button" onClick={() => setAdvancedTab(id)} className={`rounded-full px-5 py-2 text-[14px] font-semibold ${advancedTab === id ? 'bg-surface-3 text-text-primary' : 'text-text-tertiary hover:text-text-primary'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <select className="rounded-xl border border-border-subtle bg-surface-1 px-4 py-3 text-[14px] font-semibold text-text-secondary" value={groupBy} onChange={(event) => setGroupBy(event.target.value as GroupBy)}>
+              <option value="assetClass">By security type</option>
+              <option value="account">By account</option>
+            </select>
+            <div className="inline-flex overflow-hidden rounded-xl border border-border-subtle">
+              <button type="button" onClick={() => setChartMode('bar')} className={`px-4 py-3 text-[14px] ${chartMode === 'bar' ? 'bg-surface-3 text-text-primary' : 'text-text-tertiary'}`}>▥</button>
+              <button type="button" onClick={() => setChartMode('trend')} className={`border-l border-border-subtle px-4 py-3 text-[14px] ${chartMode === 'trend' ? 'bg-surface-3 text-text-primary' : 'text-text-tertiary'}`}>↗</button>
+            </div>
+            <button type="button" onClick={() => exportGainLossCsv(holdings.rows)} className="rounded-xl border border-border-subtle px-4 py-3 text-[14px] font-semibold text-text-secondary hover:bg-surface-2">⇩</button>
+          </div>
+        </div>
+
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-[rgba(0,112,121,0.4)] px-5 py-4 text-[15px] text-[var(--color-cat-cyan)]">
+          <span>ⓘ Get a complete picture of your gains &amp; losses by filling in missing cost basis or tax lots in the holdings table below. <span className="font-semibold underline">Learn more</span></span>
+          <button type="button" className="font-semibold">Add cost basis</button>
+        </div>
+
+        <div className="mb-7 grid rounded-xl border border-border-subtle md:grid-cols-4">
+          {[
+            ['Portfolio value', money0(holdings.totalValue), ''],
+            ['Portfolio cost (partial) ⓘ', totalCost > 0 ? money0(totalCost) : '—', ''],
+            ['Gain / loss value (partial) ⓘ', totalCost > 0 ? moneySigned(totalGain) : '—', totalGain >= 0 ? 'text-positive' : 'text-negative'],
+            ['Gain / loss percent (partial) ⓘ', gainPct != null ? `${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%` : '—', (gainPct ?? 0) >= 0 ? 'text-positive' : 'text-negative'],
+          ].map(([label, value, tone]) => (
+            <div key={label} className="px-7 py-7 text-center">
+              <p className={`text-[24px] font-semibold tabular-nums ${tone}`}>{value}</p>
+              <p className="mt-3 text-[14px] font-semibold text-text-tertiary">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {advancedTab === 'gains' ? (
+          <>
+            <GainLossChart buckets={buckets} mode={chartMode} />
+            <div className="mt-4 flex justify-center gap-6 text-[13px] text-text-tertiary">
+              <span className="flex items-center gap-2"><span className="size-3 rounded-full bg-cat-blue" /> Cost Basis</span>
+              <span className="flex items-center gap-2"><span className="size-3 rounded-full bg-positive" /> Gain</span>
+              <span className="flex items-center gap-2"><span className="size-3 rounded-full bg-negative" /> Loss</span>
+            </div>
+          </>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {buckets.map((bucket) => (
+              <div key={bucket.key} className="rounded-xl border border-border-subtle bg-surface-2 px-5 py-4">
+                <p className="text-[15px] font-semibold">{bucket.label}</p>
+                <p className="mt-2 text-[24px] font-semibold tabular-nums">{money0(bucket.value)}</p>
+                <p className={`mt-1 text-[13px] font-semibold ${bucket.gain >= 0 ? 'text-positive' : 'text-negative'}`}>{moneySigned(bucket.gain)} {bucket.gainPct != null ? `· ${bucket.gainPct >= 0 ? '+' : ''}${bucket.gainPct.toFixed(1)}%` : ''}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <AdvancedHoldingsTable
+        buckets={buckets}
+        groupBy={groupBy}
+        setGroupBy={setGroupBy}
+        totalGain={totalGain}
+        totalGainPct={gainPct}
+      />
+      {realizedGain !== 0 && <p className="px-6 text-[12px] text-text-tertiary">Estimated realized gain from statement snapshots: <span className={realizedGain >= 0 ? 'text-positive' : 'text-negative'}>{moneySigned(realizedGain)}</span>.</p>}
+    </div>
+  );
+}
+
 export function InvestmentsClient({ data }: { data: InvestmentsData }) {
   const { totalValue, delta30, accounts, series, holdingsSeries, benchmarkSeries, benchmark, holdings } = data;
+  const [mainTab, setMainTab] = useState<MainTab>('advanced');
   const [period, setPeriod] = useState<Period>('ALL');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
@@ -269,7 +688,42 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
 
   return (
     <>
-      <PageHeader title="Investments" subtitle={hasMV ? 'Market value, holdings, and performance.' : 'Portfolio value over time, from your account history.'} />
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <nav className="flex flex-wrap items-center gap-5">
+          {([
+            ['overview', 'Investments', null],
+            ['holdings', 'Holdings', null],
+            ['advanced', 'Advanced', '⌘ Plus'],
+          ] as const).map(([id, label, badge]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setMainTab(id)}
+              className={`border-b-2 px-0 py-3 text-[20px] font-semibold transition ${mainTab === id ? 'border-accent-500 text-accent-400' : 'border-transparent text-text-tertiary hover:text-text-primary'}`}
+            >
+              {label}
+              {badge && <span className="ml-2 rounded-full bg-[rgba(194,78,0,0.25)] px-2 py-1 text-[12px] text-accent-400">{badge}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="flex items-center gap-3">
+          <button type="button" className="rounded-xl border border-border-subtle px-4 py-3 text-[15px] font-semibold text-text-secondary">Accounts⌄</button>
+          <button type="button" className="rounded-xl bg-accent-500 px-5 py-3 text-[15px] font-semibold text-[var(--color-accent-contrast)]">Add⌄</button>
+        </div>
+      </header>
+
+      {mainTab === 'advanced' && <AdvancedInvestments holdings={holdings} realizedGain={data.realizedGain} />}
+
+      {mainTab === 'holdings' && (
+        holdings.rows.length > 0 ? <HoldingsSection holdings={holdings} realizedGain={data.realizedGain} /> : (
+          <section className="rounded-2xl border border-dashed border-border-subtle bg-surface-1 px-8 py-16 text-center text-[13px] text-text-tertiary">
+            Upload investment statements with positions to populate holdings.
+          </section>
+        )
+      )}
+
+      {mainTab === 'overview' && (
+        <>
 
       {/* Hero value + chart */}
       <section className="rounded-2xl bg-surface-1 border border-border-subtle p-6 mb-5">
@@ -378,6 +832,8 @@ export function InvestmentsClient({ data }: { data: InvestmentsData }) {
           </p>
         </section>
       </div>
+        </>
+      )}
     </>
   );
 }

@@ -1,7 +1,8 @@
-import { asc, sql } from 'drizzle-orm';
+import { asc, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db/client';
-import { accountTypeGroups, accountTypes, accounts, categories, transactions } from '@/lib/db/schema';
+import { accountTypeGroups, accountTypes, accounts, categories, transactions, vendorRules } from '@/lib/db/schema';
 import { ANTHROPIC_KEY, MARKET_DATA_KEY, getAnthropicKey, getAnthropicModel, getSetting } from '@/lib/settings';
 import { getProfile } from '@/lib/profile/load';
 import { loadTaxonomyStyle } from '@/lib/taxonomy-style';
@@ -16,6 +17,7 @@ import { ClaudeSettings } from './ClaudeSettings';
 import { MarketDataSettings } from './MarketDataSettings';
 import { MaintenancePanel } from './MaintenancePanel';
 import { ExportPanel } from './ExportPanel';
+import { MerchantSettings, type MerchantCategoryOption, type MerchantRow } from './MerchantSettings';
 import { CategoriesClient, type CatNode } from '../categories/CategoriesClient';
 import '../categories/categories.css';
 
@@ -23,9 +25,10 @@ export const metadata = { title: 'Settings · Vault' };
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
+  const parentCat = alias(categories, 'settings_parent_cat');
   // Independent reads — taxonomy groups/types, per-type usage counts, and the
   // three Anthropic settings — fired together.
-  const [groups, types, usage, dbKey, anthropicKey, model, marketDbKey, profile, cats, catCounts, acctRows, taxStyle, acctStats] = await Promise.all([
+  const [groups, types, usage, dbKey, anthropicKey, model, marketDbKey, profile, cats, catsWithParents, catCounts, acctRows, taxStyle, acctStats, merchantRowsRaw] = await Promise.all([
     db.select().from(accountTypeGroups).orderBy(asc(accountTypeGroups.sortOrder)),
     db.select().from(accountTypes).orderBy(asc(accountTypes.sortOrder)),
     db
@@ -41,6 +44,18 @@ export default async function SettingsPage() {
       .select({ id: categories.id, name: categories.name, color: categories.color, flowType: categories.flowType, parentId: categories.parentId, sortOrder: categories.sortOrder })
       .from(categories)
       .orderBy(asc(categories.sortOrder), asc(categories.name)),
+    db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        color: categories.color,
+        parentId: categories.parentId,
+        parentName: parentCat.name,
+      })
+      .from(categories)
+      .leftJoin(parentCat, eq(categories.parentId, parentCat.id))
+      .where(eq(categories.isArchived, false))
+      .orderBy(asc(categories.sortOrder), asc(categories.name)),
     db.select({ catId: transactions.categoryId, n: sql<number>`count(*)::int` }).from(transactions).groupBy(transactions.categoryId),
     db.select().from(accounts).orderBy(asc(accounts.name)),
     loadTaxonomyStyle(),
@@ -48,6 +63,23 @@ export default async function SettingsPage() {
       .select({ accountId: transactions.accountId, count: sql<number>`count(*)::int`, balance: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text` })
       .from(transactions)
       .groupBy(transactions.accountId),
+    db
+      .select({
+        merchant: transactions.merchant,
+        transactionCount: sql<number>`count(*)::int`,
+        categoryId: vendorRules.categoryId,
+        source: vendorRules.source,
+        categoryName: categories.name,
+        parentCategoryName: parentCat.name,
+        categoryColor: categories.color,
+      })
+      .from(transactions)
+      .leftJoin(vendorRules, eq(transactions.merchant, vendorRules.merchant))
+      .leftJoin(categories, eq(vendorRules.categoryId, categories.id))
+      .leftJoin(parentCat, eq(categories.parentId, parentCat.id))
+      .where(isNotNull(transactions.merchant))
+      .groupBy(transactions.merchant, vendorRules.categoryId, vendorRules.source, categories.name, parentCat.name, categories.color)
+      .orderBy(desc(sql<number>`count(*)::int`), asc(transactions.merchant)),
   ]);
   const countBySlug = new Map(usage.map((u) => [u.type, u.n]));
   const catCountById = new Map(catCounts.map((c) => [c.catId, c.n]));
@@ -60,6 +92,22 @@ export default async function SettingsPage() {
     sortOrder: c.sortOrder,
     count: catCountById.get(c.id) ?? 0,
   }));
+  const merchantCategories: MerchantCategoryOption[] = catsWithParents.map((c) => ({
+    id: c.id,
+    name: c.name,
+    color: c.color ?? null,
+    parentId: c.parentId ?? null,
+    parentName: c.parentName ?? null,
+  }));
+  const merchantRows: MerchantRow[] = merchantRowsRaw.map((m) => ({
+    merchant: m.merchant ?? '',
+    transactionCount: Number(m.transactionCount),
+    categoryId: m.categoryId ?? null,
+    categoryName: m.categoryName ?? null,
+    parentCategoryName: m.parentCategoryName ?? null,
+    categoryColor: m.categoryColor ?? null,
+    source: m.source ?? null,
+  })).filter((m) => m.merchant.trim().length > 0);
 
   const acctStatById = new Map(acctStats.map((s) => [s.accountId, s]));
   const acctRowsView: AcctRow[] = acctRows.map((a) => {
@@ -112,6 +160,7 @@ export default async function SettingsPage() {
           { id: 'profile', label: 'Profile', content: <><ProfileSettings initial={profile} /><AppearanceSettings /></> },
           { id: 'sidebar', label: 'Sidebar', content: <SidebarSettings initialHidden={profile.navHidden} initialLayout={profile.navLayout} /> },
           { id: 'accounts', label: 'Accounts', content: <div className="acctset-page"><AccountsSettingsClient accounts={acctRowsView} /></div> },
+          { id: 'merchants', label: 'Merchants', content: <MerchantSettings initialRows={merchantRows} categories={merchantCategories} /> },
           { id: 'account-types', label: 'Account Types', content: <SettingsClient groups={groupRows} rows={rows} /> },
           { id: 'categories', label: 'Categories', content: <div className="categories-page"><CategoriesClient nodes={catNodes} /></div> },
           {

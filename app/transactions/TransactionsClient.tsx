@@ -276,6 +276,21 @@ function fmtDateShort(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function categoryParts(
+  txn: TxnRow,
+  categories: CatLite[],
+): { category: string; subcategory: string; color: string | null; isUncategorized: boolean } {
+  if (!txn.categoryId || !txn.categoryName) {
+    return { category: 'Uncategorized', subcategory: '—', color: null, isUncategorized: true };
+  }
+  const cat = categories.find((c) => c.id === txn.categoryId);
+  if (cat?.parentName) {
+    const parent = categories.find((c) => c.id === cat.parentId);
+    return { category: cat.parentName, subcategory: txn.categoryName, color: parent?.color ?? txn.categoryColor, isUncategorized: false };
+  }
+  return { category: txn.categoryName, subcategory: '—', color: txn.categoryColor, isUncategorized: false };
+}
+
 // ─── Inline expansion: edit a single transaction ─────────────────────────
 function TxnDetail({
   txn, categories, onSaved, onDeleted, onViewMerchant,
@@ -1029,7 +1044,7 @@ function TxnTable({
   const dateDir = sortBy === 'date-asc' ? 'asc' : sortBy === 'date-desc' ? 'desc' : null;
   const amtDir = sortBy === 'amount-low' ? 'asc' : sortBy === 'amount-high' ? 'desc' : null;
   const merchActive = sortBy === 'merchant';
-  const cols = scoped ? 4 : 5;
+  const cols = scoped ? 5 : 6;
 
   return (
     <table className="tx-table">
@@ -1045,9 +1060,10 @@ function TxnTable({
                 aria-hidden
               />
             )}
-            Description {merchActive && <span className="tx-th-caret">▲</span>}
+            Merchant {merchActive && <span className="tx-th-caret">▲</span>}
           </th>
           <th className="th-cat">Category</th>
+          <th className="th-subcat">Subcategory</th>
           {!scoped && <th className="th-acct">Account</th>}
           <th className="th-amt sortable" onClick={() => onHeaderSort('amount')}>Amount <SortCaret dir={amtDir} /></th>
         </tr>
@@ -1057,6 +1073,7 @@ function TxnTable({
           const isOpen = selectedId === t.id;
           const isSel = selected.has(t.id);
           const isPositive = t.amount > 0;
+          const catParts = categoryParts(t, categories);
           return (
             <Fragment key={t.id}>
               <tr
@@ -1090,13 +1107,13 @@ function TxnTable({
                   >
                     <span
                       className={'tx-category-icon' + (t.categoryName ? '' : ' uncat')}
-                      style={{ background: iconBg(t.categoryColor) }}
+                      style={{ background: iconBg(catParts.color) }}
                       aria-hidden
                     >
-                      {iconFor(t.categoryName ?? 'Uncategorized')}
+                      {iconFor(catParts.category)}
                     </span>
-                    <span className={'tx-category-name' + (t.categoryName ? '' : ' uncat')}>
-                      {t.categoryName ?? 'Uncategorized'}
+                    <span className={'tx-category-name' + (catParts.isUncategorized ? ' uncat' : '')}>
+                      {catParts.category}
                     </span>
                     {inline.editCell?.id === t.id && inline.editCell.field === 'cat' && (
                       <CategoryPicker
@@ -1108,6 +1125,11 @@ function TxnTable({
                       />
                     )}
                   </div>
+                </td>
+                <td className="td-subcat">
+                  <span className={'tx-subcategory-name' + (catParts.subcategory === '—' ? ' empty' : '')}>
+                    {catParts.subcategory}
+                  </span>
                 </td>
                 {!scoped && (
                   <td className="td-acct">
@@ -1742,6 +1764,7 @@ export function TransactionsClient({
                 const isOpen = selectedId === t.id;
                 const showContent = isOpen || shownId === t.id;
                 const isSel = selected.has(t.id);
+                const catParts = categoryParts(t, categories);
                 return (
                   <div key={t.id} className={'tx-row-wrap' + (isOpen ? ' open' : '')}>
                     <div
@@ -1757,7 +1780,7 @@ export function TransactionsClient({
                       <div className="tx-merchant">
                         {selectMode && <span className={'tx-check' + (isSel ? ' on' : '')} aria-hidden />}
                         <VendorLogo merchant={t.merchant} size={28} />
-                        <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <span className="tx-merchant-text">
                           <span className="tx-merchant-name">
                             {t.merchant}
                             {t.needsReview && <span className="tx-pill review">Review</span>}
@@ -1774,13 +1797,13 @@ export function TransactionsClient({
                       >
                         <span
                           className={'tx-category-icon' + (t.categoryName ? '' : ' uncat')}
-                          style={{ background: iconBg(t.categoryColor) }}
+                          style={{ background: iconBg(catParts.color) }}
                           aria-hidden
                         >
-                          {iconFor(t.categoryName ?? 'Uncategorized')}
+                          {iconFor(catParts.category)}
                         </span>
-                        <span className={'tx-category-name' + (t.categoryName ? '' : ' uncat')}>
-                          {t.categoryName ?? 'Uncategorized'}
+                        <span className={'tx-category-name' + (catParts.isUncategorized ? ' uncat' : '')}>
+                          {catParts.category}
                         </span>
                         {editCell?.id === t.id && editCell.field === 'cat' && (
                           <CategoryPicker
@@ -1791,6 +1814,12 @@ export function TransactionsClient({
                             onClose={() => setEditCell(null)}
                           />
                         )}
+                      </div>
+
+                      <div className="tx-subcategory">
+                        <span className={'tx-subcategory-name' + (catParts.subcategory === '—' ? ' empty' : '')}>
+                          {catParts.subcategory}
+                        </span>
                       </div>
 
                       {!scoped && (

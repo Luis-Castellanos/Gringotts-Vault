@@ -30,6 +30,7 @@ export type AcctRow = {
   count: number;
   balance: number;
 };
+export type NetWorthPoint = { date: string; value: number };
 
 type Group = 'Cash' | 'Investments' | 'Liabilities' | 'Other';
 const GROUPS: Group[] = ['Cash', 'Investments', 'Liabilities', 'Other'];
@@ -46,9 +47,18 @@ const TYPE_ORDER: string[] = ACCOUNT_TYPES.map((t) => t.slug);
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
 function fmtDate(d: string | null): string {
   if (!d) return '—';
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function fmtShort(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+  if (abs >= 10_000) return `${sign}$${Math.round(abs / 1000)}k`;
+  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}k`;
+  return usd.format(n);
 }
 
 // ── Institution logo (favicon by domain + initials fallback) ─────────────────
@@ -93,14 +103,24 @@ async function patchAccount(id: string, body: Record<string, unknown>): Promise<
 
 type Modal = { mode: 'add' } | { mode: 'merge'; acct: AcctRow } | null;
 
-export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
+export function AccountsSettingsClient({
+  accounts,
+  netWorthSeries,
+  compactCards = false,
+  initialView = 'list',
+}: {
+  accounts: AcctRow[];
+  netWorthSeries?: NetWorthPoint[];
+  compactCards?: boolean;
+  initialView?: 'grid' | 'list';
+}) {
   const router = useRouter();
   const [modal, setModal] = useState<Modal>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showClosed, setShowClosed] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [view, setView] = useState<'grid' | 'list'>('list');
+  const [view, setView] = useState<'grid' | 'list'>(initialView);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [accountOrders, setAccountOrders] = useState<Record<string, string[]>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -269,7 +289,8 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
   function onCardDragEnd() { setDraggingId(null); setDraggingBucket(null); setDropTarget(null); }
 
   return (
-    <div className="acctset">
+    <div className={`acctset${compactCards ? ' compact-cards' : ''}`}>
+      <NetWorthOverview accounts={accounts} series={netWorthSeries ?? []} />
       <header className="acctset-head">
         <div className="acctset-viewtoggle" role="tablist" aria-label="View">
           <button type="button" role="tab" aria-selected={view === 'grid'} className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')} aria-label="Grid view" title="Grid">
@@ -398,6 +419,114 @@ export function AccountsSettingsClient({ accounts }: { accounts: AcctRow[] }) {
         />
       ) : null}
     </div>
+  );
+}
+
+function NetWorthOverview({ accounts, series }: { accounts: AcctRow[]; series: NetWorthPoint[] }) {
+  const active = accounts.filter((a) => a.isActive);
+  const assets = active
+    .filter((a) => a.assetClass === 'asset')
+    .reduce((sum, a) => sum + Math.max(0, a.balance), 0);
+  const liabilities = active
+    .filter((a) => a.assetClass === 'liability')
+    .reduce((sum, a) => sum + Math.abs(a.balance), 0);
+  const netWorth = assets - liabilities;
+  const first = series[0]?.value ?? netWorth;
+  const last = series[series.length - 1]?.value ?? netWorth;
+  const change = last - first;
+  const changePct = first !== 0 ? (change / Math.abs(first)) * 100 : null;
+  const segmentRows = [
+    ...summarizeTypes(active.filter((a) => a.assetClass === 'asset'), assets),
+    ...summarizeTypes(active.filter((a) => a.assetClass === 'liability'), liabilities),
+  ].slice(0, 6);
+
+  return (
+    <section className="acctset-overview" aria-label="Net worth overview">
+      <div className="acctset-overview-main">
+        <div>
+          <div className="acctset-kicker">Net worth</div>
+          <div className="acctset-networth numeric">{usd.format(netWorth)}</div>
+          <div className={`acctset-netchange numeric ${change >= 0 ? 'pos' : 'neg'}`}>
+            {change >= 0 ? '+' : '-'}{usd.format(Math.abs(change))}
+            {changePct != null && <span> ({changePct >= 0 ? '+' : '-'}{pct.format(Math.abs(changePct))}%)</span>}
+            <span className="muted"> all time</span>
+          </div>
+        </div>
+        <NetWorthMiniChart series={series} fallback={netWorth} />
+      </div>
+      <div className="acctset-overview-side">
+        <div className="acctset-balance-pair">
+          <div>
+            <span>Assets</span>
+            <strong className="numeric">{usd.format(assets)}</strong>
+          </div>
+          <div>
+            <span>Liabilities</span>
+            <strong className="numeric">{usd.format(liabilities)}</strong>
+          </div>
+        </div>
+        <div className="acctset-composition-bars">
+          {segmentRows.length === 0 ? (
+            <span className="acctset-empty-bar">No active account balances yet.</span>
+          ) : (
+            segmentRows.map((s) => (
+              <div key={s.key} className="acctset-composition-row">
+                <div className="acctset-composition-label">
+                  <span>{s.label}</span>
+                  <span className="numeric">{fmtShort(s.total)}</span>
+                </div>
+                <div className="acctset-composition-track">
+                  <span style={{ width: `${s.share}%` }} />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function summarizeTypes(rows: AcctRow[], total: number) {
+  if (total <= 0) return [];
+  const grouped = new Map<string, number>();
+  for (const row of rows) {
+    grouped.set(row.type, (grouped.get(row.type) ?? 0) + Math.abs(row.balance));
+  }
+  return [...grouped.entries()]
+    .map(([type, value]) => ({
+      key: type,
+      label: accountTypeLabel(type),
+      total: value,
+      share: Math.max(2, Math.min(100, (value / total) * 100)),
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+function NetWorthMiniChart({ series, fallback }: { series: NetWorthPoint[]; fallback: number }) {
+  const points = series.length >= 2 ? series : [{ date: 'start', value: fallback }, { date: 'now', value: fallback }];
+  const W = 720;
+  const H = 170;
+  const values = points.map((p) => p.value);
+  const min = Math.min(...values, 0);
+  const max = Math.max(...values, 1);
+  const span = max - min || 1;
+  const x = (i: number) => (i / (points.length - 1)) * W;
+  const y = (v: number) => H - 12 - ((v - min) / span) * (H - 24);
+  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  const area = `${line} L${W},${H} L0,${H} Z`;
+
+  return (
+    <svg className="acctset-net-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <linearGradient id="acctset-net-fill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="var(--color-positive)" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="var(--color-positive)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#acctset-net-fill)" />
+      <path d={line} fill="none" stroke="var(--color-positive)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }
 

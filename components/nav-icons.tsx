@@ -26,6 +26,16 @@ export function IconDashboard({ className, size = 18, strokeWidth }: IconProps) 
   );
 }
 
+export function IconNetWorth({ className, size = 18, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, className, strokeWidth)}>
+      <path d="M3 3v18h18" />
+      <path d="M6 15l4-4 3 3 5-7" />
+      <path d="M15 7h3v3" />
+    </svg>
+  );
+}
+
 export function IconGoals({ className, size = 18, strokeWidth }: IconProps) {
   return (
     <svg {...base(size, className, strokeWidth)}>
@@ -121,15 +131,6 @@ export function IconCashflow({ className, size = 18, strokeWidth }: IconProps) {
       <rect x="6" y="13" width="3" height="6" />
       <rect x="11" y="9" width="3" height="10" />
       <rect x="16" y="5" width="3" height="14" />
-    </svg>
-  );
-}
-
-export function IconNetWorth({ className, size = 18, strokeWidth }: IconProps) {
-  return (
-    <svg {...base(size, className, strokeWidth)}>
-      <path d="M3 17l6-6 4 4 8-8" />
-      <path d="M14 7h7v7" />
     </svg>
   );
 }

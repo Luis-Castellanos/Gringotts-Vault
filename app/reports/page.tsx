@@ -1,4 +1,4 @@
-import { loadReport, loadReportYears, loadTopMerchants } from '@/lib/reports/load';
+import { loadBalanceSheet, loadReport, loadReportYears, loadTopMerchants } from '@/lib/reports/load';
 import { resolvePeriod, priorWindow } from '@/lib/reports/period';
 import { loadRecurring } from '@/lib/reports/recurring';
 import { loadAnomalies } from '@/lib/reports/anomalies';
@@ -34,18 +34,19 @@ export default async function ReportsPage({
   );
   const prev = priorWindow(period);
 
-  const [report, prevReport, recurring, anomalies, topMerchants] = await Promise.all([
+  const [report, prevReport, recurring, anomalies, topMerchants, balanceSheet] = await Promise.all([
     loadReport(period.from, period.to, period.label),
     loadReport(prev.from, prev.to, prev.label),
     loadRecurring(),
     loadAnomalies(),
     loadTopMerchants(period.from, period.to),
+    loadBalanceSheet(period.to),
   ]);
   // Only treat the prior window as a real comparison when it has data.
   const prevOrNull = prevReport.income + prevReport.spending > 0 ? prevReport : null;
 
   return (
-    <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
+    <main className="w-full max-w-[1600px] px-6 pt-6 pb-20 sm:px-10">
       <ReportsClient
         years={years}
         period={period}
@@ -54,6 +55,7 @@ export default async function ReportsPage({
         recurring={recurring}
         anomalies={anomalies}
         topMerchants={topMerchants}
+        balanceSheet={balanceSheet}
       />
     </main>
   );

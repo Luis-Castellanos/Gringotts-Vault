@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export default async function Home() {
   const data = await loadDashboard();
   return (
-    <main className="w-full max-w-[1200px] px-10 pt-6 pb-20">
+    <main className="w-full max-w-[1440px] px-5 pt-5 pb-20 sm:px-7 lg:px-10">
       <DashboardClient data={data} />
     </main>
   );
