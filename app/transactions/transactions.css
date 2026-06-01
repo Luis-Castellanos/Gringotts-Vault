@@ -652,8 +652,10 @@
   .tx-category-icon.uncat { background: var(--surface-elev); border: 1px dashed var(--text-3); }
   .tx-category-name {
     min-width: 0;
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 600;
     color: var(--text-1);
+    letter-spacing: -0.005em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -670,8 +672,10 @@
   .tx-subcategory-name {
     display: block;
     min-width: 0;
-    font-size: 13px;
-    color: var(--text-2);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    letter-spacing: -0.005em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -715,8 +719,10 @@
   .tx-account-logo img { width: 16px; height: 16px; object-fit: contain; }
   .tx-account-logo .fallback { font-size: 10px; font-weight: 600; color: var(--text-2); }
   .tx-account-name {
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 600;
     color: var(--text-1);
+    letter-spacing: -0.005em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1587,7 +1593,10 @@
     white-space: nowrap;
   }
   .tx-table td.td-amt.pos { color: var(--green-text); }
-  .tx-table .tx-merchant-name { font-weight: 500; }
+  .tx-table .tx-merchant-name,
+  .tx-table .tx-category-name,
+  .tx-table .tx-subcategory-name,
+  .tx-table .tx-account-name { font-weight: 600; }
   .tx-table .td-subcat {
     color: var(--text-2);
   }

@@ -31,3 +31,5 @@ env/
 
 # Parser scratch dir (repo-relative temp for local parsing runs)
 _scratch/
+.vercel/
+.env.local
